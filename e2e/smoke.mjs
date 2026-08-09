@@ -74,6 +74,39 @@ try {
 	check('首页渲染', heading.includes('能动手验证'), heading.replace(/\n/g, ' '));
 	check('关卡入口存在', (await page.locator('a.card').count()) === 1);
 
+	// ---------- 分享元数据 ----------
+	// 缺了这些，分享到 X / 微信就是一条没有预览图的裸链接
+	const meta = await page.evaluate(() => {
+		const get = (sel) => document.querySelector(sel)?.getAttribute('content') ?? null;
+		return {
+			ogImage: get('meta[property="og:image"]'),
+			ogUrl: get('meta[property="og:url"]'),
+			twitterCard: get('meta[name="twitter:card"]'),
+			canonical: document.querySelector('link[rel="canonical"]')?.getAttribute('href') ?? null,
+			favicon: document.querySelector('link[rel="icon"]')?.getAttribute('href') ?? null
+		};
+	});
+	check('og:image 为绝对 URL 的 PNG', /^https:\/\/.+\.png$/.test(meta.ogImage ?? ''), meta.ogImage);
+	check('twitter:card 为大图卡片', meta.twitterCard === 'summary_large_image', meta.twitterCard);
+	check('canonical 已设置', /^https:\/\//.test(meta.canonical ?? ''), meta.canonical);
+	check(
+		'favicon 已替换（非 Svelte 默认 logo）',
+		!(meta.favicon ?? '').includes('svelte-logo'),
+		meta.favicon
+	);
+
+	// OG 图必须真实存在于产物中，否则抓取器拿不到图。
+	// og:image 按规范是硬编码的线上绝对 URL，所以这里取文件名回到本地产物验证，
+	// 避免冒烟测试依赖网络和线上部署状态。
+	const ogFile = (meta.ogImage ?? '').split('/').pop();
+	const ogRes = await fetch(`${BASE}/og/${ogFile}`);
+	check('og:image 对应的图存在于产物中', ogRes.ok, `og/${ogFile} → HTTP ${ogRes.status}`);
+	check(
+		'OG 图是有效 PNG',
+		ogRes.headers.get('content-type')?.includes('image/png') ?? false,
+		ogRes.headers.get('content-type')
+	);
+
 	// ---------- 导航 ----------
 	await page.locator('a.card').click();
 	// SvelteKit 客户端路由是异步的，必须等 URL 真正变化而不是等网络空闲
@@ -83,6 +116,11 @@ try {
 	// .counter 只在 onMount 之后渲染，用它作为 hydration 完成的信号。
 	// 少了这一步，后续点击会打在还没接管事件的静态 HTML 上。
 	await page.waitForSelector('.counter');
+
+	const levelOg = await page.evaluate(
+		() => document.querySelector('meta[property="og:image"]')?.getAttribute('content') ?? null
+	);
+	check('关卡页使用自己的 OG 图', (levelOg ?? '').endsWith('/kv-cache.png'), levelOg);
 
 	// ---------- 沙盒关卡 ----------
 	const memInit = await page.getByTestId('memory-value').innerText();

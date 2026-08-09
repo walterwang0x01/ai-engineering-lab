@@ -15,7 +15,8 @@
 		"test:unit": "vitest run",
 		"test": "npm run test:unit -- --run",
 		"test:smoke": "npm run build && node e2e/smoke.mjs",
-		"check:all": "npm run lint && npm run check && npm run test:unit"
+		"check:all": "npm run lint && npm run check && npm run test:unit",
+		"og": "node scripts/generate-og.mjs"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",

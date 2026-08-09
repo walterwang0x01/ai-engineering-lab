@@ -6,6 +6,7 @@
 	import { buildDueDeck, summarizeMastery } from '$lib/quiz/schedule';
 	import { progress } from '$lib/storage/progress.svelte';
 	import { resolve } from '$app/paths';
+	import Seo from '$lib/components/Seo.svelte';
 
 	const allIds = KV_CACHE_QUESTIONS.map((q) => q.id);
 
@@ -46,13 +47,11 @@
 	}
 </script>
 
-<svelte:head>
-	<title>KV Cache 容量规划 · AI Engineering Lab</title>
-	<meta
-		name="description"
-		content="通过可判定的计算题和参数沙盒，掌握 KV Cache 显存计算、GQA/MQA 权衡与推理服务容量规划。"
-	/>
-</svelte:head>
+<Seo
+	title="KV Cache 容量规划 · AI Engineering Lab"
+	description="通过可判定的计算题和双约束参数沙盒，掌握 KV Cache 显存计算、GQA/MQA 权衡与推理服务容量规划。12 个配置组合里只有 3 个能同时满足显存和质量预算。"
+	ogImage="kv-cache.png"
+/>
 
 <main>
 	<header class="page-head">

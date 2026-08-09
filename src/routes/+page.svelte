@@ -4,6 +4,7 @@
 	import { summarizeMastery } from '$lib/quiz/schedule';
 	import { progress } from '$lib/storage/progress.svelte';
 	import { resolve } from '$app/paths';
+	import Seo from '$lib/components/Seo.svelte';
 
 	const kvIds = KV_CACHE_QUESTIONS.map((q) => q.id);
 	let ready = $state(false);
@@ -17,13 +18,11 @@
 	const kvDone = $derived(kvMastery.total - kvMastery.untouched);
 </script>
 
-<svelte:head>
-	<title>AI Engineering Lab · 交互式 AI 工程练习场</title>
-	<meta
-		name="description"
-		content="不是又一个教程站。每个概念都配可判定的计算题和参数沙盒——答错会告诉你错在哪，调参数能看到约束怎么被打破。纯前端，免费开源。"
-	/>
-</svelte:head>
+<Seo
+	title="AI Engineering Lab · 交互式 AI 工程练习场"
+	description="不是又一个教程站。每个概念都配可判定的计算题和参数沙盒——答错会告诉你错在哪，调参数能看到约束怎么被打破。纯前端，免费开源。"
+	ogImage="home.png"
+/>
 
 <main>
 	<header class="hero">
