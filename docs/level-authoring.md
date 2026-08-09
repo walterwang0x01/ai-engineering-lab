@@ -6,61 +6,67 @@
 
 ## 一个关卡由什么组成
 
-**五个文件，缺任何一个关卡都不完整。** 特别注意第 5 项——漏了它，关卡能直连访问
-但首页进不去，看起来像没做完。
+**三个文件 + 注册表一项。** 页面和首页卡片是自动生成的，不需要手写——
+这消除了「关卡能直连访问但首页进不去」的孤儿页面问题（阶段 0 的审计抓到过）。
 
-| #   | 文件                                        | 作用                    | 必需     |
-| --- | ------------------------------------------- | ----------------------- | -------- |
-| 1   | `src/lib/quiz/<level-id>-questions.ts`      | 题库，8–12 道可判定题   | ✅       |
-| 2   | `src/lib/quiz/<level-id>-questions.spec.ts` | 共享校验 + 数值独立重算 | ✅       |
-| 3   | `src/lib/components/<Name>Sandbox.svelte`   | 沙盒                    | 有权衡时 |
-| 4   | `src/routes/<level-id>/+page.svelte`        | 关卡页面                | ✅       |
-| 5   | **`src/routes/+page.svelte`（改首页）**     | **加入口卡片**          | ✅       |
+| #   | 文件                                        | 作用                     | 必需     |
+| --- | ------------------------------------------- | ------------------------ | -------- |
+| 1   | `src/lib/quiz/<level-id>-questions.ts`      | 题库，8–14 道可判定题    | ✅       |
+| 2   | `src/lib/quiz/<level-id>-questions.spec.ts` | 数值独立重算             | ✅       |
+| 3   | `src/lib/components/<Name>.svelte`          | 交互组件                 | 有权衡时 |
+| 4   | `src/lib/levels/registry.ts`                | 加一项 `LevelDefinition` | ✅       |
 
-### 第 4 步：页面不要从零写
+`src/lib/levels/registry.spec.ts` 会自动校验新关卡：id 格式、文案非空、
+题量区间、题型搭配、题目 id 跨关卡不撞车、OG 图存在、交互组件可加载。
+**不需要为新关卡写结构测试**，只需要写数值重算测试。
 
-`src/routes/kv-cache/+page.svelte` 约 300 行，含一整套状态管理。**复制它改**，
-需要替换的只有：题库 import、沙盒组件、`<Seo>` 的三个参数、页头文案。
+### 注册表怎么写
 
-**不要改的部分**（已验证的状态管理，改了容易出 bug）：`onMount` 里的
-`progress.load()` + `buildDueDeck`、`{#key current.id}`、`handleResolved`、
-`restartRound`、掌握度统计渲染。
-
-### 第 5 步：接入首页
-
-首页有一张 `.card-soon` 占位卡片，代表后续规划——**不要动它**，新增一张
-`<a class="card">`：
-
-```svelte
-<script>
-	import { resolve } from '$app/paths';
-	import { YOUR_QUESTIONS } from '$lib/quiz/your-level-questions';
-	import { summarizeMastery } from '$lib/quiz/schedule';
-
-	const yourIds = YOUR_QUESTIONS.map((q) => q.id);
-	const yourMastery = $derived(summarizeMastery(yourIds, progress.scheduleView));
-</script>
-
-<!-- href 必须用 resolve()，见 AGENTS.md 硬约定 #2 -->
-<a class="card" href={resolve('/your-level')}>
-	<div class="card-top">
-		<span class="tag">模块名</span>
-		{#if ready && yourMastery.mastered === yourMastery.total}
-			<span class="badge badge-done">已通关</span>
-		{/if}
-	</div>
-	<h3>关卡标题</h3>
-	<p>一句话说清这关能学到什么能力</p>
-	<span class="cta">开始 →</span>
-</a>
+```ts
+{
+	id: 'rag-chunking',                       // 路由片段，也是题目 id 前缀
+	eyebrow: 'RAG 工程 · 第 3 关',
+	title: 'RAG 分块策略',
+	lede: '这一关结束后你应该能……',            // 能力目标，不是内容概述
+	card: {
+		tag: 'RAG 工程',
+		summary: '一段话说清这关的能力目标',
+		points: ['要点一', '要点二', '要点三']  // 2–4 条
+	},
+	seo: {
+		title: 'RAG 分块策略 · AI Engineering Lab',
+		description: '……',
+		ogImage: 'rag-chunking.png'            // 见下方 OG 图
+	},
+	questions: RAG_CHUNKING_QUESTIONS,
+	interactive: {                             // 没有交互就整块省略
+		heading: '先动手：找出可行区间',
+		note: '观察型交互要在这里说明「没有通关」',
+		// 必须是动态 import：静态导入会让所有关卡的可视化都进首屏
+		load: () => import('$lib/components/RagChunkingSandbox.svelte')
+	}
+}
 ```
+
+`LEVELS` 数组的顺序就是首页展示顺序，按学习路径排。
 
 ### OG 图
 
-在 `scripts/generate-og.mjs` 的 `PAGES` 数组加一项，跑 `pnpm run og`，
-然后把文件名填进关卡页的 `<Seo ogImage="...">`。
+在 `scripts/generate-og.mjs` 的 `PAGES` 数组加一项（注意前一项末尾要有逗号），
+跑 `pnpm run og`，然后把文件名填进 `seo.ogImage`。
+注册表测试会检查这张图是否真的存在。
 
----
+### 交互组件的两种形态
+
+已有两个样本可以参考，选一个更贴近你主题的：
+
+| 形态           | 参考                      | 适用             |
+| -------------- | ------------------------- | ---------------- |
+| **达标型沙盒** | `KvCacheSandbox.svelte`   | 有天然双约束     |
+| **观察型交互** | `AttentionHeatmap.svelte` | 只有机制没有取舍 |
+
+观察型交互**不要显示达标判定**，它的设计是「预测再验证」：
+让用户先猜切换开关会发生什么，再动手切。
 
 ## 第一原则：题目必须能被程序判定
 

@@ -73,7 +73,16 @@ try {
 	await page.goto(BASE, { waitUntil: 'networkidle' });
 	const heading = await page.locator('h1').first().innerText();
 	check('首页渲染', heading.includes('能动手验证'), heading.replace(/\n/g, ' '));
-	check('关卡入口存在', (await page.locator('a.card').count()) === 1);
+	const cardCount = await page.locator('a.card').count();
+	check('首页从注册表生成关卡卡片', cardCount === 2, `${cardCount} 张`);
+	check(
+		'每张卡片都指向真实关卡（无孤儿页面）',
+		await page.evaluate(async () => {
+			const hrefs = [...document.querySelectorAll('a.card')].map((a) => a.getAttribute('href'));
+			const results = await Promise.all(hrefs.map((h) => fetch(h).then((r) => r.ok)));
+			return results.every(Boolean);
+		})
+	);
 
 	// ---------- 分享元数据 ----------
 	// 缺了这些，分享到 X / 微信就是一条没有预览图的裸链接
@@ -109,10 +118,14 @@ try {
 	);
 
 	// ---------- 导航 ----------
-	await page.locator('a.card').click();
-	// SvelteKit 客户端路由是异步的，必须等 URL 真正变化而不是等网络空闲
-	await page.waitForURL('**/kv-cache');
-	check('导航到关卡页', page.url().endsWith('/kv-cache'), page.url());
+	// 点击第一张卡片，验证客户端路由；随后统一直达 kv-cache 做后续断言，
+	// 这样卡片顺序调整不会让测试失效
+	await page.locator('a.card').first().click();
+	await page.waitForURL(/\/(attention|kv-cache)$/);
+	check('点击卡片能进入关卡页', /\/(attention|kv-cache)$/.test(page.url()), page.url());
+
+	await page.goto(`${BASE}/kv-cache`, { waitUntil: 'networkidle' });
+	check('直达 kv-cache 路径可用（URL 未因重构而改变）', page.url().endsWith('/kv-cache'));
 
 	// .counter 只在 onMount 之后渲染，用它作为 hydration 完成的信号。
 	// 少了这一步，后续点击会打在还没接管事件的静态 HTML 上。
@@ -187,8 +200,9 @@ try {
 	// ---------- 跨页面共享进度 ----------
 	await page.goto(BASE, { waitUntil: 'networkidle' });
 	await page.waitForSelector('.badge');
-	const badge = await page.locator('.badge').first().innerText();
-	check('首页读取到关卡进度', badge === '2 / 12', badge);
+	// 徽章按注册表顺序渲染，kv-cache 是第二张卡
+	const badges = await page.locator('a.card .badge').allInnerTexts();
+	check('首页读取到 kv-cache 的进度', badges.includes('2 / 12'), badges.join(' | '));
 
 	// ---------- 代码题（放最后：会消耗进度，不能影响前面的持久化断言） ----------
 	// 只验证渲染与分派，不实际跑 Python：那要从 CDN 拉 10MB，

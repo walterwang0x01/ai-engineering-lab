@@ -194,6 +194,11 @@ Pyodide 执行 Python 是同步阻塞的，Worker 内部收不到消息，
 ## 目录职责
 
 ```
+src/lib/levels/        关卡定义层
+  types.ts             LevelDefinition 契约
+  registry.ts          ★ 全站唯一关卡数据源。路由、首页卡片、预渲染路径都从这里派生
+  registry.spec.ts     结构门禁，新增关卡自动覆盖
+
 src/lib/quiz/          判定与调度的纯逻辑，不含 UI
   types.ts             题目与判定结果的类型契约
   judge.ts             判定引擎（数值容差、选择题）
@@ -214,6 +219,8 @@ src/lib/storage/       持久化
 
 src/lib/components/    UI 组件
 src/routes/            页面
+  +page.svelte         首页。卡片从 registry 生成，不要手写关卡卡片
+  [levelId]/           ★ 所有关卡共用这一个页面实现，不要为新关卡建目录
   layout.css           设计系统（@theme token）。改配色只改这里
 e2e/smoke.mjs          全链路冒烟测试，自管服务器生命周期
 scripts/generate-og.mjs  OG 图生成（手动跑，不进构建）

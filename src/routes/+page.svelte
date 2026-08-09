@@ -1,13 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { KV_CACHE_QUESTIONS } from '$lib/quiz/kv-cache-questions';
-	import { KV_CACHE_CODE_QUESTIONS } from '$lib/quiz/kv-cache-code-questions';
+	import Seo from '$lib/components/Seo.svelte';
+	import { LEVELS } from '$lib/levels/registry';
 	import { summarizeMastery } from '$lib/quiz/schedule';
 	import { progress } from '$lib/storage/progress.svelte';
 	import { resolve } from '$app/paths';
-	import Seo from '$lib/components/Seo.svelte';
 
-	const kvIds = [...KV_CACHE_QUESTIONS, ...KV_CACHE_CODE_QUESTIONS].map((q) => q.id);
 	let ready = $state(false);
 
 	onMount(() => {
@@ -15,51 +13,76 @@
 		ready = true;
 	});
 
-	const kvMastery = $derived(summarizeMastery(kvIds, progress.scheduleView));
-	const kvDone = $derived(kvMastery.total - kvMastery.untouched);
+	/**
+	 * 卡片从注册表生成，而不是手写。
+	 *
+	 * 阶段 0 的独立审计发现过一个真实缺陷：新增关卡的文件清单漏了首页入口，
+	 * 照文档做会产出「直连能访问、首页进不去」的孤儿页面。
+	 * 改成从 registry 派生之后，这个问题在结构上不可能再发生。
+	 */
+	const cards = $derived(
+		LEVELS.map((level) => {
+			const ids = level.questions.map((q) => q.id);
+			const mastery = summarizeMastery(ids, progress.scheduleView);
+			return {
+				level,
+				mastery,
+				done: mastery.total - mastery.untouched,
+				codeCount: level.questions.filter((q) => q.kind === 'code').length
+			};
+		})
+	);
+
+	const totalQuestions = $derived(LEVELS.reduce((n, l) => n + l.questions.length, 0));
+	const totalCode = $derived(
+		LEVELS.reduce((n, l) => n + l.questions.filter((q) => q.kind === 'code').length, 0)
+	);
 </script>
 
 <Seo
 	title="AI Engineering Lab · 交互式 AI 工程练习场"
-	description="不是又一个教程站。每个概念都配可判定的计算题和参数沙盒——答错会告诉你错在哪，调参数能看到约束怎么被打破。纯前端，免费开源。"
+	description="不是又一个教程站。每个概念都配可判定的计算题和参数沙盒——答错会告诉你错在哪，调参数能看到约束怎么被打破。代码题在浏览器里真跑 Python。纯前端，免费开源。"
 	ogImage="home.png"
 />
 
 <main>
 	<header class="hero">
 		<p class="eyebrow">AI Engineering Lab</p>
-		<h1>把 AI 工程知识变成<br />能动手验证的东西</h1>
+		<h1>把 AI 工程知识<br />变成能动手验证的东西</h1>
 		<p class="lede">
 			读懂和会做是两件事。这里的每个概念都配了<b>能判定对错的计算题</b>和<b>能调参数的沙盒</b>——
 			答错会告诉你错在哪，调参数能看到约束怎么被打破。
 		</p>
-		<p class="sub">全部在浏览器里跑，没有后端，不收集数据。学习进度只存在你自己的浏览器里。</p>
+		<p class="sub">
+			{totalQuestions} 道题，其中 {totalCode} 道要在浏览器里真跑 Python。 全部在你的浏览器里执行，没有后端，不收集数据，学习进度只存在本地。
+		</p>
 	</header>
 
 	<section class="levels">
 		<h2 class="section-title">关卡</h2>
 
-		<a class="card" href={resolve('/kv-cache')}>
-			<div class="card-top">
-				<span class="tag">推理优化</span>
-				{#if ready && kvMastery.mastered === kvMastery.total}
-					<span class="badge badge-done">已通关</span>
-				{:else if ready && kvDone > 0}
-					<span class="badge">{kvDone} / {kvMastery.total}</span>
-				{/if}
-			</div>
-			<h3>KV Cache 容量规划</h3>
-			<p>
-				算出「这个模型这个并发要几张卡」。含 {kvIds.length} 道可判定题（{KV_CACHE_CODE_QUESTIONS.length}
-				道要在浏览器里真跑 Python）和一个双约束沙盒关卡——显存和质量同时要满足，光选最省的通不过。
-			</p>
-			<ul class="points">
-				<li>KV Cache 显存公式与心算基准</li>
-				<li>MHA / GQA / MQA 的真实权衡</li>
-				<li>量化收益与容量规划完整链路</li>
-			</ul>
-			<span class="cta">开始 →</span>
-		</a>
+		{#each cards as { level, mastery, done, codeCount } (level.id)}
+			<a class="card" href={resolve('/[levelId]', { levelId: level.id })}>
+				<div class="card-top">
+					<span class="tag">{level.card.tag}</span>
+					{#if ready && mastery.mastered === mastery.total}
+						<span class="badge badge-done">已通关</span>
+					{:else if ready && done > 0}
+						<span class="badge">{done} / {mastery.total}</span>
+					{:else if codeCount > 0}
+						<span class="badge badge-code">{codeCount} 道代码题</span>
+					{/if}
+				</div>
+				<h3>{level.title}</h3>
+				<p>{level.card.summary}</p>
+				<ul class="points">
+					{#each level.card.points as point (point)}
+						<li>{point}</li>
+					{/each}
+				</ul>
+				<span class="cta">开始 →</span>
+			</a>
+		{/each}
 
 		<div class="card card-soon" aria-disabled="true">
 			<div class="card-top">
@@ -67,8 +90,8 @@
 			</div>
 			<h3>更多关卡</h3>
 			<p>
-				Attention 机制、反向传播、模型合并、RAG 检索质量、Agent 可观测性—— 按同样的「可判定 +
-				可调参」标准逐个做。
+				反向传播与死亡 ReLU、Tokenizer 切分、模型合并、RAG 分块策略、Agent 可观测性——
+				按同样的「可判定 + 可调参」标准逐个做。
 			</p>
 		</div>
 	</section>
@@ -80,7 +103,7 @@
 				<dt>可判定，不是自评</dt>
 				<dd>
 					「谈谈你对 X 的理解」这类题无法判定，只能自己打分——而人会高估自己。
-					这里每道题都有确定答案，程序说了算。
+					这里每道题都有确定答案，程序说了算。代码题更直接：跑测试用例，对就是对。
 				</dd>
 			</div>
 
@@ -233,6 +256,11 @@
 	.badge-done {
 		color: var(--color-ok);
 		border: 1px solid var(--color-ok);
+	}
+
+	.badge-code {
+		color: var(--color-accent);
+		font-family: var(--font-sans);
 	}
 
 	.card h3 {

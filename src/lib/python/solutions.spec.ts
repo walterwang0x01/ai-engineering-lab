@@ -16,6 +16,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { loadPyodide } from 'pyodide';
 import { executeCodeQuestion, TEST_HARNESS, type MinimalPyodide } from './harness';
 import { KV_CACHE_CODE_QUESTIONS } from '$lib/quiz/kv-cache-code-questions';
+import { ATTENTION_QUESTIONS } from '$lib/quiz/attention-questions';
 import type { CodeQuestion } from '$lib/quiz/types';
 
 /** Pyodide 初始化 + 每题跑两遍（参考答案和起始代码），给足预算 */
@@ -29,7 +30,11 @@ beforeAll(async () => {
 }, TIMEOUT);
 
 /** 所有代码题。将来有别的关卡时在这里追加 */
-const ALL_CODE_QUESTIONS: CodeQuestion[] = [...KV_CACHE_CODE_QUESTIONS];
+const ALL_CODE_QUESTIONS: CodeQuestion[] = [
+	...KV_CACHE_CODE_QUESTIONS,
+	// 从混合题库里筛出代码题
+	...ATTENTION_QUESTIONS.filter((q): q is CodeQuestion => q.kind === 'code')
+];
 
 describe('代码题自洽性', () => {
 	it('至少有一道代码题', () => {

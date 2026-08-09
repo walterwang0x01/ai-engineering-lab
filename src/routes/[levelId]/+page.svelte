@@ -1,26 +1,32 @@
 <script lang="ts">
+	/**
+	 * 关卡页统一实现。
+	 *
+	 * 这个文件替代了原先 kv-cache 和 attention 两个各约 300 行、
+	 * 内容一字不差的页面。新增关卡不再需要写页面，只在 registry 加一项。
+	 */
 	import { onMount } from 'svelte';
 	import QuizCard from '$lib/components/QuizCard.svelte';
 	import CodeQuestionCard from '$lib/components/CodeQuestionCard.svelte';
-	import KvCacheSandbox from '$lib/components/KvCacheSandbox.svelte';
-	import { KV_CACHE_QUESTIONS } from '$lib/quiz/kv-cache-questions';
-	import { KV_CACHE_CODE_QUESTIONS } from '$lib/quiz/kv-cache-code-questions';
+	import Seo from '$lib/components/Seo.svelte';
 	import { buildDueDeck, summarizeMastery } from '$lib/quiz/schedule';
 	import { progress } from '$lib/storage/progress.svelte';
 	import { resolve } from '$app/paths';
-	import Seo from '$lib/components/Seo.svelte';
+	import type { PageProps } from './$types';
 
-	/**
-	 * 代码题排在数值题之后：先建立量级直觉，再动手实现。
-	 * 反过来的话，用户还没搞清公式就要写代码，卡住的概率高得多。
-	 */
-	const ALL_QUESTIONS = [...KV_CACHE_QUESTIONS, ...KV_CACHE_CODE_QUESTIONS];
-	const allIds = ALL_QUESTIONS.map((q) => q.id);
-	const codeCount = KV_CACHE_CODE_QUESTIONS.length;
+	let { data }: PageProps = $props();
+
+	const level = $derived(data.level);
+	const allIds = $derived(level.questions.map((q) => q.id));
+	const codeCount = $derived(level.questions.filter((q) => q.kind === 'code').length);
 
 	let ready = $state(false);
 	let deck = $state<string[]>([]);
 	let index = $state(0);
+	/** 交互组件按需加载，避免所有关卡的可视化都进首屏 */
+	let InteractiveComponent = $state<
+		Awaited<ReturnType<NonNullable<typeof level.interactive>['load']>>['default'] | null
+	>(null);
 
 	// 用 onMount 而非 $effect：deck 只在进入页面时构建一次，
 	// 否则每次答题更新 records 都会重建队列、打乱进度
@@ -28,11 +34,16 @@
 		progress.load();
 		deck = buildDueDeck(allIds, progress.scheduleView, Date.now(), allIds.length);
 		ready = true;
+
+		const interactive = level.interactive;
+		if (interactive) {
+			void interactive.load().then((m) => (InteractiveComponent = m.default));
+		}
 	});
 
 	const current = $derived(
 		deck.length > 0 && index < deck.length
-			? ALL_QUESTIONS.find((q) => q.id === deck[index])
+			? level.questions.find((q) => q.id === deck[index])
 			: undefined
 	);
 
@@ -55,27 +66,26 @@
 	}
 </script>
 
-<Seo
-	title="KV Cache 容量规划 · AI Engineering Lab"
-	description="通过可判定的计算题和双约束参数沙盒，掌握 KV Cache 显存计算、GQA/MQA 权衡与推理服务容量规划。12 个配置组合里只有 3 个能同时满足显存和质量预算。"
-	ogImage="kv-cache.png"
-/>
+<Seo title={level.seo.title} description={level.seo.description} ogImage={level.seo.ogImage} />
 
 <main>
 	<header class="page-head">
-		<p class="eyebrow">推理优化 · 第 1 关</p>
-		<h1>KV Cache 容量规划</h1>
-		<p class="lede">
-			这一关结束后，你应该能在白板上直接算出「这个模型这个并发要几张卡」， 并说清 GQA
-			的组数该怎么定。
-		</p>
+		<p class="eyebrow">{level.eyebrow}</p>
+		<h1>{level.title}</h1>
+		<p class="lede">{level.lede}</p>
 	</header>
 
-	<section class="panel">
-		<h2>先动手：找出可行配置</h2>
-		<p class="section-note">先玩再学。不用先读理论——直接调参数，看约束怎么被打破，再回来做题。</p>
-		<KvCacheSandbox />
-	</section>
+	{#if level.interactive}
+		<section class="panel">
+			<h2>{level.interactive.heading}</h2>
+			<p class="section-note">{level.interactive.note}</p>
+			{#if InteractiveComponent}
+				<InteractiveComponent />
+			{:else}
+				<p class="placeholder">正在加载交互演示…</p>
+			{/if}
+		</section>
+	{/if}
 
 	<section class="panel">
 		<div class="quiz-head">
@@ -96,7 +106,10 @@
 		</div>
 
 		<p class="section-note">
-			每道题都有确定答案，答错会给出针对性的解释。其中 {codeCount} 道是代码题——在浏览器里真跑 Python，用断言判定，改对了才算过。
+			每道题都有确定答案，答错会给出针对性的解释。
+			{#if codeCount > 0}
+				其中 {codeCount} 道是代码题——在浏览器里真跑 Python，用断言判定，改对了才算过。
+			{/if}
 			答对的题会按间隔重复安排复习——1 天、3 天、7 天、16 天、35 天， 这比一次刷完再也不看的留存率高得多。
 		</p>
 
@@ -106,7 +119,7 @@
 			<div class="done">
 				<p class="done-title">这一轮做完了</p>
 				<p class="done-body">
-					本轮最佳连击 {progress.bestStreak}。 已掌握 {mastery.mastered} / {allIds.length} 题。
+					本轮最佳连击 {progress.bestStreak}。已掌握 {mastery.mastered} / {allIds.length} 题。
 					{#if mastery.mastered < allIds.length}
 						剩下的会按间隔重复的节奏在之后几天自动排进队列。
 					{/if}
