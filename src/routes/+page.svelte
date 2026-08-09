@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { KV_CACHE_QUESTIONS } from '$lib/quiz/kv-cache-questions';
+	import { KV_CACHE_CODE_QUESTIONS } from '$lib/quiz/kv-cache-code-questions';
 	import { summarizeMastery } from '$lib/quiz/schedule';
 	import { progress } from '$lib/storage/progress.svelte';
 	import { resolve } from '$app/paths';
 	import Seo from '$lib/components/Seo.svelte';
 
-	const kvIds = KV_CACHE_QUESTIONS.map((q) => q.id);
+	const kvIds = [...KV_CACHE_QUESTIONS, ...KV_CACHE_CODE_QUESTIONS].map((q) => q.id);
 	let ready = $state(false);
 
 	onMount(() => {
@@ -49,7 +50,8 @@
 			</div>
 			<h3>KV Cache 容量规划</h3>
 			<p>
-				算出「这个模型这个并发要几张卡」。含 {KV_CACHE_QUESTIONS.length} 道可判定题 和一个双约束沙盒关卡——显存和质量同时要满足，光选最省的通不过。
+				算出「这个模型这个并发要几张卡」。含 {kvIds.length} 道可判定题（{KV_CACHE_CODE_QUESTIONS.length}
+				道要在浏览器里真跑 Python）和一个双约束沙盒关卡——显存和质量同时要满足，光选最省的通不过。
 			</p>
 			<ul class="points">
 				<li>KV Cache 显存公式与心算基准</li>

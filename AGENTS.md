@@ -147,7 +147,42 @@ assertValidQuestionSet(YOUR_QUESTIONS, 'your-level-id');
 `src/lib/quiz/validate.ts` 会检查 id 前缀、唯一性、选项合法性、
 以及标准答案能否通过判定引擎。新增题库照抄这一行即可获得全部校验。
 
-### 11. OG 模板的 flex 子项必须 `flex-shrink: 0` + `white-space: nowrap`
+### 11. 代码题的判定是异步的，不能走 `judge()`
+
+`judge()` 只处理 `numeric` 和 `choice`，遇到 `code` 会抛错。这是故意的：
+静默返回错误结果会让界面显示「答错了」，掩盖掉真正的问题（分派用错了）。
+
+界面层按 `question.kind` 分派：
+
+```svelte
+{#if current.kind === 'code'}
+	<CodeQuestionCard question={current} … />
+{:else}
+	<QuizCard question={current} … />
+{/if}
+```
+
+`QuizCard` 的 Props 类型是 `SyncQuestion`（`NumericQuestion | ChoiceQuestion`），
+传代码题进去会**编译期报错**而不是运行时才发现。
+
+### 12. Pyodide 必须严格懒加载
+
+Pyodide 核心约 10MB。只在用户点「运行」时才创建 Worker，
+阅读路径完全不碰。已验证：CodeMirror 的 297KB 在独立 chunk 里，
+首页和关卡页都不加载它。
+
+**不要在页面加载时调用 `runner.warmup()`** ——
+那等于把 10MB 强加给只想读题的人。
+
+### 13. 死循环只能靠 terminate Worker 中断
+
+Pyodide 执行 Python 是同步阻塞的，Worker 内部收不到消息，
+`while True` 无法从内部打断。唯一手段是主线程 `worker.terminate()`，
+代价是下次运行要重新加载 Pyodide。这个代价必须告知用户，不能静默发生。
+
+超时预算在 `src/lib/python/runner.ts`：首次运行 75 秒（含加载），之后 15 秒。
+
+### 14. OG 模板的 flex 子项必须 `flex-shrink: 0` + `white-space: nowrap`
 
 否则中文被压缩换行：「可判定」变「可判/定」、「320 GB」变「320/GB」。
 
@@ -165,6 +200,13 @@ src/lib/quiz/          判定与调度的纯逻辑，不含 UI
   schedule.ts          Leitner 间隔重复（纯函数，不碰存储）
   validate.ts          题库校验（id 命名空间、结构、答案自洽）
   *-questions.ts       题库数据。每个关卡一个文件
+
+src/lib/python/        浏览器内 Python 执行
+  messages.ts          Worker 通信协议 + Pyodide CDN 版本
+  harness.ts           执行内核。Worker 和单元测试共享，避免两份实现漂移
+  worker.ts            Worker 入口
+  runner.ts            主线程客户端。懒加载、超时熔断、Worker 重建
+  solutions.spec.ts    用真实 Pyodide 验证代码题自洽（Node 下走本地 WASM）
 
 src/lib/storage/       持久化
   backend.ts           StorageBackend 接口 + localStorage / 内存两种实现

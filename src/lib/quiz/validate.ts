@@ -55,7 +55,7 @@ export function validateQuestionSet(questions: Question[], levelId: string): Val
 			if ((q.tolerance ?? 0) < 0) add(q.id, 'tolerance 不能为负');
 			if ((q.relativeTolerance ?? 0) < 0) add(q.id, 'relativeTolerance 不能为负');
 			if (!Number.isFinite(q.answer)) add(q.id, 'answer 必须是有限数值');
-		} else {
+		} else if (q.kind === 'choice') {
 			if (q.options.length < 2) add(q.id, '选项少于 2 个');
 			if (q.answerIndex < 0 || q.answerIndex >= q.options.length) {
 				add(q.id, `answerIndex ${q.answerIndex} 超出选项范围`);
@@ -71,13 +71,39 @@ export function validateQuestionSet(questions: Question[], levelId: string): Val
 					add(q.id, `distractorNotes 的下标 ${idx} 超出选项范围`);
 				}
 			}
+		} else {
+			// 代码题。这里**不能**验证参考答案真的通过测试——
+			// 那需要跑 Pyodide，是异步且重的操作。
+			// 参考答案的自洽性由单独的慢测试保证（见 lib/python/solutions.spec.ts）。
+			if (q.tests.length === 0) add(q.id, '代码题至少要有 1 条测试用例');
+			if (q.starterCode.trim() === '') add(q.id, 'starterCode 为空');
+			if (q.solutionCode.trim() === '') add(q.id, 'solutionCode 为空，无法验证题目自洽');
+
+			const labels = new Set<string>();
+			for (const [i, t] of q.tests.entries()) {
+				if (t.label.trim() === '') add(q.id, `第 ${i + 1} 条测试用例缺少 label`);
+				if (t.code.trim() === '') add(q.id, `测试用例「${t.label}」的断言代码为空`);
+				if (labels.has(t.label)) add(q.id, `测试用例 label 重复：「${t.label}」`);
+				labels.add(t.label);
+				// 不含 assert 的断言代码永远不抛异常，也就永远算通过
+				if (!t.code.includes('assert') && !t.code.includes('raise')) {
+					add(q.id, `测试用例「${t.label}」不含 assert，永远会判为通过`);
+				}
+			}
+
+			if (q.starterCode.trim() === q.solutionCode.trim()) {
+				add(q.id, 'starterCode 与 solutionCode 相同，答案已直接给出');
+			}
 		}
 
 		// 标准答案必须能通过自身判定。
 		// 抓的是"容差设成 0 却给了需要容差的小数答案"这类自相矛盾。
-		const canonical = q.kind === 'numeric' ? String(q.answer) : q.answerIndex;
-		if (!judge(q, canonical).correct) {
-			add(q.id, '标准答案无法通过判定引擎，检查容差设置');
+		// 代码题跳过：它的判定需要 Pyodide，由 solutions.spec.ts 覆盖。
+		if (q.kind !== 'code') {
+			const canonical = q.kind === 'numeric' ? String(q.answer) : q.answerIndex;
+			if (!judge(q, canonical).correct) {
+				add(q.id, '标准答案无法通过判定引擎，检查容差设置');
+			}
 		}
 	}
 

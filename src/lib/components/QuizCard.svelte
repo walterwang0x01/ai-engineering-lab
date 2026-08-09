@@ -14,10 +14,14 @@
 	 * 这比在组件内做 $effect 重置更不容易出状态残留。
 	 */
 	import { judge } from '$lib/quiz/judge';
-	import type { JudgeResult, Question } from '$lib/quiz/types';
+	import type { JudgeResult, SyncQuestion } from '$lib/quiz/types';
 
 	interface Props {
-		question: Question;
+		/**
+		 * 只接受能同步判定的题型。代码题走 CodeQuestionCard——
+		 * 用类型而不是运行时检查来保证分派正确。
+		 */
+		question: SyncQuestion;
 		/** 判定完成时回调，用于上报进度。仅在本题最终定论时触发一次 */
 		onResolved?: (correct: boolean) => void;
 		/** 点击「下一题」时回调 */

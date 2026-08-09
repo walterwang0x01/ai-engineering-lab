@@ -4,8 +4,8 @@
 	"version": "0.0.1",
 	"type": "module",
 	"scripts": {
-		"dev": "vite dev",
-		"build": "vite build",
+		"dev": "npm run pyodide:sync && vite dev",
+		"build": "npm run pyodide:sync && vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -16,7 +16,8 @@
 		"test": "npm run test:unit -- --run",
 		"test:smoke": "npm run build && node e2e/smoke.mjs",
 		"check:all": "npm run lint && npm run check && npm run test:unit && npm run test:smoke",
-		"og": "node scripts/generate-og.mjs"
+		"og": "node scripts/generate-og.mjs",
+		"pyodide:sync": "node scripts/sync-pyodide.mjs"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
@@ -44,5 +45,13 @@
 		"vite": "^8.0.16",
 		"vitest": "^4.1.8",
 		"vitest-browser-svelte": "^2.1.1"
+	},
+	"dependencies": {
+		"@codemirror/lang-python": "6.2.1",
+		"@codemirror/state": "^6.7.1",
+		"@codemirror/theme-one-dark": "6.1.3",
+		"@codemirror/view": "^6.43.8",
+		"codemirror": "6.0.2",
+		"pyodide": "314.0.3"
 	}
 }
