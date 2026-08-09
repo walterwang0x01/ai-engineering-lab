@@ -86,7 +86,23 @@ await expect.element(screen.getByText('320 GB')).toBeInTheDocument();
 screen.getByText('倍', { exact: true }); // 题干里的「几倍」不会误命中
 ```
 
-### 6. e2e 必须等 hydration，不能只等 `waitForURL`
+### 6. 测试文件名决定跑在哪个环境，放错会静默不跑
+
+`vite.config.ts` 用文件名 glob 把测试分派到两个 project：
+
+| 文件名             | 跑在哪        | 用于                                   |
+| ------------------ | ------------- | -------------------------------------- |
+| `*.spec.ts`        | Node          | 纯逻辑：判定、调度、题库校验、数值重算 |
+| `*.svelte.spec.ts` | 真实 Chromium | 组件渲染与交互                         |
+
+**放错的后果是静默的**：把组件测试命名成 `*.spec.ts` 会在 Node 里跑，
+没有 DOM 直接报错；反过来把纯逻辑测试命名成 `*.svelte.spec.ts` 会白等浏览器启动。
+更糟的情况是名字不匹配任何 glob，**测试根本不会被执行，而 CI 显示绿色**。
+
+注意 `progress.svelte.ts` 的测试叫 `progress.spec.ts`（不带 `.svelte`）——
+它测的是 runes 状态逻辑，不需要 DOM，跑在 Node 里。**runes 在 Node 环境可以正常工作。**
+
+### 7. e2e 必须等 hydration，不能只等 `waitForURL`
 
 SvelteKit 客户端路由是异步的。`waitForURL` 返回时 JS 可能还没接管，
 点击会打在静态 HTML 上——症状是「点了按钮但数值不变」，极难排查。
@@ -97,7 +113,7 @@ await page.waitForURL('**/kv-cache');
 await page.waitForSelector('.counter');
 ```
 
-### 7. e2e 服务器直接 spawn `vite`，不要 `pnpm run preview`
+### 8. e2e 服务器直接 spawn `vite`，不要 `pnpm run preview`
 
 多一层 pnpm 包装会导致 `kill` 杀不掉真正的 vite 子进程。残留进程占着端口，
 下次运行连到的是**旧服务器**，而 build 目录正在被重写——症状极其诡异。
@@ -109,14 +125,29 @@ spawn('node_modules/.bin/vite', ['preview', '--port', '4173', '--strictPort'], {
 `--strictPort` 必须加：否则端口被占时 vite 悄悄换端口，测试连到别处。
 运行前还要 `assertPortFree()`，退出时等 `exit` 事件确认进程真的死了。
 
-### 8. `og:image` 必须是绝对 URL 且为 PNG
+### 9. `og:image` 必须是绝对 URL 且为 PNG
 
 相对路径和 SVG 会被社交平台抓取器静默拒绝。站点根地址硬编码在
 `src/lib/components/Seo.svelte` 的 `SITE` 常量里。
 
 改站点域名时要同步改：`Seo.svelte`、`scripts/generate-og.mjs`、README、CI。
 
-### 9. OG 模板的 flex 子项必须 `flex-shrink: 0` + `white-space: nowrap`
+### 10. 题目 id 必须以关卡 id 为前缀
+
+进度存储是**全站单例、单一命名空间**（`storage/progress.svelte.ts` 的 `records`）。
+两个关卡各起一个 `01-baseline`，间隔重复状态会互相覆盖——
+而这个 bug 在按文件隔离跑的单元测试里看不出来，只在用户练完两关后才暴露。
+
+所以这条不靠自觉，是门禁：每个题库的 spec 必须调用
+
+```ts
+assertValidQuestionSet(YOUR_QUESTIONS, 'your-level-id');
+```
+
+`src/lib/quiz/validate.ts` 会检查 id 前缀、唯一性、选项合法性、
+以及标准答案能否通过判定引擎。新增题库照抄这一行即可获得全部校验。
+
+### 11. OG 模板的 flex 子项必须 `flex-shrink: 0` + `white-space: nowrap`
 
 否则中文被压缩换行：「可判定」变「可判/定」、「320 GB」变「320/GB」。
 
@@ -132,6 +163,7 @@ src/lib/quiz/          判定与调度的纯逻辑，不含 UI
   types.ts             题目与判定结果的类型契约
   judge.ts             判定引擎（数值容差、选择题）
   schedule.ts          Leitner 间隔重复（纯函数，不碰存储）
+  validate.ts          题库校验（id 命名空间、结构、答案自洽）
   *-questions.ts       题库数据。每个关卡一个文件
 
 src/lib/storage/       持久化

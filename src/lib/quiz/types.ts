@@ -70,7 +70,7 @@ export interface JudgeResult {
 	relativeError?: number;
 }
 
-/** 一道题的学习记录，持久化到 IndexedDB */
+/** 一道题的学习记录，经 StorageBackend 持久化（当前实现是 localStorage） */
 export interface AttemptRecord {
 	questionId: string;
 	/** 累计作答次数 */

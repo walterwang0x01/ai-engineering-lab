@@ -6,24 +6,75 @@
 
 ## 一个关卡由什么组成
 
-| 部分     | 作用                     | 必需             |
-| -------- | ------------------------ | ---------------- |
-| **沙盒** | 给约束，让用户调参数达标 | 有真实权衡时必需 |
-| **题库** | 8–12 道可判定题          | 必需             |
-| **页面** | 串联沙盒和答题           | 必需             |
-| **测试** | 结构自检 + 数值独立重算  | 必需             |
+**五个文件，缺任何一个关卡都不完整。** 特别注意第 5 项——漏了它，关卡能直连访问
+但首页进不去，看起来像没做完。
+
+| #   | 文件                                        | 作用                    | 必需     |
+| --- | ------------------------------------------- | ----------------------- | -------- |
+| 1   | `src/lib/quiz/<level-id>-questions.ts`      | 题库，8–12 道可判定题   | ✅       |
+| 2   | `src/lib/quiz/<level-id>-questions.spec.ts` | 共享校验 + 数值独立重算 | ✅       |
+| 3   | `src/lib/components/<Name>Sandbox.svelte`   | 沙盒                    | 有权衡时 |
+| 4   | `src/routes/<level-id>/+page.svelte`        | 关卡页面                | ✅       |
+| 5   | **`src/routes/+page.svelte`（改首页）**     | **加入口卡片**          | ✅       |
+
+### 第 4 步：页面不要从零写
+
+`src/routes/kv-cache/+page.svelte` 约 300 行，含一整套状态管理。**复制它改**，
+需要替换的只有：题库 import、沙盒组件、`<Seo>` 的三个参数、页头文案。
+
+**不要改的部分**（已验证的状态管理，改了容易出 bug）：`onMount` 里的
+`progress.load()` + `buildDueDeck`、`{#key current.id}`、`handleResolved`、
+`restartRound`、掌握度统计渲染。
+
+### 第 5 步：接入首页
+
+首页有一张 `.card-soon` 占位卡片，代表后续规划——**不要动它**，新增一张
+`<a class="card">`：
+
+```svelte
+<script>
+	import { resolve } from '$app/paths';
+	import { YOUR_QUESTIONS } from '$lib/quiz/your-level-questions';
+	import { summarizeMastery } from '$lib/quiz/schedule';
+
+	const yourIds = YOUR_QUESTIONS.map((q) => q.id);
+	const yourMastery = $derived(summarizeMastery(yourIds, progress.scheduleView));
+</script>
+
+<!-- href 必须用 resolve()，见 AGENTS.md 硬约定 #2 -->
+<a class="card" href={resolve('/your-level')}>
+	<div class="card-top">
+		<span class="tag">模块名</span>
+		{#if ready && yourMastery.mastered === yourMastery.total}
+			<span class="badge badge-done">已通关</span>
+		{/if}
+	</div>
+	<h3>关卡标题</h3>
+	<p>一句话说清这关能学到什么能力</p>
+	<span class="cta">开始 →</span>
+</a>
+```
+
+### OG 图
+
+在 `scripts/generate-og.mjs` 的 `PAGES` 数组加一项，跑 `pnpm run og`，
+然后把文件名填进关卡页的 `<Seo ogImage="...">`。
 
 ---
 
 ## 第一原则：题目必须能被程序判定
 
-判定方式只有三种，没有第四种：
+当前**只有两种**判定方式，`src/lib/quiz/types.ts` 的 `Question` 就是这两者的联合类型：
 
-| 类型                    | 判定方式           | 适合考什么         |
-| ----------------------- | ------------------ | ------------------ |
-| `numeric`               | 数值比较（带容差） | 计算能力、量级直觉 |
-| `choice`                | 选项匹配           | 概念辨析、方案选择 |
-| `code`（阶段 1 后可用） | 浏览器内跑 assert  | 实现能力           |
+| 类型      | 判定方式           | 适合考什么         |
+| --------- | ------------------ | ------------------ |
+| `numeric` | 数值比较（带容差） | 计算能力、量级直觉 |
+| `choice`  | 选项匹配           | 概念辨析、方案选择 |
+
+> ⚠️ **不要自己新增题型。** 浏览器内跑 Python 断言的代码题（`kind: 'code'`）在规划中，
+> 但**尚未实现**——`types.ts` 里没有这个分支，`judge.ts` 也不认它。
+> 如果你手头的内容只能用代码题表达，**停下来找维护者确认**。
+> 新题型要同时改判定引擎、UI 组件、校验器和进度存储，是跨模块设计决策，不是内容工作。
 
 **不收录的题**：
 
@@ -143,6 +194,26 @@
 
 **必须有两个以上互相冲突的约束。** 只有一个约束的沙盒毫无意义——用户一路选最优就通关，什么也学不到。
 
+### 如果这个主题找不到两个天然冲突的约束
+
+有些主题确实没有 KV Cache 那种「显存 vs 质量」的天然权衡，比如
+「Tokenizer 切分」「Attention 因果掩码」更偏机制展示而非决策取舍。
+**不要为了凑数编造假约束**，那比没有沙盒更糟。三条退路，按优先级：
+
+1. **改成「观察型交互」而不是「达标型沙盒」。** 用户调参数，看现象变化，
+   配合「预测再验证」——先让用户猜结果，再显示真实值。
+   `AttentionDemo` 这类就属于这种：切换因果掩码看注意力矩阵怎么变。
+   这种交互没有「通关」概念，页面上不要显示达标判定。
+
+2. **把成本或性能维度引进来构造真实约束。** 比如 Tokenizer 可以做
+   「同一段中文，不同分词器的 token 数 → 直接换算成 API 成本」——
+   压缩率和词表大小、OOV 率之间有真实权衡。
+
+3. **这一关就不做沙盒，只做题库。** 完全可以接受。
+   `docs` 里「沙盒」一栏写的是「有权衡时必需」，不是无条件必需。
+
+判断标准很简单：**如果你需要编造数字才能构造出第二个约束，就走退路 1 或 3。**
+
 KV Cache 关卡的设计可以参考：
 
 ```
@@ -166,7 +237,9 @@ KV Cache 关卡的设计可以参考：
 - 失败原因分布在不同约束上（否则退化成单约束）
 - 「一路选最省」必须失败
 
-把这个枚举结果贴进 commit message 或测试注释里。
+把这个枚举结果贴进 commit message 或测试注释里，**然后删掉脚本**——
+`AGENTS.md` 禁止提交临时脚本。如果这个枚举有长期价值（比如需要随参数调整重跑），
+那就把它写成正式测试放进 `*-questions.spec.ts`，而不是留一个游离脚本。
 
 ### 编造数字的红线
 
@@ -231,6 +304,8 @@ describe('题目数值与公式一致', () => {
 - 题库：`src/lib/quiz/kv-cache-questions.ts`
 - 题库测试：`src/lib/quiz/kv-cache-questions.spec.ts`
 - 沙盒：`src/lib/components/KvCacheSandbox.svelte`
+- 沙盒测试：`src/lib/components/KvCacheSandbox.svelte.spec.ts`（注意 `.svelte.spec.ts` 后缀）
+- 题库校验器：`src/lib/quiz/validate.ts`
 - 页面：`src/routes/kv-cache/+page.svelte`
 
 内容素材来自 `~/PycharmProjects/tech-learning-and-projects/learning-notes/00-ai/`。
