@@ -11,12 +11,78 @@
 import { KV_CACHE_QUESTIONS } from '$lib/quiz/kv-cache-questions';
 import { KV_CACHE_CODE_QUESTIONS } from '$lib/quiz/kv-cache-code-questions';
 import { ATTENTION_QUESTIONS } from '$lib/quiz/attention-questions';
+import { BACKPROP_QUESTIONS } from '$lib/quiz/backprop-questions';
+import { TOKENIZER_QUESTIONS } from '$lib/quiz/tokenizer-questions';
 import type { LevelDefinition } from './types';
 
 export const LEVELS: LevelDefinition[] = [
 	{
+		id: 'backprop',
+		eyebrow: '神经网络原理 · 第 1 关',
+		title: '反向传播与死亡 ReLU',
+		lede:
+			'这一关结束后，你应该能在纸上手推一个小网络的梯度，' +
+			'并解释为什么一个神经元会「死掉」——以及死掉之后为什么再也活不过来。',
+		card: {
+			tag: '神经网络原理',
+			summary:
+				'手推链式法则，然后亲眼看着 ReLU 的导数归零、整条梯度链断掉。' +
+				'含可拖动的梯度浏览器和 2 道浏览器内运行的 Python 题。',
+			points: ['链式法则的逐层展开与手算验证', 'ReLU 死亡的完整因果链', '手写 ReLU 前向与反向传播']
+		},
+		seo: {
+			title: '反向传播与死亡 ReLU · AI Engineering Lab',
+			description:
+				'手推小网络的梯度，看 ReLU 导数归零如何让整条梯度链断掉。' +
+				'含可交互梯度浏览器与浏览器内运行的 Python 代码题。',
+			ogImage: 'backprop.png'
+		},
+		questions: BACKPROP_QUESTIONS,
+		interactive: {
+			heading: '先动手：让一个神经元死掉',
+			note:
+				'这一关的交互没有「通关」——它要展示的是一条因果链，不是一组取舍。' +
+				'把输入调到负数，盯着 ReLU 导数那一栏。',
+			load: () => import('$lib/components/BackpropExplorer.svelte')
+		}
+	},
+	{
+		id: 'tokenizer',
+		eyebrow: '分词与表示 · 第 2 关',
+		title: 'Tokenizer 与成本',
+		lede:
+			'这一关结束后，你应该能估出一段文本的 token 数和 API 成本，' +
+			'并解释为什么同样的信息量，中文和代码的 token 效率差这么多。',
+		card: {
+			tag: '分词与表示',
+			summary:
+				'估算 token 数与调用成本，理解词表大小和序列长度的真实取舍。' +
+				'含双约束沙盒——9 个配置里只有 1 个能同时满足成本和上下文预算。',
+			points: [
+				'BPE 合并步骤与词表大小的影响',
+				'中文与代码的 token 效率差异',
+				'成本、上下文窗口、缓存命中的联动'
+			]
+		},
+		seo: {
+			title: 'Tokenizer 与成本 · AI Engineering Lab',
+			description:
+				'估算 token 数与 API 成本，理解词表大小与序列长度的取舍。' +
+				'含双约束沙盒与浏览器内运行的 BPE 实现题。',
+			ogImage: 'tokenizer.png'
+		},
+		questions: TOKENIZER_QUESTIONS,
+		interactive: {
+			heading: '先动手：在成本与上下文之间找可行区间',
+			note:
+				'两个预算必须同时满足。9 个配置组合里只有 1 个可行——' +
+				'「选最省 token 的方案」恰好会失败，先猜猜为什么。',
+			load: () => import('$lib/components/TokenizerCostSandbox.svelte')
+		}
+	},
+	{
 		id: 'attention',
-		eyebrow: 'Transformer 原理 · 第 1 关',
+		eyebrow: 'Transformer 原理 · 第 3 关',
 		title: 'Attention 与因果掩码',
 		lede:
 			'这一关结束后，你应该能说清三件事：注意力显存为什么随序列长度平方增长、' +
@@ -50,7 +116,7 @@ export const LEVELS: LevelDefinition[] = [
 	},
 	{
 		id: 'kv-cache',
-		eyebrow: '推理优化 · 第 2 关',
+		eyebrow: '推理优化 · 第 4 关',
 		title: 'KV Cache 容量规划',
 		lede:
 			'这一关结束后，你应该能在白板上直接算出「这个模型这个并发要几张卡」，' +
