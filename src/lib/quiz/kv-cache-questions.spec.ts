@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { KV_CACHE_QUESTIONS, MODEL_SPECS } from './kv-cache-questions';
 import { judge } from './judge';
+import { assertValidQuestionSet } from './validate';
 
 /** KV Cache 显存公式，单位 GiB。测试用它独立重算题目答案 */
 function kvCacheGiB(p: {
@@ -15,49 +16,29 @@ function kvCacheGiB(p: {
 }
 
 describe('题库结构完整性', () => {
-	it('id 全局唯一', () => {
-		const ids = KV_CACHE_QUESTIONS.map((q) => q.id);
-		expect(new Set(ids).size).toBe(ids.length);
+	// 结构性校验统一走共享校验器：id 唯一与前缀、非空题干解释、
+	// 选项与容差合法、标准答案自洽，全部在 validate.ts 里。
+	// 新增关卡的 spec 只需照抄这一条，即可获得同样的门禁。
+	it('通过共享题库校验（含 id 命名空间隔离）', () => {
+		expect(() => assertValidQuestionSet(KV_CACHE_QUESTIONS, 'kv-cache')).not.toThrow();
 	});
 
-	it('每道题都有非空题干和解释', () => {
-		for (const q of KV_CACHE_QUESTIONS) {
-			expect(q.prompt.trim(), `${q.id} 题干为空`).not.toBe('');
-			expect(q.explanation.trim(), `${q.id} 解释为空`).not.toBe('');
-		}
+	it('题量在建议区间内（8-12 道）', () => {
+		expect(KV_CACHE_QUESTIONS.length).toBeGreaterThanOrEqual(8);
+		expect(KV_CACHE_QUESTIONS.length).toBeLessThanOrEqual(12);
 	});
 
-	it('选择题的正确答案下标在选项范围内', () => {
+	it('题型有搭配，不是清一色数值题', () => {
+		const kinds = new Set(KV_CACHE_QUESTIONS.map((q) => q.kind));
+		expect(kinds.size).toBeGreaterThan(1);
+	});
+
+	it('每个选择题的错误选项都有定向解释', () => {
 		for (const q of KV_CACHE_QUESTIONS) {
 			if (q.kind !== 'choice') continue;
-			expect(q.options.length, `${q.id} 选项少于 2 个`).toBeGreaterThanOrEqual(2);
-			expect(q.answerIndex).toBeGreaterThanOrEqual(0);
-			expect(q.answerIndex).toBeLessThan(q.options.length);
-		}
-	});
-
-	it('选择题的干扰项说明不指向正确答案', () => {
-		for (const q of KV_CACHE_QUESTIONS) {
-			if (q.kind !== 'choice' || !q.distractorNotes) continue;
-			for (const idx of Object.keys(q.distractorNotes).map(Number)) {
-				expect(idx, `${q.id} 的 distractorNotes 不应包含正确答案`).not.toBe(q.answerIndex);
-				expect(idx).toBeLessThan(q.options.length);
-			}
-		}
-	});
-
-	it('数值题的容差非负', () => {
-		for (const q of KV_CACHE_QUESTIONS) {
-			if (q.kind !== 'numeric') continue;
-			expect(q.tolerance ?? 0).toBeGreaterThanOrEqual(0);
-			expect(q.relativeTolerance ?? 0).toBeGreaterThanOrEqual(0);
-		}
-	});
-
-	it('每道题的正确答案都能通过判定引擎', () => {
-		for (const q of KV_CACHE_QUESTIONS) {
-			const answer = q.kind === 'numeric' ? String(q.answer) : q.answerIndex;
-			expect(judge(q, answer).correct, `${q.id} 的标准答案未通过自身判定`).toBe(true);
+			const wrongCount = q.options.length - 1;
+			const noteCount = Object.keys(q.distractorNotes ?? {}).length;
+			expect(noteCount, `${q.id} 的干扰项说明不完整`).toBe(wrongCount);
 		}
 	});
 });
@@ -75,7 +56,7 @@ describe('题目数值与 KV Cache 公式一致', () => {
 			bytes: 2
 		});
 		expect(v).toBeCloseTo(1, 6);
-		const q = KV_CACHE_QUESTIONS.find((x) => x.id === 'kv-01-gqa-baseline')!;
+		const q = KV_CACHE_QUESTIONS.find((x) => x.id === 'kv-cache-01-gqa-baseline')!;
 		expect(q.kind === 'numeric' && q.answer).toBe(1);
 	});
 
@@ -89,7 +70,7 @@ describe('题目数值与 KV Cache 公式一致', () => {
 			bytes: 2
 		});
 		expect(v).toBeCloseTo(4, 6);
-		const q = KV_CACHE_QUESTIONS.find((x) => x.id === 'kv-02-mha-contrast')!;
+		const q = KV_CACHE_QUESTIONS.find((x) => x.id === 'kv-cache-02-mha-contrast')!;
 		expect(q.kind === 'numeric' && q.answer).toBe(4);
 	});
 
@@ -152,7 +133,7 @@ describe('题目数值与 KV Cache 公式一致', () => {
 			bytes: 2
 		});
 		const crossover = llama3_8b.weightGiB / perBatch;
-		const q = KV_CACHE_QUESTIONS.find((x) => x.id === 'kv-08-crossover-batch')!;
+		const q = KV_CACHE_QUESTIONS.find((x) => x.id === 'kv-cache-08-crossover-batch')!;
 		// 真实值 14.9，题目答案 15，容差 1 —— 真实值必须能判对
 		expect(judge(q, String(crossover)).correct).toBe(true);
 	});
@@ -161,7 +142,7 @@ describe('题目数值与 KV Cache 公式一致', () => {
 		const perBatch = 1;
 		const maxBatch = Math.floor((80 - llama3_8b.weightGiB - 8) / perBatch);
 		expect(maxBatch).toBe(57);
-		const q = KV_CACHE_QUESTIONS.find((x) => x.id === 'kv-10-capacity-planning')!;
+		const q = KV_CACHE_QUESTIONS.find((x) => x.id === 'kv-cache-10-capacity-planning')!;
 		expect(judge(q, String(maxBatch)).correct).toBe(true);
 	});
 

@@ -169,8 +169,8 @@ try {
 	check('localStorage 已写入且版本正确', stored.version === 1);
 	const ids = Object.keys(stored.records ?? {});
 	check('记录了 2 道题', ids.length === 2, ids.join(', '));
-	check('答对的题熟练度升到 1', stored.records['kv-01-gqa-baseline']?.box === 1);
-	check('答错的题熟练度归零', stored.records['kv-02-mha-contrast']?.box === 0);
+	check('答对的题熟练度升到 1', stored.records['kv-cache-01-gqa-baseline']?.box === 1);
+	check('答错的题熟练度归零', stored.records['kv-cache-02-mha-contrast']?.box === 0);
 
 	// ---------- 跨刷新保留 ----------
 	await page.reload({ waitUntil: 'networkidle' });

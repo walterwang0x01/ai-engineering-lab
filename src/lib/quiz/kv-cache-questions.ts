@@ -37,7 +37,7 @@ export const MODEL_SPECS = {
 export const KV_CACHE_QUESTIONS: Question[] = [
 	{
 		kind: 'numeric',
-		id: 'kv-01-gqa-baseline',
+		id: 'kv-cache-01-gqa-baseline',
 		prompt:
 			'Llama 3 8B：32 层，32 个查询头，head_dim = 128，GQA 分 8 组。\nbatch = 1，seq_len = 8192，fp16。\n\nKV Cache 占多少 GB？',
 		answer: 1,
@@ -51,7 +51,7 @@ export const KV_CACHE_QUESTIONS: Question[] = [
 	},
 	{
 		kind: 'numeric',
-		id: 'kv-02-mha-contrast',
+		id: 'kv-cache-02-mha-contrast',
 		prompt:
 			'同样的 Llama 3 8B 配置，如果不用 GQA，改成标准 MHA（32 个 KV 头）。\nbatch = 1，seq_len = 8192，fp16。\n\nKV Cache 占多少 GB？',
 		answer: 4,
@@ -66,7 +66,7 @@ export const KV_CACHE_QUESTIONS: Question[] = [
 	},
 	{
 		kind: 'numeric',
-		id: 'kv-03-savings-ratio',
+		id: 'kv-cache-03-savings-ratio',
 		prompt: '32 个查询头分成 8 组的 GQA，相比标准 MHA，KV Cache 节省几倍？',
 		answer: 4,
 		unit: '倍',
@@ -79,7 +79,7 @@ export const KV_CACHE_QUESTIONS: Question[] = [
 	},
 	{
 		kind: 'choice',
-		id: 'kv-04-mqa-tradeoff',
+		id: 'kv-cache-04-mqa-tradeoff',
 		prompt: 'MQA（所有查询头共享同一组 KV）相比 GQA，最主要的代价是什么？',
 		options: [
 			'显存占用反而更大',
@@ -101,7 +101,7 @@ export const KV_CACHE_QUESTIONS: Question[] = [
 	},
 	{
 		kind: 'numeric',
-		id: 'kv-05-70b-serving',
+		id: 'kv-cache-05-70b-serving',
 		prompt:
 			'Llama 2 70B：80 层，64 个查询头，head_dim = 128，GQA 分 8 组。\n生产环境 batch = 32，seq_len = 4096，fp16。\n\nKV Cache 占多少 GB？',
 		answer: 40,
@@ -115,7 +115,7 @@ export const KV_CACHE_QUESTIONS: Question[] = [
 	},
 	{
 		kind: 'numeric',
-		id: 'kv-06-int8-quant',
+		id: 'kv-cache-06-int8-quant',
 		prompt:
 			'承上题（70B、GQA 8 组、batch = 32、seq_len = 4096，原本 40 GB）。\n把 KV Cache 从 fp16 量化到 int8。\n\n现在占多少 GB？',
 		answer: 20,
@@ -130,7 +130,7 @@ export const KV_CACHE_QUESTIONS: Question[] = [
 	},
 	{
 		kind: 'choice',
-		id: 'kv-07-scaling-behavior',
+		id: 'kv-cache-07-scaling-behavior',
 		prompt:
 			'部署时观察到：并发请求从 1 涨到 32，模型权重占用完全不变，但总显存快速逼近上限。\n主要原因是什么？',
 		options: [
@@ -152,7 +152,7 @@ export const KV_CACHE_QUESTIONS: Question[] = [
 	},
 	{
 		kind: 'numeric',
-		id: 'kv-08-crossover-batch',
+		id: 'kv-cache-08-crossover-batch',
 		prompt:
 			'Llama 3 8B，fp16 权重约 14.9 GB，seq_len = 8192 时每个请求的 KV Cache 约 1 GB。\n\nbatch 达到多少时，KV Cache 总量开始超过模型权重本身？',
 		answer: 15,
@@ -166,7 +166,7 @@ export const KV_CACHE_QUESTIONS: Question[] = [
 	},
 	{
 		kind: 'choice',
-		id: 'kv-09-paged-attention',
+		id: 'kv-cache-09-paged-attention',
 		prompt: 'vLLM 的 PagedAttention 主要解决 KV Cache 的哪个问题？',
 		options: [
 			'降低 KV Cache 的总字节数',
@@ -189,7 +189,7 @@ export const KV_CACHE_QUESTIONS: Question[] = [
 	},
 	{
 		kind: 'numeric',
-		id: 'kv-10-capacity-planning',
+		id: 'kv-cache-10-capacity-planning',
 		prompt:
 			'单张 80 GB A100 部署 Llama 3 8B（fp16 权重 14.9 GB）。\nseq_len = 8192 时每请求 KV Cache 约 1 GB。\n为激活值和运行时开销预留 8 GB。\n\n理论最大并发 batch 是多少？',
 		answer: 57,
