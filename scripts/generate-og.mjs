@@ -128,6 +128,22 @@ const PAGES = [
 				{ value: '3 / 12', label: '配置组合中的可行解', tone: 'accent' }
 			]
 		}
+	},
+	{
+		file: 'attention.png',
+		spec: {
+			eyebrow: 'Transformer 原理 · 第 2 关',
+			title: 'Attention 与因果掩码',
+			lines: [
+				'注意力显存为什么随序列长度平方增长',
+				'缩放因子 1/√d_k 从哪来 · Flash Attention 省掉的是什么'
+			],
+			stats: [
+				{ value: '4096² → 1 GB', label: '分数矩阵，seq 翻倍变 4 倍', tone: 'bad' },
+				{ value: '√64 = 8', label: '点积标准差 = 缩放因子来历', tone: 'accent' },
+				{ value: '17×', label: 'Flash 省掉的显存', tone: 'ok' }
+			]
+		}
 	}
 ];
 
