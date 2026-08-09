@@ -73,8 +73,17 @@ try {
 	await page.goto(BASE, { waitUntil: 'networkidle' });
 	const heading = await page.locator('h1').first().innerText();
 	check('首页渲染', heading.includes('能动手验证'), heading.replace(/\n/g, ' '));
+	// 期望的关卡数从产物推断（每个关卡预渲染一个 html），
+	// 这样新增关卡不需要改测试 —— 硬编码数字的断言每次都要跟着改，太脆弱
+	const builtPages = (await readdir('build')).filter(
+		(f) => f.endsWith('.html') && f !== 'index.html' && f !== '404.html'
+	);
 	const cardCount = await page.locator('a.card').count();
-	check('首页从注册表生成关卡卡片', cardCount === 2, `${cardCount} 张`);
+	check(
+		'首页卡片数与预渲染的关卡数一致',
+		cardCount === builtPages.length && cardCount > 0,
+		`${cardCount} 张卡片 / ${builtPages.length} 个关卡页`
+	);
 	check(
 		'每张卡片都指向真实关卡（无孤儿页面）',
 		await page.evaluate(async () => {
@@ -120,9 +129,12 @@ try {
 	// ---------- 导航 ----------
 	// 点击第一张卡片，验证客户端路由；随后统一直达 kv-cache 做后续断言，
 	// 这样卡片顺序调整不会让测试失效
+	// 关卡 id 从产物推断，不硬编码 —— 调整关卡顺序不该让测试失效
+	const levelIds = builtPages.map((f) => f.replace(/\.html$/, ''));
+	const anyLevel = new RegExp(`/(${levelIds.join('|')})$`);
 	await page.locator('a.card').first().click();
-	await page.waitForURL(/\/(attention|kv-cache)$/);
-	check('点击卡片能进入关卡页', /\/(attention|kv-cache)$/.test(page.url()), page.url());
+	await page.waitForURL(anyLevel);
+	check('点击卡片能进入关卡页', anyLevel.test(page.url()), page.url());
 
 	await page.goto(`${BASE}/kv-cache`, { waitUntil: 'networkidle' });
 	check('直达 kv-cache 路径可用（URL 未因重构而改变）', page.url().endsWith('/kv-cache'));

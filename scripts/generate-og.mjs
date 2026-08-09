@@ -144,6 +144,38 @@ const PAGES = [
 				{ value: '17×', label: 'Flash 省掉的显存', tone: 'ok' }
 			]
 		}
+	},
+	{
+		file: 'backprop.png',
+		spec: {
+			eyebrow: '神经网络原理 · 第 1 关',
+			title: '反向传播与死亡 ReLU',
+			lines: [
+				'手推链式法则，然后看着一个神经元彻底死掉',
+				'ReLU 导数归零 → 整条梯度链断裂 → 权重再也不更新'
+			],
+			stats: [
+				{ value: '∂h/∂z = 0', label: 'z < 0 时 ReLU 的导数', tone: 'bad' },
+				{ value: '链式法则', label: '逐层手算验证', tone: 'accent' },
+				{ value: '不可逆', label: '死掉的神经元活不过来', tone: 'bad' }
+			]
+		}
+	},
+	{
+		file: 'tokenizer.png',
+		spec: {
+			eyebrow: '分词与表示 · 第 2 关',
+			title: 'Tokenizer 与成本',
+			lines: [
+				'估算 token 数与 API 成本，理解词表大小的真实取舍',
+				'为什么同样信息量，中文和代码的 token 效率差这么多'
+			],
+			stats: [
+				{ value: '1 / 9', label: '配置组合中的可行解', tone: 'accent' },
+				{ value: '最省 token', label: '这个直觉恰好会失败', tone: 'bad' },
+				{ value: '双约束', label: '成本与上下文同时满足', tone: 'ok' }
+			]
+		}
 	}
 ];
 
