@@ -1,0 +1,60 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+
+/**
+ * 设计系统。
+ *
+ * 定位是「知识体检 / 工程决策沙盒」，不是打卡游戏。
+ * 受众是资深工程师，所以配色克制、低饱和、深色为主，
+ * 参考 Linear / Vercel 的专业感，刻意避开鲜艳的游戏化配色。
+ */
+@theme {
+	/* 中文字体栈：优先系统中文字体，避免宋体渲染 */
+	--font-sans:
+		-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+		'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+	--font-mono: 'SF Mono', 'JetBrains Mono', Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+
+	/* 语义色：只定义三种状态，不做花哨的色阶 */
+	--color-surface: oklch(0.16 0.012 260);
+	--color-surface-raised: oklch(0.21 0.014 260);
+	--color-surface-sunken: oklch(0.13 0.01 260);
+	--color-border-subtle: oklch(0.29 0.015 260);
+	--color-accent: oklch(0.72 0.14 200);
+	--color-accent-dim: oklch(0.45 0.09 200);
+	--color-ok: oklch(0.72 0.16 155);
+	--color-bad: oklch(0.66 0.19 22);
+	--color-warn: oklch(0.78 0.15 75);
+}
+
+@layer base {
+	html {
+		background: var(--color-surface);
+		color: oklch(0.92 0.005 260);
+		font-family: var(--font-sans);
+		/* 防止横向溢出导致居中计算异常 */
+		overflow-x: clip;
+		-webkit-font-smoothing: antialiased;
+	}
+
+	body {
+		margin: 0;
+		min-height: 100dvh;
+	}
+
+	/* 键盘可达性：所有可聚焦元素都有清晰焦点环 */
+	:focus-visible {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 2px;
+	}
+
+	/* 尊重用户的减少动效偏好 */
+	@media (prefers-reduced-motion: reduce) {
+		*,
+		*::before,
+		*::after {
+			animation-duration: 0.01ms !important;
+			transition-duration: 0.01ms !important;
+		}
+	}
+}
