@@ -112,6 +112,14 @@ describe('KvCacheSandbox 教学信息', () => {
 		await expect.element(screen.getByText(/16\.0×/)).toBeInTheDocument();
 	});
 
+	it('基线配置下不显示无意义的「节省 1.0×」', async () => {
+		const screen = render(KvCacheSandbox);
+		await expect
+			.element(screen.getByText(/这就是未做任何优化的 MHA \+ fp16 基线/))
+			.toBeInTheDocument();
+		expect(screen.container.textContent).not.toContain('1.0×');
+	});
+
 	it('明确标注质量损失是估算值', async () => {
 		const screen = render(KvCacheSandbox);
 		await expect.element(screen.getByText(/示意性估算/)).toBeInTheDocument();

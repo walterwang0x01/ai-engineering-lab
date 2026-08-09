@@ -178,8 +178,12 @@
 			× <b>{prec.bytes}</b> B = {fmt(memoryGiB)} GB
 		</code>
 		<p class="savings">
-			相比 MHA + fp16 基线（{fmt(baselineGiB)} GB）节省
-			<b>{savingsX.toFixed(1)}×</b>
+			{#if savingsX > 1.01}
+				相比 MHA + fp16 基线（{fmt(baselineGiB)} GB）节省
+				<b>{savingsX.toFixed(1)}×</b>
+			{:else}
+				这就是未做任何优化的 MHA + fp16 基线
+			{/if}
 		</p>
 	</div>
 
