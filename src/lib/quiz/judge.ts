@@ -93,12 +93,24 @@ export function judgeChoice(question: ChoiceQuestion, selected: number | null): 
 }
 
 /**
- * 统一判定入口。
+ * 统一判定入口（同步题型）。
+ *
+ * 只处理 numeric 和 choice。**代码题不走这里**——
+ * 它需要启动 Worker 和 Pyodide，是异步的，用 PythonRunner.run()。
+ *
  * @param answer 数值题传字符串，选择题传选项下标
+ * @throws 传入代码题时抛错。静默返回错误结果比抛错更危险：
+ *         界面会显示「答错了」，而实际上是判定路径用错了。
  */
 export function judge(question: Question, answer: string | number | null): JudgeResult {
 	if (question.kind === 'numeric') {
 		return judgeNumeric(question, typeof answer === 'string' ? answer : String(answer ?? ''));
 	}
-	return judgeChoice(question, typeof answer === 'number' ? answer : null);
+	if (question.kind === 'choice') {
+		return judgeChoice(question, typeof answer === 'number' ? answer : null);
+	}
+	throw new Error(
+		`代码题 "${question.id}" 不能用同步 judge() 判定，请用 PythonRunner.run()。` +
+			`界面层应按 question.kind 分派到 CodeQuestionCard。`
+	);
 }

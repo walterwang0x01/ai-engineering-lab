@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { KV_CACHE_QUESTIONS, MODEL_SPECS } from './kv-cache-questions';
 import { judge } from './judge';
 import { assertValidQuestionSet } from './validate';
+import { KV_CACHE_CODE_QUESTIONS } from './kv-cache-code-questions';
 
 /** KV Cache 显存公式，单位 GiB。测试用它独立重算题目答案 */
 function kvCacheGiB(p: {
@@ -21,6 +22,15 @@ describe('题库结构完整性', () => {
 	// 新增关卡的 spec 只需照抄这一条，即可获得同样的门禁。
 	it('通过共享题库校验（含 id 命名空间隔离）', () => {
 		expect(() => assertValidQuestionSet(KV_CACHE_QUESTIONS, 'kv-cache')).not.toThrow();
+	});
+
+	it('代码题也通过共享校验', () => {
+		expect(() => assertValidQuestionSet(KV_CACHE_CODE_QUESTIONS, 'kv-cache')).not.toThrow();
+	});
+
+	it('数值题与代码题的 id 不冲突', () => {
+		const all = [...KV_CACHE_QUESTIONS, ...KV_CACHE_CODE_QUESTIONS].map((q) => q.id);
+		expect(new Set(all).size).toBe(all.length);
 	});
 
 	it('题量在建议区间内（8-12 道）', () => {

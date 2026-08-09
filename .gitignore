@@ -21,3 +21,6 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Pyodide 运行时：由 scripts/sync-pyodide.mjs 从 node_modules 复制，约 12MB，不进 git
+static/pyodide

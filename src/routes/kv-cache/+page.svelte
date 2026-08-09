@@ -1,14 +1,22 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import QuizCard from '$lib/components/QuizCard.svelte';
+	import CodeQuestionCard from '$lib/components/CodeQuestionCard.svelte';
 	import KvCacheSandbox from '$lib/components/KvCacheSandbox.svelte';
 	import { KV_CACHE_QUESTIONS } from '$lib/quiz/kv-cache-questions';
+	import { KV_CACHE_CODE_QUESTIONS } from '$lib/quiz/kv-cache-code-questions';
 	import { buildDueDeck, summarizeMastery } from '$lib/quiz/schedule';
 	import { progress } from '$lib/storage/progress.svelte';
 	import { resolve } from '$app/paths';
 	import Seo from '$lib/components/Seo.svelte';
 
-	const allIds = KV_CACHE_QUESTIONS.map((q) => q.id);
+	/**
+	 * 代码题排在数值题之后：先建立量级直觉，再动手实现。
+	 * 反过来的话，用户还没搞清公式就要写代码，卡住的概率高得多。
+	 */
+	const ALL_QUESTIONS = [...KV_CACHE_QUESTIONS, ...KV_CACHE_CODE_QUESTIONS];
+	const allIds = ALL_QUESTIONS.map((q) => q.id);
+	const codeCount = KV_CACHE_CODE_QUESTIONS.length;
 
 	let ready = $state(false);
 	let deck = $state<string[]>([]);
@@ -24,7 +32,7 @@
 
 	const current = $derived(
 		deck.length > 0 && index < deck.length
-			? KV_CACHE_QUESTIONS.find((q) => q.id === deck[index])
+			? ALL_QUESTIONS.find((q) => q.id === deck[index])
 			: undefined
 	);
 
@@ -71,7 +79,7 @@
 
 	<section class="panel">
 		<div class="quiz-head">
-			<h2>自测：{KV_CACHE_QUESTIONS.length} 道可判定题</h2>
+			<h2>自测：{allIds.length} 道可判定题</h2>
 			{#if ready}
 				<div class="stats" aria-label="掌握度统计">
 					<span class="stat"><b>{mastery.mastered}</b> 已掌握</span>
@@ -88,8 +96,8 @@
 		</div>
 
 		<p class="section-note">
-			每道题都有确定答案，答错会给出针对性的解释。 答对的题会按间隔重复安排复习——1 天、3 天、7
-			天、16 天、35 天， 这比一次刷完再也不看的留存率高得多。
+			每道题都有确定答案，答错会给出针对性的解释。其中 {codeCount} 道是代码题——在浏览器里真跑 Python，用断言判定，改对了才算过。
+			答对的题会按间隔重复安排复习——1 天、3 天、7 天、16 天、35 天， 这比一次刷完再也不看的留存率高得多。
 		</p>
 
 		{#if !ready}
@@ -107,8 +115,13 @@
 			</div>
 		{:else if current}
 			<p class="counter">第 {index + 1} / {deck.length} 题</p>
+			<!-- 按题型分派：代码题的判定是异步的，走完全不同的组件 -->
 			{#key current.id}
-				<QuizCard question={current} onResolved={handleResolved} onNext={next} />
+				{#if current.kind === 'code'}
+					<CodeQuestionCard question={current} onResolved={handleResolved} onNext={next} />
+				{:else}
+					<QuizCard question={current} onResolved={handleResolved} onNext={next} />
+				{/if}
 			{/key}
 		{:else}
 			<div class="done">

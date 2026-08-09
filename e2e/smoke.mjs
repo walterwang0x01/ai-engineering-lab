@@ -9,6 +9,7 @@
  */
 
 import { spawn } from 'node:child_process';
+import { readFile, readdir, stat } from 'node:fs/promises';
 import { chromium } from 'playwright';
 
 const PORT = 4173;
@@ -136,7 +137,7 @@ try {
 
 	// ---------- 答题：答对路径 ----------
 	const counter = await page.locator('.counter').innerText();
-	check('答题队列已构建', /第 1 \/ 10 题/.test(counter), counter);
+	check('答题队列已构建', /第 1 \/ 12 题/.test(counter), counter);
 
 	await page.locator('input[type=text]').fill('1');
 	await page.getByRole('button', { name: '提交' }).click();
@@ -187,7 +188,164 @@ try {
 	await page.goto(BASE, { waitUntil: 'networkidle' });
 	await page.waitForSelector('.badge');
 	const badge = await page.locator('.badge').first().innerText();
-	check('首页读取到关卡进度', badge === '2 / 10', badge);
+	check('首页读取到关卡进度', badge === '2 / 12', badge);
+
+	// ---------- 代码题（放最后：会消耗进度，不能影响前面的持久化断言） ----------
+	// 只验证渲染与分派，不实际跑 Python：那要从 CDN 拉 10MB，
+	// 在 CI 里既慢又依赖网络。真实执行由 lib/python/solutions.spec.ts 覆盖
+	// （Node 下走本地 WASM，811ms 跑完）。
+	await page.goto(`${BASE}/kv-cache`, { waitUntil: 'networkidle' });
+	await page.waitForSelector('.counter');
+
+	// 一路跳到代码题。前 10 道是数值/选择题
+	let hops = 0;
+	while ((await page.locator('[data-testid="code-editor"]').count()) === 0 && hops < 30) {
+		const next = page.getByRole('button', { name: /下一题/ });
+		if ((await next.count()) > 0) {
+			await next.click();
+			await page.waitForTimeout(100);
+			hops += 1;
+			continue;
+		}
+		// 当前题未定论：故意答错两次让它公布答案，从而出现「下一题」
+		const input = page.locator('input[type=text]');
+		if ((await input.count()) > 0) {
+			await input.fill('-99999');
+			await page.getByRole('button', { name: '提交' }).click();
+			const retry = page.getByRole('button', { name: '再试一次' });
+			if ((await retry.count()) > 0) {
+				await retry.click();
+				await input.fill('-88888');
+				await page.getByRole('button', { name: '提交' }).click();
+			}
+		} else {
+			await page.locator('.option').first().click();
+			await page.getByRole('button', { name: '提交' }).click();
+			const retry = page.getByRole('button', { name: '再试一次' });
+			if ((await retry.count()) > 0) {
+				await retry.click();
+				await page.locator('.option').first().click();
+				await page.getByRole('button', { name: '提交' }).click();
+			}
+		}
+		hops += 1;
+	}
+
+	const reachedCode = (await page.locator('[data-testid="code-editor"]').count()) > 0;
+	check('能从数值题走到代码题', reachedCode, `${hops} 步`);
+
+	if (reachedCode) {
+		check(
+			'代码题说明了运行时体积与本地执行',
+			(await page.getByText(/首次运行需要下载约 10 MB/).count()) === 1
+		);
+		check(
+			'代码题不复用数值题的提交按钮（分派正确）',
+			(await page.getByRole('button', { name: '提交' }).count()) === 0
+		);
+
+		// 编辑器是动态加载的，等它真正就绪
+		await page.waitForSelector('.cm-content', { timeout: 30_000 });
+		const starter = await page.locator('.cm-content').innerText();
+		check(
+			'起始代码抛 NotImplementedError 而非返回定值',
+			starter.includes('NotImplementedError'),
+			'防止比较型断言恒真'
+		);
+
+		// ---------- 真的跑一次 Python ----------
+		// 同源托管后首次加载约 1-2 秒（走 CDN 时实测 24KB/s，要 6 分钟），
+		// 所以这里可以真执行而不只是验证渲染。
+		const t0 = Date.now();
+		await page.getByRole('button', { name: '运行并检查' }).click();
+		await page.waitForSelector('[data-testid="code-score"], .panel-bad, .panel-warn', {
+			timeout: 120_000
+		});
+		const firstRunSec = ((Date.now() - t0) / 1000).toFixed(1);
+
+		const loadFailed = (await page.locator('.panel-warn').count()) > 0;
+		check(
+			'Pyodide 同源加载成功',
+			!loadFailed,
+			loadFailed
+				? (await page.locator('.panel-warn').innerText()).slice(0, 80)
+				: `首次 ${firstRunSec}s`
+		);
+
+		if (!loadFailed) {
+			const zeroScore = await page.locator('[data-testid="code-score"]').innerText();
+			check('未实现时全部用例失败', /^0 \//.test(zeroScore.trim()), zeroScore.replace(/\n/g, ' '));
+			const reasons = await page.locator('.case-message').allInnerTexts();
+			check(
+				'失败原因指向未实现而非断言不成立',
+				reasons.some((r) => r.includes('NotImplementedError')),
+				reasons[0]?.slice(0, 50)
+			);
+
+			// 填入正确实现，应当全过
+			await page.locator('.cm-content').click();
+			await page.keyboard.press('ControlOrMeta+A');
+			await page.keyboard.type(
+				'def kv_cache_bytes(batch, seq_len, layers, kv_heads, head_dim, dtype_bytes):\n' +
+					'    return 2 * batch * seq_len * layers * kv_heads * head_dim * dtype_bytes'
+			);
+			await page.getByRole('button', { name: '运行并检查' }).click();
+			await page.waitForSelector('.score-ok', { timeout: 60_000 });
+
+			const fullScore = await page.locator('[data-testid="code-score"]').innerText();
+			check('正确实现通过全部用例', /5 \/ 5/.test(fullScore), fullScore.replace(/\n/g, ' '));
+			check('答对后展开推导', (await page.locator('.explanation').count()) === 1);
+			check(
+				'代码题进度写入 localStorage',
+				await page.evaluate(() => {
+					const raw = localStorage.getItem('ael-progress-v1');
+					if (!raw) return false;
+					return Object.keys(JSON.parse(raw).records ?? {}).some((k) => k.includes('-c1-'));
+				})
+			);
+		}
+
+		// 懒加载的实质检查：直接量产物文件，而不是靠 HTTP content-length
+		// （dev server 常用 chunked 编码，拿不到长度，断言会形同虚设）。
+		const html = await readFile('build/kv-cache.html', 'utf8');
+		const referenced = [...html.matchAll(/(?:href|src)="[^"]*?(_app\/immutable\/[^"]+)"/g)].map(
+			(m) => m[1]
+		);
+		let biggest = { file: '', bytes: 0 };
+		for (const rel of new Set(referenced)) {
+			try {
+				const { size } = await stat(`build/${rel}`);
+				if (size > biggest.bytes) biggest = { file: rel.split('/').pop() ?? rel, bytes: size };
+			} catch {
+				/* 引用了不存在的文件会在别处暴露 */
+			}
+		}
+		check(
+			'关卡页首屏引用的模块中无编辑器体量的块（懒加载生效）',
+			biggest.bytes > 0 && biggest.bytes < 200_000,
+			`${new Set(referenced).size} 个模块，最大 ${biggest.file} = ${biggest.bytes} B`
+		);
+
+		const allChunks = await readdir('build/_app/immutable/chunks');
+		let lazyBig = 0;
+		for (const f of allChunks) {
+			const { size } = await stat(`build/_app/immutable/chunks/${f}`);
+			if (size > lazyBig) lazyBig = size;
+		}
+		check(
+			'编辑器已构建但仅按需加载',
+			lazyBig > 200_000,
+			`最大 chunk ${(lazyBig / 1024).toFixed(0)} KB，未被首屏引用`
+		);
+
+		// Pyodide 资源必须同源可达，否则用户会退化到 6 分钟的 CDN 路径
+		const wasmRes = await fetch(`${BASE}/pyodide/pyodide.asm.wasm`);
+		check(
+			'Pyodide 同源资源可达',
+			wasmRes.ok,
+			`HTTP ${wasmRes.status}, ${((Number(wasmRes.headers.get('content-length')) || 0) / 1024 / 1024).toFixed(1)} MB`
+		);
+	}
 } finally {
 	await browser?.close();
 	// 等 SIGTERM 真正生效，否则下一次运行会撞上残留进程占用的端口
