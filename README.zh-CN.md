@@ -57,7 +57,7 @@ pnpm install
 pnpm exec playwright install chromium   # 组件测试需要
 
 pnpm run dev          # 开发服务器
-pnpm run check:all    # lint + 类型检查 + 单元/组件测试
+pnpm run check:all    # 全部门禁：lint + 类型检查 + 测试 + 冒烟
 pnpm run test:smoke   # 构建后在真实浏览器里验证全链路
 pnpm run build        # 静态产物输出到 build/
 ```
@@ -79,6 +79,9 @@ SvelteKit 2 + Svelte 5 runes、`adapter-static`、Tailwind 4、Vitest 4
 不需要配 `paths.base`。
 
 ### 需要知道的约定
+
+完整清单在 **[AGENTS.md](./AGENTS.md)**——参与开发或让 AI agent 改这个仓库之前先读它。
+里面每一条都来自真实踩过的坑。摘要：
 
 - **根 `+layout.ts` 里的 `prerender = true` 是 `adapter-static` 的必需项**，删了构建会失败。
 - **内部链接必须用 `$app/paths` 的 `resolve()`。** ESLint 会强制检查；

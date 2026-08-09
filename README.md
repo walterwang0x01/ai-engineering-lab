@@ -68,7 +68,7 @@ pnpm install
 pnpm exec playwright install chromium   # for component tests
 
 pnpm run dev          # dev server
-pnpm run check:all    # lint + typecheck + unit/component tests
+pnpm run check:all    # every gate: lint + typecheck + tests + smoke
 pnpm run test:smoke   # build, then verify the full flow in a real browser
 pnpm run build        # static output to build/
 ```
@@ -90,6 +90,10 @@ assets are emitted as relative paths — the output works unchanged under a
 subpath like `username.github.io/repo/` without configuring `paths.base`.
 
 ### Conventions worth knowing
+
+Full list in **[AGENTS.md](./AGENTS.md)** — read it before contributing or
+pointing an AI agent at this repo. Every entry there comes from a bug that
+actually happened. Highlights:
 
 - **`prerender = true` in the root `+layout.ts` is required** by
   `adapter-static`. Removing it breaks the build.
