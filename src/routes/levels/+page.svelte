@@ -204,19 +204,19 @@
 		margin: 0;
 		font-size: 1.0625rem;
 		line-height: 1.75;
-		color: oklch(0.8 0.008 260);
+		color: var(--color-text);
 		max-width: 42rem;
 	}
 
 	.lede b {
-		color: oklch(0.96 0.005 260);
+		color: var(--color-text-strong);
 	}
 
 	.sub {
 		margin: 0;
 		font-size: 0.875rem;
 		line-height: 1.7;
-		color: oklch(0.64 0.01 260);
+		color: var(--color-text-faint);
 	}
 
 	.review {
@@ -237,7 +237,7 @@
 		margin: 0;
 		font-size: 0.875rem;
 		line-height: 1.75;
-		color: oklch(0.74 0.01 260);
+		color: var(--color-text-soft);
 	}
 
 	.review-list {
@@ -312,7 +312,7 @@
 		font-family: var(--font-mono);
 		font-size: 1rem;
 		font-weight: 600;
-		color: oklch(0.56 0.02 260);
+		color: var(--color-text-faint);
 	}
 
 	.tag {
@@ -328,7 +328,7 @@
 		margin-left: auto;
 		font-family: var(--font-mono);
 		font-size: 0.75rem;
-		color: oklch(0.66 0.01 260);
+		color: var(--color-text-muted);
 	}
 
 	.state-done {
@@ -349,7 +349,7 @@
 		margin: 0;
 		font-size: 0.9375rem;
 		line-height: 1.75;
-		color: oklch(0.76 0.008 260);
+		color: var(--color-text-soft);
 	}
 
 	.facts {
@@ -367,7 +367,7 @@
 		border-radius: 5px;
 		background: var(--color-surface-sunken);
 		border: 1px solid var(--color-border-subtle);
-		color: oklch(0.74 0.01 260);
+		color: var(--color-text-soft);
 	}
 
 	/* 代码题是这个站最独特的东西，在索引页就要看得见 */

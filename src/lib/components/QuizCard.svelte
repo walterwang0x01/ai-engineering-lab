@@ -303,7 +303,7 @@
 	}
 
 	.unit {
-		color: oklch(0.68 0.01 260);
+		color: var(--color-text-muted);
 		font-size: 0.9375rem;
 	}
 
@@ -402,7 +402,7 @@
 	.detail {
 		font-weight: 400;
 		font-size: 0.875rem;
-		color: oklch(0.68 0.01 260);
+		color: var(--color-text-muted);
 		font-family: var(--font-mono);
 	}
 
@@ -423,7 +423,7 @@
 	.distractor {
 		background: var(--color-surface-sunken);
 		border-left: 2px solid var(--color-bad);
-		color: oklch(0.82 0.01 260);
+		color: var(--color-text);
 	}
 
 	/* explanation 里的参考解法代码块。不做语法高亮：关卡页不加载 highlight.js */
@@ -447,7 +447,7 @@
 	}
 
 	.explanation :global(strong) {
-		color: oklch(0.95 0.005 260);
+		color: var(--color-text-strong);
 	}
 
 	.explanation {
@@ -486,7 +486,7 @@
 
 	.submit-why {
 		font-size: 0.8125rem;
-		color: oklch(0.62 0.01 260);
+		color: var(--color-text-faint);
 	}
 
 	.btn:disabled {
@@ -496,7 +496,7 @@
 
 	.btn-primary {
 		background: var(--color-accent);
-		color: oklch(0.15 0.02 200);
+		color: var(--color-surface-code);
 		font-weight: 600;
 	}
 

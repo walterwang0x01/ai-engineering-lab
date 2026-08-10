@@ -307,7 +307,7 @@
 		font-family: var(--font-mono);
 		font-size: 0.8125rem;
 		line-height: 1.7;
-		color: oklch(0.68 0.01 260);
+		color: var(--color-text-muted);
 	}
 
 	.goal {
@@ -348,7 +348,7 @@
 		font-family: var(--font-mono);
 		font-size: 0.8125rem;
 		line-height: 1.7;
-		color: oklch(0.8 0.01 260);
+		color: var(--color-text);
 		word-break: break-word;
 	}
 
@@ -369,7 +369,7 @@
 		margin: 0;
 		font-size: 0.75rem;
 		line-height: 1.7;
-		color: oklch(0.6 0.01 260);
+		color: var(--color-text-faint);
 		border-top: 1px solid var(--color-border-subtle);
 		padding-top: 0.875rem;
 	}

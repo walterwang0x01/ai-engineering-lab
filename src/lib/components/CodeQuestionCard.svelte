@@ -355,7 +355,7 @@
 
 	.setup summary {
 		cursor: pointer;
-		color: oklch(0.7 0.01 260);
+		color: var(--color-text-muted);
 	}
 
 	.editor-wrap {
@@ -387,7 +387,7 @@
 	.editor-loading {
 		margin: 0.5rem 0 0;
 		font-size: 0.8125rem;
-		color: oklch(0.62 0.01 260);
+		color: var(--color-text-faint);
 	}
 
 	.fallback-editor {
@@ -415,7 +415,7 @@
 		margin: 0;
 		font-size: 0.8125rem;
 		line-height: 1.7;
-		color: oklch(0.66 0.01 260);
+		color: var(--color-text-muted);
 		padding: 0.75rem 0.875rem;
 		background: var(--color-surface-sunken);
 		border-radius: 8px;
@@ -473,7 +473,7 @@
 	.dim {
 		font-weight: 400;
 		font-size: 0.8125rem;
-		color: oklch(0.62 0.01 260);
+		color: var(--color-text-faint);
 		font-family: var(--font-sans);
 	}
 
@@ -519,7 +519,7 @@
 	.case-message {
 		font-family: var(--font-mono);
 		font-size: 0.8125rem;
-		color: oklch(0.72 0.06 22);
+		color: var(--color-bad-text-strong);
 		word-break: break-word;
 	}
 
@@ -576,14 +576,14 @@
 		line-height: 1.6;
 		white-space: pre-wrap;
 		word-break: break-word;
-		color: oklch(0.82 0.01 260);
+		color: var(--color-text);
 	}
 
 	.error-detail {
 		background: var(--color-surface);
 		padding: 0.625rem 0.75rem;
 		border-radius: 6px;
-		color: oklch(0.78 0.05 22);
+		color: var(--color-bad-text);
 	}
 
 	.stdout {
@@ -595,7 +595,7 @@
 
 	.stdout summary {
 		cursor: pointer;
-		color: oklch(0.7 0.01 260);
+		color: var(--color-text-muted);
 		margin-bottom: 0.5rem;
 	}
 
@@ -630,7 +630,7 @@
 	}
 
 	.explanation :global(strong) {
-		color: oklch(0.95 0.005 260);
+		color: var(--color-text-strong);
 	}
 
 	.explanation {
@@ -667,7 +667,7 @@
 
 	.btn-primary {
 		background: var(--color-accent);
-		color: oklch(0.15 0.02 200);
+		color: var(--color-surface-code);
 		font-weight: 600;
 	}
 

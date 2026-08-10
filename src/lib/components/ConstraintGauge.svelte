@@ -108,7 +108,7 @@
 		align-items: baseline;
 		gap: 0.5rem;
 		font-size: 0.75rem;
-		color: oklch(0.66 0.01 260);
+		color: var(--color-text-muted);
 	}
 
 	.gauge[data-ok='false'] .verdict {

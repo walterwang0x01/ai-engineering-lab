@@ -300,7 +300,7 @@
 		margin: 0;
 		font-size: 0.9375rem;
 		line-height: 1.7;
-		color: oklch(0.76 0.008 260);
+		color: var(--color-text-soft);
 	}
 
 	.controls {
@@ -318,7 +318,7 @@
 		font-size: 0.8125rem;
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
-		color: oklch(0.68 0.01 260);
+		color: var(--color-text-muted);
 		margin-bottom: 0.5rem;
 	}
 
@@ -404,7 +404,7 @@
 
 	.toggle-note {
 		font-size: 0.75rem;
-		color: oklch(0.66 0.01 260);
+		color: var(--color-text-muted);
 	}
 
 	.grid-wrap {
@@ -433,7 +433,7 @@
 		place-items: center;
 		font-family: var(--font-mono);
 		font-size: clamp(0.5rem, 1.4vw, 0.6875rem);
-		color: oklch(0.97 0 0);
+		color: var(--color-on-heat);
 		transition: outline-color 120ms ease;
 		outline: 1px solid transparent;
 		min-width: 0;
@@ -441,16 +441,16 @@
 
 	.cell:hover,
 	.cell:focus-visible {
-		outline-color: oklch(0.95 0 0);
+		outline-color: var(--color-on-heat-outline);
 	}
 
 	.cell.masked {
 		background: repeating-linear-gradient(
 			45deg,
-			oklch(0.2 0.01 260),
-			oklch(0.2 0.01 260) 3px,
-			oklch(0.24 0.012 260) 3px,
-			oklch(0.24 0.012 260) 6px
+			var(--color-surface-inset),
+			var(--color-surface-inset) 3px,
+			var(--color-surface-overlay) 3px,
+			var(--color-surface-overlay) 6px
 		) !important;
 	}
 
@@ -464,17 +464,17 @@
 		flex-wrap: wrap;
 		justify-content: center;
 		font-size: 0.75rem;
-		color: oklch(0.64 0.01 260);
+		color: var(--color-text-faint);
 	}
 
 	.hover-readout code {
 		font-family: var(--font-mono);
 		font-size: 0.8125rem;
-		color: oklch(0.82 0.01 260);
+		color: var(--color-text);
 	}
 
 	.hover-readout .dim {
-		color: oklch(0.58 0.01 260);
+		color: var(--color-text-faint);
 	}
 
 	.metrics {
@@ -498,7 +498,7 @@
 
 	.metric-label {
 		font-size: 0.8125rem;
-		color: oklch(0.68 0.01 260);
+		color: var(--color-text-muted);
 	}
 
 	.metric-value {
@@ -511,7 +511,7 @@
 	.metric-note {
 		font-size: 0.75rem;
 		line-height: 1.6;
-		color: oklch(0.62 0.01 260);
+		color: var(--color-text-faint);
 	}
 
 	.insight p {
@@ -528,7 +528,7 @@
 		margin: 0;
 		font-size: 0.75rem;
 		line-height: 1.7;
-		color: oklch(0.6 0.01 260);
+		color: var(--color-text-faint);
 		border-top: 1px solid var(--color-border-subtle);
 		padding-top: 0.875rem;
 	}

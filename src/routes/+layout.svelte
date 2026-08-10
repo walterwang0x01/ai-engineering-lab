@@ -61,7 +61,7 @@
 
 	.nav-links a {
 		font-size: 0.875rem;
-		color: oklch(0.74 0.01 260);
+		color: var(--color-text-soft);
 		text-decoration: none;
 		/* 触摸目标至少 44px 高（WCAG 2.5.5）。用 padding 撑开而不是改字号 */
 		display: inline-flex;

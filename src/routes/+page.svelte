@@ -204,12 +204,12 @@
 		margin: 0;
 		font-size: 1.0625rem;
 		line-height: 1.7;
-		color: oklch(0.8 0.008 260);
+		color: var(--color-text);
 		max-width: 40rem;
 	}
 
 	.lede b {
-		color: oklch(0.96 0.005 260);
+		color: var(--color-text-strong);
 	}
 
 	/* 数字带：一眼看出这站有多少东西、自己走到哪 */
@@ -243,7 +243,7 @@
 	.stat-gloss {
 		display: block;
 		font-size: 0.6875rem;
-		color: oklch(0.56 0.01 260);
+		color: var(--color-text-faint);
 		margin-top: 0.0625rem;
 	}
 
@@ -254,7 +254,7 @@
 	.stat-l {
 		margin: 0.125rem 0 0;
 		font-size: 0.75rem;
-		color: oklch(0.64 0.01 260);
+		color: var(--color-text-faint);
 	}
 
 	.cta-row {
@@ -281,7 +281,7 @@
 
 	.btn-primary {
 		background: var(--color-accent);
-		color: oklch(0.16 0.012 260);
+		color: var(--color-surface);
 		border: 1px solid var(--color-accent);
 	}
 
@@ -300,7 +300,7 @@
 		margin: 0;
 		font-size: 0.875rem;
 		line-height: 1.7;
-		color: oklch(0.64 0.01 260);
+		color: var(--color-text-faint);
 	}
 
 	.section-head {
@@ -316,7 +316,7 @@
 		font-size: 0.8125rem;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: oklch(0.64 0.01 260);
+		color: var(--color-text-faint);
 		font-weight: 500;
 	}
 
@@ -363,7 +363,7 @@
 		margin: 0;
 		font-size: 0.9375rem;
 		line-height: 1.75;
-		color: oklch(0.74 0.01 260);
+		color: var(--color-text-soft);
 	}
 
 	.foot {
@@ -375,7 +375,7 @@
 		margin: 0;
 		font-size: 0.875rem;
 		line-height: 1.7;
-		color: oklch(0.64 0.01 260);
+		color: var(--color-text-faint);
 	}
 
 	.foot a {
