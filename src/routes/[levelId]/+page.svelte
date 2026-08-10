@@ -94,6 +94,19 @@
 		deck = [...allIds];
 		index = 0;
 	}
+
+	/**
+	 * 背景笔记区的导语。
+	 *
+	 * 拼成单个字符串而不是在模板里用三元插值：数字前后要留空格（仓库的中英混排习惯），
+	 * 而模板里的 `{n} 篇` 前面那个空格会被 Svelte 连同换行一起吃掉，
+	 * 线上渲染成「来自这2 篇笔记」——这是实测截图里发现的。
+	 */
+	const backgroundIntro = $derived(
+		backgroundNotes.length === 1
+			? '这一关的推导和数据来自这篇笔记。答不上来的时候回去读，比看答案有用。'
+			: `这一关的推导和数据来自这 ${backgroundNotes.length} 篇笔记。答不上来的时候回去读，比看答案有用。`
+	);
 </script>
 
 <Seo title={level.seo.title} description={level.seo.description} ogImage={level.seo.ogImage} />
@@ -108,11 +121,7 @@
 	{#if backgroundNotes.length > 0}
 		<section class="background" data-testid="level-background">
 			<h2 class="bg-title">背景笔记</h2>
-			<p class="section-note">
-				这一关的推导和数据来自这{backgroundNotes.length === 1
-					? '篇'
-					: `${backgroundNotes.length} 篇`}笔记。答不上来的时候回去读，比看答案有用。
-			</p>
+			<p class="section-note">{backgroundIntro}</p>
 			<ul class="bg-list">
 				{#each backgroundNotes as note (note.slug)}
 					<li>
