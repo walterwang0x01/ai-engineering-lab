@@ -19,6 +19,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 笔记正文来自另一个公开仓库。不拉的话 sync-notes.mjs 会生成空 manifest，
+      # 笔记库功能在 CI 里就完全验证不到。sparse-checkout 只取 00-ai 目录。
+      - uses: actions/checkout@v4
+        with:
+          repository: walterwang0x01/tech-learning-and-projects
+          path: notes-src
+          sparse-checkout: learning-notes/00-ai
+          sparse-checkout-cone-mode: false
+
       - uses: pnpm/action-setup@v4
         with:
           version: 11
@@ -45,3 +54,5 @@ jobs:
 
       - name: 全链路冒烟测试
         run: pnpm run test:smoke
+        env:
+          NOTES_SRC: ${{ github.workspace }}/notes-src/learning-notes/00-ai
