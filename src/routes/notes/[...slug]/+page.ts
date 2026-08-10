@@ -73,11 +73,13 @@ export const load: PageLoad = async ({ params, fetch }): Promise<NotePageData> =
 	const slug = params.slug;
 
 	// 正文与三份索引一起取。索引缺失是可容忍的降级，正文缺失是 404
+	// 路径必须带 base：子路径部署时静态资源在 /<base>/notes/ 下，
+	// 用根绝对路径会在预渲染时 fetch failed（CI 的子路径构建校验抓到过一次）
 	const [mdRes, manifestRes, quizRes, gradableRes] = await Promise.all([
-		fetch(`/notes/${slug.split('/').map(encodeURIComponent).join('/')}.md`),
-		fetch('/notes/manifest.json'),
-		fetch('/notes/quiz.json'),
-		fetch('/notes/gradable.json')
+		fetch(`${base}/notes/${slug.split('/').map(encodeURIComponent).join('/')}.md`),
+		fetch(`${base}/notes/manifest.json`),
+		fetch(`${base}/notes/quiz.json`),
+		fetch(`${base}/notes/gradable.json`)
 	]);
 
 	if (!mdRes.ok) error(404, `找不到这篇笔记：${slug}`);
