@@ -31,6 +31,10 @@
 	 *   必须理解"分块能救窗口但要花系统提示词的重复成本"这个权衡才能找到可行解。
 	 */
 
+	import ConstraintGauge from './ConstraintGauge.svelte';
+	import OptionChips from './OptionChips.svelte';
+	import { allSatisfied } from '$lib/sandbox/constraints';
+
 	/** 示意性分词器选项：字符/token 比例反映"对中文的压缩效率"差异 */
 	const TOKENIZER_OPTIONS = [
 		{ id: 'generic', label: '通用分词器', detail: '中文约 1.3 字/token', charsPerToken: 1.3 },
@@ -90,7 +94,7 @@
 	const monthlyCostUsd = $derived(costPerDocument * SCENARIO.requestsPerMonth);
 	const withinBudget = $derived(monthlyCostUsd < BUDGET.monthlyCostUsd);
 
-	const solved = $derived(fitsWindow && withinBudget);
+	const solved = $derived(allSatisfied([fitsWindow, withinBudget]));
 	let solvedOnce = $state(false);
 
 	interface Props {
@@ -112,10 +116,6 @@
 	function fmtCost(n: number): string {
 		return `$${n.toFixed(2)}`;
 	}
-
-	function barPct(value: number, budget: number): number {
-		return Math.min(100, (value / budget) * 100);
-	}
 </script>
 
 <section class="sandbox" data-solved={solved} aria-labelledby="tokenizer-sandbox-title">
@@ -135,68 +135,41 @@
 	</header>
 
 	<div class="controls">
-		<fieldset>
-			<legend>分词器（示意性压缩效率）</legend>
-			<div class="chips">
-				{#each TOKENIZER_OPTIONS as opt (opt.id)}
-					<label class="chip">
-						<input type="radio" name="tokenizer" value={opt.id} bind:group={tokenizerId} />
-						<span class="chip-label">{opt.label}</span>
-						<span class="chip-detail">{opt.detail}</span>
-					</label>
-				{/each}
-			</div>
-		</fieldset>
-
-		<fieldset>
-			<legend>处理方式</legend>
-			<div class="chips">
-				{#each CHUNK_OPTIONS as opt (opt.id)}
-					<label class="chip">
-						<input type="radio" name="chunk" value={opt.id} bind:group={chunkId} />
-						<span class="chip-label">{opt.label}</span>
-					</label>
-				{/each}
-			</div>
-		</fieldset>
+		<OptionChips
+			legend="分词器（示意性压缩效率）"
+			name="tokenizer"
+			options={TOKENIZER_OPTIONS}
+			bind:value={tokenizerId}
+		/>
+		<OptionChips legend="处理方式" name="chunk" options={CHUNK_OPTIONS} bind:value={chunkId} />
 	</div>
 
 	<div class="gauges" aria-live="polite">
-		<div class="gauge" data-ok={fitsWindow}>
-			<div class="gauge-head">
-				<span class="gauge-name">单次调用 input token</span>
-				<span class="gauge-value" data-testid="input-tokens-value"
-					>{fmtTokens(inputTokensPerCall)} token</span
-				>
-			</div>
-			<div class="track">
-				<div class="fill" style="width: {barPct(inputTokensPerCall, windowBudgetTokens)}%"></div>
-			</div>
-			<div class="gauge-foot">
-				<span>窗口安全额度 {fmtTokens(windowBudgetTokens)} token</span>
-				<span class="verdict">
-					{fitsWindow
-						? '在额度内'
-						: `超出 ${fmtTokens(inputTokensPerCall - windowBudgetTokens)} token`}
-				</span>
-			</div>
-		</div>
+		<ConstraintGauge
+			name="单次调用 input token"
+			value={`${fmtTokens(inputTokensPerCall)} token`}
+			testId="input-tokens-value"
+			ok={fitsWindow}
+			current={inputTokensPerCall}
+			scale={windowBudgetTokens}
+			budgetLabel={`窗口安全额度 ${fmtTokens(windowBudgetTokens)} token`}
+			verdict={fitsWindow
+				? '在额度内'
+				: `超出 ${fmtTokens(inputTokensPerCall - windowBudgetTokens)} token`}
+		/>
 
-		<div class="gauge" data-ok={withinBudget}>
-			<div class="gauge-head">
-				<span class="gauge-name">月度成本</span>
-				<span class="gauge-value" data-testid="monthly-cost-value">{fmtCost(monthlyCostUsd)}</span>
-			</div>
-			<div class="track">
-				<div class="fill" style="width: {barPct(monthlyCostUsd, BUDGET.monthlyCostUsd)}%"></div>
-			</div>
-			<div class="gauge-foot">
-				<span>预算 {fmtCost(BUDGET.monthlyCostUsd)}</span>
-				<span class="verdict">
-					{withinBudget ? '在预算内' : `超出 ${fmtCost(monthlyCostUsd - BUDGET.monthlyCostUsd)}`}
-				</span>
-			</div>
-		</div>
+		<ConstraintGauge
+			name="月度成本"
+			value={fmtCost(monthlyCostUsd)}
+			testId="monthly-cost-value"
+			ok={withinBudget}
+			current={monthlyCostUsd}
+			scale={BUDGET.monthlyCostUsd}
+			budgetLabel={`预算 ${fmtCost(BUDGET.monthlyCostUsd)}`}
+			verdict={withinBudget
+				? '在预算内'
+				: `超出 ${fmtCost(monthlyCostUsd - BUDGET.monthlyCostUsd)}`}
+		/>
 	</div>
 
 	<div class="readout">
@@ -291,69 +264,6 @@
 		gap: 1.125rem;
 	}
 
-	fieldset {
-		border: 0;
-		margin: 0;
-		padding: 0;
-	}
-
-	legend {
-		font-size: 0.8125rem;
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		color: oklch(0.68 0.01 260);
-		margin-bottom: 0.5rem;
-	}
-
-	.chips {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-	}
-
-	.chip {
-		display: grid;
-		gap: 0.125rem;
-		padding: 0.5rem 0.875rem;
-		background: var(--color-surface-sunken);
-		border: 1px solid var(--color-border-subtle);
-		border-radius: 9px;
-		cursor: pointer;
-		transition: border-color 140ms ease;
-		min-width: 6.5rem;
-	}
-
-	.chip:hover {
-		border-color: var(--color-accent-dim);
-	}
-
-	.chip input {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		opacity: 0;
-	}
-
-	.chip:has(input:checked) {
-		border-color: var(--color-accent);
-		background: color-mix(in oklch, var(--color-accent) 12%, var(--color-surface-sunken));
-	}
-
-	.chip:has(input:focus-visible) {
-		outline: 2px solid var(--color-accent);
-		outline-offset: 2px;
-	}
-
-	.chip-label {
-		font-weight: 600;
-		font-size: 0.9375rem;
-	}
-
-	.chip-detail {
-		font-size: 0.75rem;
-		color: oklch(0.66 0.01 260);
-	}
-
 	.gauges {
 		display: grid;
 		gap: 1rem;
@@ -363,67 +273,6 @@
 		.gauges {
 			grid-template-columns: 1fr 1fr;
 		}
-	}
-
-	.gauge {
-		display: grid;
-		gap: 0.4375rem;
-	}
-
-	.gauge-head,
-	.gauge-foot {
-		display: flex;
-		justify-content: space-between;
-		align-items: baseline;
-		gap: 0.5rem;
-	}
-
-	.gauge-name {
-		font-size: 0.875rem;
-	}
-
-	.gauge-value {
-		font-family: var(--font-mono);
-		font-size: 1.0625rem;
-		font-weight: 600;
-	}
-
-	.gauge[data-ok='true'] .gauge-value {
-		color: var(--color-ok);
-	}
-	.gauge[data-ok='false'] .gauge-value {
-		color: var(--color-bad);
-	}
-
-	.track {
-		height: 7px;
-		background: var(--color-surface-sunken);
-		border-radius: 999px;
-		overflow: hidden;
-	}
-
-	.fill {
-		height: 100%;
-		border-radius: 999px;
-		transition:
-			width 200ms ease,
-			background-color 200ms ease;
-	}
-
-	.gauge[data-ok='true'] .fill {
-		background: var(--color-ok);
-	}
-	.gauge[data-ok='false'] .fill {
-		background: var(--color-bad);
-	}
-
-	.gauge-foot {
-		font-size: 0.75rem;
-		color: oklch(0.66 0.01 260);
-	}
-
-	.gauge[data-ok='false'] .verdict {
-		color: var(--color-bad);
 	}
 
 	.readout {

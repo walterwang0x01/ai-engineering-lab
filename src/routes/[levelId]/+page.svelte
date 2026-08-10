@@ -11,7 +11,9 @@
 	import Seo from '$lib/components/Seo.svelte';
 	import { buildDueDeck, summarizeMastery } from '$lib/quiz/schedule';
 	import { progress } from '$lib/storage/progress.svelte';
-	import { resolve } from '$app/paths';
+	import { notesForLevel } from '$lib/curriculum/mapping';
+	import { base, resolve } from '$app/paths';
+	import type { NoteEntry, NotesManifest } from '$lib/notes/types';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -28,6 +30,15 @@
 		Awaited<ReturnType<NonNullable<typeof level.interactive>['load']>>['default'] | null
 	>(null);
 
+	/**
+	 * 背景笔记。标题要从 manifest 取，所以必须 fetch——
+	 * 映射表里只有 slug，把标题也写进映射表会产生第二份真相，
+	 * 笔记改标题时这里就会显示过期的旧标题。
+	 *
+	 * 笔记未同步时保持空数组，整个区块不渲染，页面照常可用。
+	 */
+	let backgroundNotes = $state<NoteEntry[]>([]);
+
 	// 用 onMount 而非 $effect：deck 只在进入页面时构建一次，
 	// 否则每次答题更新 records 都会重建队列、打乱进度
 	onMount(() => {
@@ -39,7 +50,26 @@
 		if (interactive) {
 			void interactive.load().then((m) => (InteractiveComponent = m.default));
 		}
+
+		void loadBackgroundNotes();
 	});
+
+	/** 按映射表的顺序取背景笔记的元数据。primary 在前，与映射表一致 */
+	async function loadBackgroundNotes() {
+		const slugs = notesForLevel(level.id);
+		if (slugs.length === 0) return;
+		try {
+			const res = await fetch(`${base}/notes/manifest.json`);
+			if (!res.ok) return;
+			const manifest: NotesManifest = await res.json();
+			const flat = manifest.modules.flatMap((m) => m.sections.flatMap((s) => s.notes));
+			backgroundNotes = slugs
+				.map((slug) => flat.find((n) => n.slug === slug))
+				.filter((n): n is NoteEntry => n !== undefined);
+		} catch {
+			// 笔记不可用不影响做题，静默降级
+		}
+	}
 
 	const current = $derived(
 		deck.length > 0 && index < deck.length
@@ -74,6 +104,31 @@
 		<h1>{level.title}</h1>
 		<p class="lede">{level.lede}</p>
 	</header>
+
+	{#if backgroundNotes.length > 0}
+		<section class="background" data-testid="level-background">
+			<h2 class="bg-title">背景笔记</h2>
+			<p class="section-note">
+				这一关的推导和数据来自这{backgroundNotes.length === 1
+					? '篇'
+					: `${backgroundNotes.length} 篇`}笔记。答不上来的时候回去读，比看答案有用。
+			</p>
+			<ul class="bg-list">
+				{#each backgroundNotes as note (note.slug)}
+					<li>
+						<a
+							class="bg-link"
+							href={resolve('/notes/[...slug]', { slug: note.slug })}
+							data-testid="background-note-link"
+						>
+							<span>{note.title}</span>
+							<span class="bg-meta">{note.minutes} 分钟</span>
+						</a>
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
 
 	{#if level.interactive}
 		<section class="panel">
@@ -196,6 +251,58 @@
 	.panel {
 		display: grid;
 		gap: 1rem;
+	}
+
+	.background {
+		display: grid;
+		gap: 0.625rem;
+		padding: 1.25rem 1.5rem;
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: 14px;
+	}
+
+	.bg-title {
+		font-size: 0.8125rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: oklch(0.64 0.01 260);
+		font-weight: 500;
+	}
+
+	.bg-list {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		display: grid;
+		gap: 0.375rem;
+	}
+
+	.bg-link {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 0.5rem 0.75rem;
+		border-radius: 8px;
+		background: var(--color-surface-sunken);
+		border: 1px solid transparent;
+		color: inherit;
+		text-decoration: none;
+		font-size: 0.9375rem;
+		transition: border-color 140ms ease;
+	}
+
+	.bg-link:hover {
+		border-color: var(--color-accent);
+	}
+
+	.bg-meta {
+		flex-shrink: 0;
+		font-size: 0.75rem;
+		font-family: var(--font-mono);
+		color: oklch(0.62 0.01 260);
+		white-space: nowrap;
 	}
 
 	h2 {

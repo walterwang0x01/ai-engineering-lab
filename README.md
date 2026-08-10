@@ -49,17 +49,27 @@ condescension. What they actually want is to know what they don't know.
 
 ## Current content
 
-**KV Cache capacity planning** — 10 gradable questions plus a dual-constraint
-sandbox level.
+**Five levels, 52 gradable questions** — backprop and dying ReLU, tokenizers and
+cost, attention and causal masking, KV cache capacity planning, RAG chunking.
+Nine of those questions run real Python in your browser. Three of the five levels
+are dual- or triple-constraint sandboxes where you tune parameters until every
+budget holds at once.
 
-The sandbox gives you a real serving scenario (Llama 2 70B, batch 32, 4K
-context) and two budgets that must hold simultaneously: memory under 45 GB and
-quality loss under 2%. Twelve configurations are reachable; exactly three pass.
-You cannot win by picking the cheapest option every time — MQA uses the least
-memory and still fails on quality.
+**168 notes, wired into the same path.** The learning path on the home page is
+one data source: modules and sections come from the notes library, and each level
+is attached to the section its background reading lives in. Notes link forward to
+their companion level; levels link back to their background notes.
 
-By the end you should be able to size a deployment on a whiteboard and explain
-how to choose the GQA group count.
+**Gradable questions inside the notes themselves (Tier A).** Notes can carry
+machine-graded multiple-choice questions that share the judging engine and the
+spaced-repetition schedule with level questions. Currently four notes are
+covered; the pipeline and its gates are in place for the rest.
+
+The KV cache sandbox is representative: a real serving scenario (Llama 2 70B,
+batch 32, 4K context) with two budgets that must hold simultaneously — memory
+under 45 GB and quality loss under 2%. Twelve configurations are reachable;
+exactly three pass. You cannot win by picking the cheapest option every time —
+MQA uses the least memory and still fails on quality.
 
 ## Development
 

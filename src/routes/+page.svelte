@@ -1,41 +1,50 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { base, resolve } from '$app/paths';
 	import Seo from '$lib/components/Seo.svelte';
+	import LearningPath from '$lib/components/LearningPath.svelte';
 	import { LEVELS } from '$lib/levels/registry';
-	import { summarizeMastery } from '$lib/quiz/schedule';
+	import { EMPTY_MANIFEST, buildCurriculum } from '$lib/curriculum/build';
 	import { progress } from '$lib/storage/progress.svelte';
-	import { resolve } from '$app/paths';
+	import type { NotesManifest } from '$lib/notes/types';
 
-	let ready = $state(false);
-
-	onMount(() => {
-		progress.load();
-		ready = true;
-	});
+	let progressReady = $state(false);
+	let manifest = $state<NotesManifest>(EMPTY_MANIFEST);
+	let notesFailed = $state(false);
 
 	/**
-	 * 卡片从注册表生成，而不是手写。
+	 * manifest 在客户端 fetch，不在 load 里读文件系统——
+	 * 与 /notes 的做法一致，避免把 168 篇的元数据打进预渲染产物。
 	 *
-	 * 阶段 0 的独立审计发现过一个真实缺陷：新增关卡的文件清单漏了首页入口，
-	 * 照文档做会产出「直连能访问、首页进不去」的孤儿页面。
-	 * 改成从 registry 派生之后，这个问题在结构上不可能再发生。
+	 * 失败或未同步时 manifest 保持 EMPTY_MANIFEST，curriculum 会把
+	 * 全部关卡放进 orphanLevels，首页仍然完整可用。
 	 */
-	const cards = $derived(
-		LEVELS.map((level) => {
-			const ids = level.questions.map((q) => q.id);
-			const mastery = summarizeMastery(ids, progress.scheduleView);
-			return {
-				level,
-				mastery,
-				done: mastery.total - mastery.untouched,
-				codeCount: level.questions.filter((q) => q.kind === 'code').length
-			};
-		})
-	);
+	onMount(async () => {
+		progress.load();
+		progressReady = true;
+		try {
+			const res = await fetch(`${base}/notes/manifest.json`);
+			if (!res.ok) throw new Error(String(res.status));
+			manifest = await res.json();
+		} catch {
+			notesFailed = true;
+		}
+	});
 
+	const curriculum = $derived(buildCurriculum(manifest, LEVELS));
 	const totalQuestions = $derived(LEVELS.reduce((n, l) => n + l.questions.length, 0));
 	const totalCode = $derived(
 		LEVELS.reduce((n, l) => n + l.questions.filter((q) => q.kind === 'code').length, 0)
+	);
+
+	/**
+	 * 拼成单个字符串而不是在模板里用 `{#if}` 插入笔记篇数：
+	 * Svelte 会吃掉 if 块内的前导换行，得到少一个空格或多一个空格的文案。
+	 */
+	const subLine = $derived(
+		`${totalQuestions} 道题，其中 ${totalCode} 道要在浏览器里真跑 Python` +
+			(curriculum.totalNotes > 0 ? `，配 ${curriculum.totalNotes} 篇笔记` : '') +
+			'。全部在你的浏览器里执行，没有后端，不收集数据，学习进度只存在本地。'
 	);
 </script>
 
@@ -53,47 +62,20 @@
 			读懂和会做是两件事。这里的每个概念都配了<b>能判定对错的计算题</b>和<b>能调参数的沙盒</b>——
 			答错会告诉你错在哪，调参数能看到约束怎么被打破。
 		</p>
-		<p class="sub">
-			{totalQuestions} 道题，其中 {totalCode} 道要在浏览器里真跑 Python。 全部在你的浏览器里执行，没有后端，不收集数据，学习进度只存在本地。
-		</p>
+		<p class="sub">{subLine}</p>
 	</header>
 
-	<section class="levels">
-		<h2 class="section-title">关卡</h2>
-
-		{#each cards as { level, mastery, done, codeCount } (level.id)}
-			<a class="card" href={resolve('/[levelId]', { levelId: level.id })}>
-				<div class="card-top">
-					<span class="tag">{level.card.tag}</span>
-					{#if ready && mastery.mastered === mastery.total}
-						<span class="badge badge-done">已通关</span>
-					{:else if ready && done > 0}
-						<span class="badge">{done} / {mastery.total}</span>
-					{:else if codeCount > 0}
-						<span class="badge badge-code">{codeCount} 道代码题</span>
-					{/if}
-				</div>
-				<h3>{level.title}</h3>
-				<p>{level.card.summary}</p>
-				<ul class="points">
-					{#each level.card.points as point (point)}
-						<li>{point}</li>
-					{/each}
-				</ul>
-				<span class="cta">开始 →</span>
-			</a>
-		{/each}
-
-		<div class="card card-soon" aria-disabled="true">
-			<div class="card-top">
-				<span class="tag">规划中</span>
-			</div>
-			<h3>更多关卡</h3>
-			<p>
-				反向传播与死亡 ReLU、Tokenizer 切分、模型合并、RAG 分块策略、Agent 可观测性——
-				按同样的「可判定 + 可调参」标准逐个做。
-			</p>
+	<section class="path-section">
+		<div class="section-head">
+			<h2 class="section-title">学习路径</h2>
+			<a class="all-notes" href={resolve('/notes')}>全部笔记 →</a>
 		</div>
+
+		{#if notesFailed}
+			<p class="notice" data-testid="notes-unavailable">笔记目录暂时无法加载，下面只列出关卡。</p>
+		{/if}
+
+		<LearningPath {curriculum} {progressReady} />
 	</section>
 
 	<section class="why">
@@ -129,7 +111,7 @@
 		<p>
 			内容来自
 			<a href="https://github.com/walterwang0x01/tech-learning-and-projects" rel="noreferrer">
-				571 篇 AI 工程笔记
+				AI 工程笔记仓库
 			</a>
 			· 作者的
 			<a href="https://walterwang0x01.github.io/portfolio/" rel="noreferrer">博客与简报</a>
@@ -141,7 +123,7 @@
 	main {
 		max-width: 52rem;
 		margin: 0 auto;
-		padding: 4rem 1.25rem 5rem;
+		padding: 2.5rem 1.25rem 5rem;
 		display: grid;
 		gap: 3.5rem;
 	}
@@ -186,8 +168,16 @@
 		color: oklch(0.66 0.01 260);
 	}
 
+	.section-head {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 1rem;
+		margin-bottom: 1.25rem;
+	}
+
 	.section-title {
-		margin: 0 0 1.25rem;
+		margin: 0;
 		font-size: 0.8125rem;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
@@ -195,101 +185,25 @@
 		font-weight: 500;
 	}
 
-	.levels {
-		display: grid;
-		gap: 1rem;
-	}
-
-	.levels .section-title {
-		margin-bottom: 0;
-	}
-
-	.card {
-		display: grid;
-		gap: 0.75rem;
-		padding: 1.75rem;
-		background: var(--color-surface-raised);
-		border: 1px solid var(--color-border-subtle);
-		border-radius: 14px;
+	.all-notes {
+		font-size: 0.8125rem;
+		color: var(--color-accent);
 		text-decoration: none;
-		color: inherit;
-		transition:
-			border-color 160ms ease,
-			transform 160ms ease;
+		white-space: nowrap;
 	}
 
-	a.card:hover {
-		border-color: var(--color-accent);
-		transform: translateY(-2px);
+	.all-notes:hover {
+		text-decoration: underline;
 	}
 
-	.card-soon {
-		opacity: 0.55;
-	}
-
-	.card-top {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.75rem;
-	}
-
-	.tag {
-		font-size: 0.75rem;
-		letter-spacing: 0.04em;
-		padding: 0.1875rem 0.5rem;
-		border-radius: 5px;
-		background: var(--color-surface-sunken);
-		color: var(--color-accent);
-		font-family: var(--font-mono);
-	}
-
-	.badge {
-		font-size: 0.75rem;
-		font-family: var(--font-mono);
-		padding: 0.1875rem 0.5rem;
-		border-radius: 999px;
-		background: var(--color-surface-sunken);
-		color: oklch(0.7 0.01 260);
-	}
-
-	.badge-done {
-		color: var(--color-ok);
-		border: 1px solid var(--color-ok);
-	}
-
-	.badge-code {
-		color: var(--color-accent);
-		font-family: var(--font-sans);
-	}
-
-	.card h3 {
-		margin: 0;
-		font-size: 1.25rem;
-	}
-
-	.card p {
-		margin: 0;
-		font-size: 0.9375rem;
-		line-height: 1.75;
-		color: oklch(0.76 0.008 260);
-	}
-
-	.points {
-		margin: 0.25rem 0 0;
-		padding-left: 1.125rem;
-		display: grid;
-		gap: 0.3125rem;
+	.notice {
+		margin: 0 0 1.25rem;
 		font-size: 0.875rem;
-		color: oklch(0.7 0.01 260);
-		line-height: 1.6;
+		color: var(--color-warn);
 	}
 
-	.cta {
-		margin-top: 0.5rem;
-		font-size: 0.9375rem;
-		font-weight: 600;
-		color: var(--color-accent);
+	.why .section-title {
+		margin-bottom: 1.25rem;
 	}
 
 	/* dt 和 dd 必须包在 .entry 里：dl 直接用 grid + gap 时，

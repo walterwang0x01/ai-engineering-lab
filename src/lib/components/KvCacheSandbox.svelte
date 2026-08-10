@@ -8,7 +8,15 @@
 	 * 关卡设计经过验证：12 个配置组合中恰好 3 个达标，
 	 * 失败原因在「显存超」与「质量超」两侧均衡分布，
 	 * 所以用户无法靠「一路选最省的」通关 —— 必须理解权衡。
+	 *
+	 * 选项组与约束仪表用共享组件渲染（见 lib/sandbox/constraints.ts 的说明）：
+	 * 这两块标记和 CSS 在三个达标型沙盒里此前逐字重复了三遍。
+	 * 公式、阈值和文案仍留在本文件里——那才是这一关的内容。
 	 */
+
+	import ConstraintGauge from './ConstraintGauge.svelte';
+	import OptionChips from './OptionChips.svelte';
+	import { allSatisfied } from '$lib/sandbox/constraints';
 
 	interface Props {
 		onSolved?: () => void;
@@ -70,7 +78,7 @@
 
 	const memoryOk = $derived(memoryGiB < BUDGET.memoryGiB);
 	const qualityOk = $derived(qualityLossPct < BUDGET.qualityLossPct);
-	const solved = $derived(memoryOk && qualityOk);
+	const solved = $derived(allSatisfied([memoryOk, qualityOk]));
 
 	/** 相对 MHA + fp16 基线节省了多少倍 */
 	const baselineGiB = $derived(
@@ -86,14 +94,14 @@
 		}
 	});
 
-	/** 进度条填充比例，超出预算时按预算封顶以保持可读 */
-	function barPct(value: number, budget: number): number {
-		return Math.min(100, (value / budget) * 100);
-	}
-
 	function fmt(n: number): string {
 		return n >= 100 ? n.toFixed(0) : n >= 10 ? n.toFixed(1) : n.toFixed(2);
 	}
+
+	/** 精度 chip 的第二行小字。选项表里存的是字节数，展示要带单位 */
+	const precisionChips = $derived(
+		PRECISION_OPTIONS.map((o) => ({ id: o.id, label: o.label, detail: `${o.bytes} byte/元素` }))
+	);
 </script>
 
 <section class="sandbox" data-solved={solved} aria-labelledby="sandbox-title">
@@ -111,65 +119,34 @@
 	</header>
 
 	<div class="controls">
-		<fieldset>
-			<legend>注意力结构</legend>
-			<div class="chips">
-				{#each ATTENTION_OPTIONS as opt (opt.id)}
-					<label class="chip">
-						<input type="radio" name="attn" value={opt.id} bind:group={attnId} />
-						<span class="chip-label">{opt.label}</span>
-						<span class="chip-detail">{opt.detail}</span>
-					</label>
-				{/each}
-			</div>
-		</fieldset>
-
-		<fieldset>
-			<legend>KV Cache 精度</legend>
-			<div class="chips">
-				{#each PRECISION_OPTIONS as opt (opt.id)}
-					<label class="chip">
-						<input type="radio" name="prec" value={opt.id} bind:group={precId} />
-						<span class="chip-label">{opt.label}</span>
-						<span class="chip-detail">{opt.bytes} byte/元素</span>
-					</label>
-				{/each}
-			</div>
-		</fieldset>
+		<OptionChips legend="注意力结构" name="attn" options={ATTENTION_OPTIONS} bind:value={attnId} />
+		<OptionChips legend="KV Cache 精度" name="prec" options={precisionChips} bind:value={precId} />
 	</div>
 
 	<div class="gauges" aria-live="polite">
-		<div class="gauge" data-ok={memoryOk}>
-			<div class="gauge-head">
-				<span class="gauge-name">KV Cache 显存</span>
-				<span class="gauge-value" data-testid="memory-value">{fmt(memoryGiB)} GB</span>
-			</div>
-			<div class="track">
-				<div class="fill" style="width: {barPct(memoryGiB, BUDGET.memoryGiB)}%"></div>
-			</div>
-			<div class="gauge-foot">
-				<span>预算 {BUDGET.memoryGiB} GB</span>
-				<span class="verdict">
-					{memoryOk ? '在预算内' : `超出 ${fmt(memoryGiB - BUDGET.memoryGiB)} GB`}
-				</span>
-			</div>
-		</div>
+		<ConstraintGauge
+			name="KV Cache 显存"
+			value={`${fmt(memoryGiB)} GB`}
+			testId="memory-value"
+			ok={memoryOk}
+			current={memoryGiB}
+			scale={BUDGET.memoryGiB}
+			budgetLabel={`预算 ${BUDGET.memoryGiB} GB`}
+			verdict={memoryOk ? '在预算内' : `超出 ${fmt(memoryGiB - BUDGET.memoryGiB)} GB`}
+		/>
 
-		<div class="gauge" data-ok={qualityOk}>
-			<div class="gauge-head">
-				<span class="gauge-name">质量损失（估算）</span>
-				<span class="gauge-value" data-testid="quality-value">{qualityLossPct.toFixed(1)}%</span>
-			</div>
-			<div class="track">
-				<div class="fill" style="width: {barPct(qualityLossPct, BUDGET.qualityLossPct)}%"></div>
-			</div>
-			<div class="gauge-foot">
-				<span>预算 {BUDGET.qualityLossPct}%</span>
-				<span class="verdict">
-					{qualityOk ? '可接受' : `超出 ${(qualityLossPct - BUDGET.qualityLossPct).toFixed(1)}%`}
-				</span>
-			</div>
-		</div>
+		<ConstraintGauge
+			name="质量损失（估算）"
+			value={`${qualityLossPct.toFixed(1)}%`}
+			testId="quality-value"
+			ok={qualityOk}
+			current={qualityLossPct}
+			scale={BUDGET.qualityLossPct}
+			budgetLabel={`预算 ${BUDGET.qualityLossPct}%`}
+			verdict={qualityOk
+				? '可接受'
+				: `超出 ${(qualityLossPct - BUDGET.qualityLossPct).toFixed(1)}%`}
+		/>
 	</div>
 
 	<div class="readout">
@@ -266,69 +243,6 @@
 		gap: 1.125rem;
 	}
 
-	fieldset {
-		border: 0;
-		margin: 0;
-		padding: 0;
-	}
-
-	legend {
-		font-size: 0.8125rem;
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		color: oklch(0.68 0.01 260);
-		margin-bottom: 0.5rem;
-	}
-
-	.chips {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-	}
-
-	.chip {
-		display: grid;
-		gap: 0.125rem;
-		padding: 0.5rem 0.875rem;
-		background: var(--color-surface-sunken);
-		border: 1px solid var(--color-border-subtle);
-		border-radius: 9px;
-		cursor: pointer;
-		transition: border-color 140ms ease;
-		min-width: 6.5rem;
-	}
-
-	.chip:hover {
-		border-color: var(--color-accent-dim);
-	}
-
-	.chip input {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		opacity: 0;
-	}
-
-	.chip:has(input:checked) {
-		border-color: var(--color-accent);
-		background: color-mix(in oklch, var(--color-accent) 12%, var(--color-surface-sunken));
-	}
-
-	.chip:has(input:focus-visible) {
-		outline: 2px solid var(--color-accent);
-		outline-offset: 2px;
-	}
-
-	.chip-label {
-		font-weight: 600;
-		font-size: 0.9375rem;
-	}
-
-	.chip-detail {
-		font-size: 0.75rem;
-		color: oklch(0.66 0.01 260);
-	}
-
 	.gauges {
 		display: grid;
 		gap: 1rem;
@@ -338,67 +252,6 @@
 		.gauges {
 			grid-template-columns: 1fr 1fr;
 		}
-	}
-
-	.gauge {
-		display: grid;
-		gap: 0.4375rem;
-	}
-
-	.gauge-head,
-	.gauge-foot {
-		display: flex;
-		justify-content: space-between;
-		align-items: baseline;
-		gap: 0.5rem;
-	}
-
-	.gauge-name {
-		font-size: 0.875rem;
-	}
-
-	.gauge-value {
-		font-family: var(--font-mono);
-		font-size: 1.0625rem;
-		font-weight: 600;
-	}
-
-	.gauge[data-ok='true'] .gauge-value {
-		color: var(--color-ok);
-	}
-	.gauge[data-ok='false'] .gauge-value {
-		color: var(--color-bad);
-	}
-
-	.track {
-		height: 7px;
-		background: var(--color-surface-sunken);
-		border-radius: 999px;
-		overflow: hidden;
-	}
-
-	.fill {
-		height: 100%;
-		border-radius: 999px;
-		transition:
-			width 200ms ease,
-			background-color 200ms ease;
-	}
-
-	.gauge[data-ok='true'] .fill {
-		background: var(--color-ok);
-	}
-	.gauge[data-ok='false'] .fill {
-		background: var(--color-bad);
-	}
-
-	.gauge-foot {
-		font-size: 0.75rem;
-		color: oklch(0.66 0.01 260);
-	}
-
-	.gauge[data-ok='false'] .verdict {
-		color: var(--color-bad);
 	}
 
 	.readout {

@@ -135,6 +135,14 @@ try {
 	// 关卡 id 从产物推断，不硬编码 —— 调整关卡顺序不该让测试失效
 	const levelIds = builtPages.map((f) => f.replace(/\.html$/, ''));
 	const anyLevel = new RegExp(`/(${levelIds.join('|')})$`);
+
+	// 全站导航。/notes 曾经是孤儿页面：部署好了、返回 200，但站内没有任何链接指向它，
+	// 只能手输 URL 才能进去。这条断言让那个缺陷不能悄悄复发。
+	await page.getByTestId('nav-notes').click();
+	await page.waitForURL(/\/notes$/);
+	check('首页可从导航点达笔记库', /\/notes$/.test(page.url()), page.url());
+
+	await page.goto(BASE, { waitUntil: 'networkidle' });
 	await page.locator('a.card').first().click();
 	await page.waitForURL(anyLevel);
 	check('点击卡片能进入关卡页', anyLevel.test(page.url()), page.url());
@@ -419,6 +427,19 @@ try {
 			`${quiz.total} 道 / ${Object.keys(quiz.items).length} 篇`
 		);
 
+		// 首页必须呈现完整的学习路径骨架，而不只是 5 个关卡。
+		// 篇目本身不在首页展开（168 个链接会淹掉关卡），所以断言的是模块骨架。
+		await page.goto(BASE, { waitUntil: 'networkidle' });
+		await page.waitForSelector('[data-testid="path-module"]');
+		const pathModules = await page.locator('[data-testid="path-module"]').count();
+		check(
+			'首页渲染学习路径的模块骨架',
+			pathModules === manifest.modules.length && pathModules > 1,
+			`${pathModules} 个模块 / manifest ${manifest.modules.length} 个`
+		);
+		const chipCount = await page.locator('[data-testid="section-chips"] li').count();
+		check('首页列出各模块的章节', chipCount > 20, `${chipCount} 个章节`);
+
 		await page.goto(`${BASE}/notes`, { waitUntil: 'networkidle' });
 		await page.waitForSelector('a[href*="/notes/"]');
 		const noteLinks = await page.locator('a[href*="/notes/"]').count();
@@ -456,6 +477,86 @@ try {
 				if (!quizRaw) return true;
 				return !JSON.stringify(JSON.parse(quizRaw)).includes('notes');
 			})
+		);
+
+		// ---------- 笔记 ↔ 关卡双向互链 ----------
+		// 不硬编码 slug：从列表里找带「关卡」徽章的篇目，走完整闭环。
+		// 这样改映射表不会让测试失效，而互链断掉一定会被抓到。
+		await page.goto(`${BASE}/notes`, { waitUntil: 'networkidle' });
+		await page.waitForSelector('[data-testid="note-has-level"]');
+		const linkedCount = await page.locator('[data-testid="note-has-level"]').count();
+		check('笔记列表标出哪些篇目有配套关卡', linkedCount > 0, `${linkedCount} 篇`);
+
+		await page.locator('a.note-link:has([data-testid="note-has-level"])').first().click();
+		await page.waitForSelector('[data-testid="note-level-link"]');
+		const noteUrl = page.url();
+		await page.getByTestId('note-level-link').click();
+		await page.waitForURL(anyLevel);
+		check('笔记页可点达配套关卡', anyLevel.test(page.url()), page.url());
+
+		// 反向：关卡页要能回到背景笔记
+		await page.waitForSelector('[data-testid="background-note-link"]');
+		const bgCount = await page.locator('[data-testid="background-note-link"]').count();
+		check('关卡页列出背景笔记', bgCount > 0, `${bgCount} 篇`);
+
+		await page.getByTestId('background-note-link').first().click();
+		await page.waitForSelector('[data-testid="note-body"] p', { timeout: 20_000 });
+		check(
+			'关卡页可点回背景笔记（闭环成立）',
+			page.url().includes('/notes/'),
+			`${noteUrl.split('/notes/')[1] ?? ''} → 关卡 → ${page.url().split('/notes/')[1] ?? ''}`
+		);
+
+		// ---------- Tier A：笔记里的可判定题 ----------
+		const gradableData = JSON.parse(await readFile('build/notes/gradable.json', 'utf8'));
+		const gradableSlugs = Object.keys(gradableData.items ?? {});
+		check(
+			'可判定题已产出',
+			gradableData.total > 0 && gradableSlugs.length > 0,
+			`${gradableData.total} 道 / ${gradableSlugs.length} 篇`
+		);
+		check(
+			'题目 id 全部带 note: 命名空间（不与关卡题撞车）',
+			gradableSlugs
+				.flatMap((s) => gradableData.items[s])
+				.every((q) => q.id.startsWith('note:') && q.kind === 'choice')
+		);
+
+		// 从产物里取第一篇有题的笔记，不硬编码 slug
+		const gSlug = gradableSlugs[0];
+		const gQuestions = gradableData.items[gSlug];
+		const gUrl = `${BASE}/notes/${gSlug.split('/').map(encodeURIComponent).join('/')}`;
+		await page.goto(gUrl, { waitUntil: 'networkidle' });
+		await page.waitForSelector('[data-testid="note-gradable"]');
+		const gCounter = await page.getByTestId('note-gradable-counter').innerText();
+		check(
+			'笔记页渲染可判定题',
+			gCounter.includes(`/ ${gQuestions.length} 题`),
+			gCounter.replace(/\s+/g, ' ')
+		);
+
+		// 故意选错：正确下标从产物里读，所以永远能构造出一个错误选项
+		const wrongIndex = gQuestions[0].answerIndex === 0 ? 1 : 0;
+		await page.locator('.option').nth(wrongIndex).click();
+		await page.getByRole('button', { name: '提交' }).click();
+		await page.waitForSelector('.msg-bad');
+		check('笔记题答错给出反馈', (await page.locator('.msg-bad').count()) === 1);
+		check('答错后不直接公布答案', (await page.locator('.explanation').count()) === 0);
+
+		await page.getByRole('button', { name: '再试一次' }).click();
+		await page.locator('.option').nth(gQuestions[0].answerIndex).click();
+		await page.getByRole('button', { name: '提交' }).click();
+		await page.waitForSelector('.msg-ok');
+		check('笔记题答对展开推导', (await page.locator('.explanation').count()) === 1);
+
+		check(
+			'笔记题进度写进与关卡题相同的存储',
+			await page.evaluate((id) => {
+				const raw = localStorage.getItem('ael-progress-v1');
+				if (!raw) return false;
+				return Boolean(JSON.parse(raw).records?.[id]);
+			}, gQuestions[0].id),
+			gQuestions[0].id
 		);
 	}
 } finally {
