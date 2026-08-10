@@ -24,3 +24,9 @@ vite.config.ts.timestamp-*
 
 # Pyodide 运行时：由 scripts/sync-pyodide.mjs 从 node_modules 复制，约 12MB，不进 git
 static/pyodide
+
+# 笔记正文：由 scripts/sync-notes.mjs 从 tech-learning-and-projects 仓库同步，不进 git
+static/notes
+
+# CI 里 checkout 的笔记仓库（见 .github/workflows/），不是本仓库内容
+notes-src

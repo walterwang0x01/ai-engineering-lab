@@ -1,0 +1,49 @@
+/**
+ * 笔记 manifest / quiz 的类型契约，对应 scripts/sync-notes.mjs 的输出结构。
+ *
+ * 这两个 JSON 由构建期脚本生成到 static/notes/，运行时通过 fetch 读取——
+ * 不是从 TS 模块导入，所以类型只能手写对齐，不能靠脚本导出常量强制同步。
+ * 改了 sync-notes.mjs 的输出结构，务必同步改这里。
+ */
+
+/** 单篇笔记的元数据（学习路径页渲染用） */
+export interface NoteEntry {
+	/** 笔记的唯一标识，同时是 static/notes/ 下的相对路径（不含 .md 后缀） */
+	slug: string;
+	title: string;
+	wordCount: number;
+	/** 预估阅读分钟数 */
+	minutes: number;
+	hasCode: boolean;
+	hasMath: boolean;
+	hasMermaid: boolean;
+	hasQuiz: boolean;
+}
+
+export interface NoteSection {
+	/** 章节名，模块根目录下的笔记（无子目录）此字段为空字符串 */
+	section: string;
+	notes: NoteEntry[];
+}
+
+export interface NoteModule {
+	id: string;
+	label: string;
+	notes: number;
+	sections: NoteSection[];
+}
+
+export interface NotesManifest {
+	generatedAt: string;
+	count: number;
+	modules: NoteModule[];
+}
+
+/** slug → 该篇的自测题列表（开放题，纯展示） */
+export type QuizItems = Record<string, string[]>;
+
+export interface NotesQuiz {
+	generatedAt: string;
+	total: number;
+	items: QuizItems;
+}

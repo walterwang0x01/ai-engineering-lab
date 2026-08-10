@@ -13,7 +13,11 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
-			adapter: adapter()
+			// fallback 让未预渲染的路由（笔记阅读页 ssr=false）由客户端路由接管。
+			// 选 404.html 是因为 GitHub Pages 在找不到文件时正是返回它，
+			// 于是 /notes/任意/路径 会命中 fallback，客户端路由再渲染正确内容。
+			// 没有它 adapter-static 会因为「遇到动态路由」直接构建失败。
+			adapter: adapter({ fallback: '404.html' })
 			// 不需要配 paths.base：SvelteKit 默认 paths.relative = true，
 			// 产物里的链接和资源全是相对路径（./kv-cache、./_app/…），
 			// 部署到 github.io/仓库名/ 这类子路径下自动正确。

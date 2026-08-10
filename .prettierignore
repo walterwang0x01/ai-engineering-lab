@@ -8,3 +8,6 @@ bun.lockb
 # Miscellaneous
 /static/
 static/pyodide
+
+# CI 里 checkout 的笔记仓库（见 .github/workflows/），不是本仓库内容
+notes-src

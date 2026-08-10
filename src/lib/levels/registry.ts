@@ -13,6 +13,7 @@ import { KV_CACHE_CODE_QUESTIONS } from '$lib/quiz/kv-cache-code-questions';
 import { ATTENTION_QUESTIONS } from '$lib/quiz/attention-questions';
 import { BACKPROP_QUESTIONS } from '$lib/quiz/backprop-questions';
 import { TOKENIZER_QUESTIONS } from '$lib/quiz/tokenizer-questions';
+import { RAG_CHUNKING_QUESTIONS } from '$lib/quiz/rag-chunking-questions';
 import type { LevelDefinition } from './types';
 
 export const LEVELS: LevelDefinition[] = [
@@ -145,6 +146,40 @@ export const LEVELS: LevelDefinition[] = [
 			heading: '先动手：找出可行配置',
 			note: '先玩再学。不用先读理论——直接调参数，看约束怎么被打破，再回来做题。',
 			load: () => import('$lib/components/KvCacheSandbox.svelte')
+		}
+	},
+	{
+		id: 'rag-chunking',
+		eyebrow: 'RAG 工程 · 第 5 关',
+		title: 'RAG 分块与检索质量',
+		lede:
+			'这一关结束后，你应该能在召回率、噪声、成本这三者之间找到可行区间，' +
+			'并解释为什么「分块越小越精确」是个错觉。',
+		card: {
+			tag: 'RAG 工程',
+			summary:
+				'在召回率、噪声、成本的三角约束里找可行解。12 个配置组合只有 3 个可行，' +
+				'而「分块越小越好」这个直觉对应的配置全部失败。',
+			points: [
+				'分块数量、重叠开销与存储成本的精确计算',
+				'召回率与噪声为什么互相拉扯',
+				'手写带重叠的分块函数'
+			]
+		},
+		seo: {
+			title: 'RAG 分块与检索质量 · AI Engineering Lab',
+			description:
+				'在召回率、噪声、成本三者之间找可行区间。12 个配置组合里只有 3 个同时满足三个预算，' +
+				'而「分块越小越精确」的直觉全部失败。含浏览器内运行的分块实现题。',
+			ogImage: 'rag-chunking.png'
+		},
+		questions: RAG_CHUNKING_QUESTIONS,
+		interactive: {
+			heading: '先动手：在三角约束里找可行区间',
+			note:
+				'三个预算必须同时满足。12 个组合只有 3 个可行——' +
+				'先猜「分块越小越精确」能不能过，再动手验证。',
+			load: () => import('$lib/components/RagChunkingSandbox.svelte')
 		}
 	}
 ];

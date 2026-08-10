@@ -176,6 +176,19 @@ const PAGES = [
 				{ value: '双约束', label: '成本与上下文同时满足', tone: 'ok' }
 			]
 		}
+	},
+	{
+		file: 'rag-chunking.png',
+		spec: {
+			eyebrow: 'RAG 工程 · 第 5 关',
+			title: 'RAG 分块与检索质量',
+			lines: ['在召回率、噪声、成本的三角约束里找可行区间', '为什么「分块越小越精确」是个错觉'],
+			stats: [
+				{ value: '3 / 12', label: '配置组合中的可行解', tone: 'accent' },
+				{ value: '越小越好', label: '这个直觉全部失败', tone: 'bad' },
+				{ value: '三角约束', label: '召回 · 噪声 · 成本', tone: 'ok' }
+			]
+		}
 	}
 ];
 
