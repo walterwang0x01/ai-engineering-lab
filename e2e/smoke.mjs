@@ -381,9 +381,26 @@ try {
 	// 这是合法状态（别人 clone 本仓库时就是这样），不该让冒烟测试崩掉。
 	// 注意不能只靠 fetch 判断：manifest 缺失时 fallback 会返回 404.html，
 	// JSON.parse 直接抛 SyntaxError —— 这正是 CI 上第一次失败的原因。
-	const notesSynced = existsSync('build/notes/manifest.json');
+	// 判断依据是「有多少篇」而不是「文件是否存在」：
+	// 笔记仓库缺失时 sync 脚本仍会生成一份 count 为 0 的空 manifest，
+	// 只看文件存在会把这种情况误判为已同步。
+	const localManifest = existsSync('build/notes/manifest.json')
+		? JSON.parse(await readFile('build/notes/manifest.json', 'utf8'))
+		: { count: 0 };
+	const notesSynced = (localManifest.count ?? 0) > 0;
 	if (!notesSynced) {
-		console.log('⏭️  笔记数据未同步，跳过笔记库验证（设置 NOTES_SRC 后可完整验证）');
+		// 本地没有笔记仓库时跳过是便利，在 CI 里必须是硬失败。
+		// 否则「构建脚本漏了 notes:sync」这类缺陷会让 CI 显绿而线上 404 ——
+		// 这正是第一次部署后 manifest.json 返回 404 的原因。
+		if (process.env.CI) {
+			check(
+				'CI 中笔记数据必须已同步',
+				false,
+				`manifest.count = ${localManifest.count ?? 0}，检查 assets:sync 是否包含 notes:sync、NOTES_SRC 是否正确`
+			);
+		} else {
+			console.log('⏭️  笔记数据未同步，跳过笔记库验证（设置 NOTES_SRC 后可完整验证）');
+		}
 	}
 
 	if (notesSynced) {
