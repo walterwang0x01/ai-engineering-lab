@@ -74,9 +74,11 @@ try {
 	const heading = await page.locator('h1').first().innerText();
 	check('首页渲染', heading.includes('能动手验证'), heading.replace(/\n/g, ' '));
 	// 期望的关卡数从产物推断（每个关卡预渲染一个 html），
-	// 这样新增关卡不需要改测试 —— 硬编码数字的断言每次都要跟着改，太脆弱
+	// 这样新增关卡不需要改测试 —— 硬编码数字的断言每次都要跟着改，太脆弱。
+	// 非关卡页面要排除：清单很短且变化很低频，新增时测试会失败提醒。
+	const NON_LEVEL_PAGES = new Set(['index.html', '404.html', 'notes.html']);
 	const builtPages = (await readdir('build')).filter(
-		(f) => f.endsWith('.html') && f !== 'index.html' && f !== '404.html'
+		(f) => f.endsWith('.html') && !NON_LEVEL_PAGES.has(f)
 	);
 	const cardCount = await page.locator('a.card').count();
 	check(
@@ -372,6 +374,61 @@ try {
 			`HTTP ${wasmRes.status}, ${((Number(wasmRes.headers.get('content-length')) || 0) / 1024 / 1024).toFixed(1)} MB`
 		);
 	}
+
+	// ---------- 笔记库 ----------
+	const manifest = await (await fetch(`${BASE}/notes/manifest.json`)).json();
+	check('笔记 manifest 可达且有内容', manifest.count > 100, `${manifest.count} 篇`);
+	check(
+		'笔记按模块分组',
+		Array.isArray(manifest.modules) && manifest.modules.length > 1,
+		`${manifest.modules?.length ?? 0} 个模块`
+	);
+
+	const quiz = await (await fetch(`${BASE}/notes/quiz.json`)).json();
+	check(
+		'自测题已提取',
+		quiz.total > 100,
+		`${quiz.total} 道 / ${Object.keys(quiz.items).length} 篇`
+	);
+
+	await page.goto(`${BASE}/notes`, { waitUntil: 'networkidle' });
+	await page.waitForSelector('a[href*="/notes/"]');
+	const noteLinks = await page.locator('a[href*="/notes/"]').count();
+	check('学习路径页列出笔记', noteLinks > 100, `${noteLinks} 个链接`);
+
+	// 点进第一篇，验证客户端渲染真的产出正文
+	const firstNote = page.locator('a[href*="/notes/"]').first();
+	const noteHref = await firstNote.getAttribute('href');
+	await firstNote.click();
+	await page.waitForSelector('[data-testid="note-body"] p', { timeout: 20_000 });
+	const paragraphs = await page.locator('[data-testid="note-body"] p').count();
+	check('阅读页渲染出正文段落', paragraphs > 3, `${paragraphs} 个段落`);
+	check('阅读页渲染出标题', (await page.locator('[data-testid="note-body"] h1').count()) === 1);
+
+	// 直接访问深层 URL：验证 adapter 的 fallback 生效
+	await page.goto(`${BASE}${noteHref}`, { waitUntil: 'networkidle' });
+	await page.waitForSelector('[data-testid="note-body"] p', { timeout: 20_000 });
+	check(
+		'直接访问深层笔记 URL 可渲染（fallback 生效）',
+		(await page.locator('[data-testid="note-body"] p').count()) > 3
+	);
+
+	// 已读标记要能持久化
+	await page.getByTestId('mark-read').click();
+	await page.waitForTimeout(150);
+	const readStored = await page.evaluate(() => {
+		const raw = localStorage.getItem('ael-notes-progress-v1');
+		return raw ? (JSON.parse(raw).read ?? []).length : 0;
+	});
+	check('已读标记写入独立的 localStorage key', readStored === 1, `${readStored} 篇`);
+	check(
+		'笔记进度不污染题目进度',
+		await page.evaluate(() => {
+			const quizRaw = localStorage.getItem('ael-progress-v1');
+			if (!quizRaw) return true;
+			return !JSON.stringify(JSON.parse(quizRaw)).includes('notes');
+		})
+	);
 } finally {
 	await browser?.close();
 	// 等 SIGTERM 真正生效，否则下一次运行会撞上残留进程占用的端口

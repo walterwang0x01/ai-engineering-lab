@@ -19,6 +19,7 @@ import { KV_CACHE_CODE_QUESTIONS } from '$lib/quiz/kv-cache-code-questions';
 import { ATTENTION_QUESTIONS } from '$lib/quiz/attention-questions';
 import { BACKPROP_QUESTIONS } from '$lib/quiz/backprop-questions';
 import { TOKENIZER_QUESTIONS } from '$lib/quiz/tokenizer-questions';
+import { RAG_CHUNKING_QUESTIONS } from '$lib/quiz/rag-chunking-questions';
 import type { CodeQuestion } from '$lib/quiz/types';
 
 /** Pyodide 初始化 + 每题跑两遍（参考答案和起始代码），给足预算 */
@@ -37,7 +38,8 @@ const ALL_CODE_QUESTIONS: CodeQuestion[] = [
 	// 从混合题库里筛出代码题
 	...ATTENTION_QUESTIONS.filter((q): q is CodeQuestion => q.kind === 'code'),
 	...BACKPROP_QUESTIONS.filter((q): q is CodeQuestion => q.kind === 'code'),
-	...TOKENIZER_QUESTIONS.filter((q): q is CodeQuestion => q.kind === 'code')
+	...TOKENIZER_QUESTIONS.filter((q): q is CodeQuestion => q.kind === 'code'),
+	...RAG_CHUNKING_QUESTIONS.filter((q): q is CodeQuestion => q.kind === 'code')
 ];
 
 describe('代码题自洽性', () => {
