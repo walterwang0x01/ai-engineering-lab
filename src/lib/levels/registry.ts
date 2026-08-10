@@ -19,7 +19,7 @@ import type { LevelDefinition } from './types';
 export const LEVELS: LevelDefinition[] = [
 	{
 		id: 'backprop',
-		eyebrow: '神经网络原理 · 第 1 关',
+		eyebrow: '神经网络原理',
 		title: '反向传播与死亡 ReLU',
 		lede:
 			'这一关结束后，你应该能在纸上手推一个小网络的梯度，' +
@@ -49,7 +49,7 @@ export const LEVELS: LevelDefinition[] = [
 	},
 	{
 		id: 'tokenizer',
-		eyebrow: '分词与表示 · 第 2 关',
+		eyebrow: '分词与表示',
 		title: 'Tokenizer 与成本',
 		lede:
 			'这一关结束后，你应该能估出一段文本的 token 数和 API 成本，' +
@@ -83,7 +83,7 @@ export const LEVELS: LevelDefinition[] = [
 	},
 	{
 		id: 'attention',
-		eyebrow: 'Transformer 原理 · 第 3 关',
+		eyebrow: 'Transformer 原理',
 		title: 'Attention 与因果掩码',
 		lede:
 			'这一关结束后，你应该能说清三件事：注意力显存为什么随序列长度平方增长、' +
@@ -117,7 +117,7 @@ export const LEVELS: LevelDefinition[] = [
 	},
 	{
 		id: 'kv-cache',
-		eyebrow: '推理优化 · 第 4 关',
+		eyebrow: '推理优化',
 		title: 'KV Cache 容量规划',
 		lede:
 			'这一关结束后，你应该能在白板上直接算出「这个模型这个并发要几张卡」，' +
@@ -150,7 +150,7 @@ export const LEVELS: LevelDefinition[] = [
 	},
 	{
 		id: 'rag-chunking',
-		eyebrow: 'RAG 工程 · 第 5 关',
+		eyebrow: 'RAG 工程',
 		title: 'RAG 分块与检索质量',
 		lede:
 			'这一关结束后，你应该能在召回率、噪声、成本这三者之间找到可行区间，' +

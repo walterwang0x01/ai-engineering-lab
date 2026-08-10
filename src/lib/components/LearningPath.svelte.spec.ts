@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import LearningPath from './LearningPath.svelte';
 import { EMPTY_MANIFEST, buildCurriculum } from '$lib/curriculum/build';
-import { LEVEL_IDS } from '$lib/levels/registry';
+import { LEVEL_IDS, getLevel } from '$lib/levels/registry';
+import { MAX_BOX } from '$lib/quiz/schedule';
+import { progress } from '$lib/storage/progress.svelte';
 import type { NoteEntry, NotesManifest } from '$lib/notes/types';
 
 /**
@@ -78,12 +80,16 @@ describe('模块与章节骨架', () => {
 		await expect.element(screen.getByText('大语言模型', { exact: true })).toBeInTheDocument();
 	});
 
-	it('模块计数显示篇数，有关卡时附带关卡数', () => {
+	it('模块计数依次给出篇数、题数、关卡数', () => {
+		const kv = getLevel('kv-cache');
+		const tok = getLevel('tokenizer');
 		const screen = render(LearningPath, { curriculum: buildCurriculum(FIXTURE) });
 		const metas = screen.getByTestId('module-meta').elements();
-		// 入门准备没有关卡；大语言模型挂着 kv-cache 和 tokenizer
+		// 入门准备没有关卡也没有 Tier A 题
 		expect(metas[0].textContent).toBe('2 篇');
-		expect(metas[1].textContent).toBe('2 篇 · 2 个关卡');
+		// 大语言模型挂着 kv-cache 与 tokenizer，题数是两关之和
+		const qs = (kv?.questions.length ?? 0) + (tok?.questions.length ?? 0);
+		expect(metas[1].textContent).toBe(`2 篇 · ${qs} 道题 · 2 个关卡`);
 	});
 
 	it('有真实章节的模块逐个列出章节名，只有根目录的模块不列', () => {
@@ -115,20 +121,24 @@ describe('模块与章节骨架', () => {
 		expect(screen.container.querySelectorAll('[data-testid="section-chips"]').length).toBe(0);
 	});
 
-	it('模块计数带上 Tier A 题数，让首页能看见可判定内容', () => {
+	it('Tier A 题计入模块题数，让首页能看见可判定内容', () => {
 		const screen = render(LearningPath, {
 			curriculum: buildCurriculum(FIXTURE),
-			gradableCounts: { '00-入门准备/01-AI技术全景与概念辨析': 3, '00-入门准备/02-学习路线': 2 }
+			noteQuestionIds: {
+				'00-入门准备/01-AI技术全景与概念辨析': ['note:a-1', 'note:a-2', 'note:a-3'],
+				'00-入门准备/02-学习路线': ['note:b-1', 'note:b-2']
+			}
 		});
-		expect(screen.getByTestId('module-meta').elements()[0].textContent).toBe('2 篇 · 5 道可判定题');
+		expect(screen.getByTestId('module-meta').elements()[0].textContent).toBe('2 篇 · 5 道题');
 	});
 
-	it('每个模块都有进入笔记库的链接', () => {
+	it('模块名是通往笔记库的链接（方案 A 去掉了重复五遍的那行链接）', () => {
 		const screen = render(LearningPath, { curriculum: buildCurriculum(FIXTURE) });
-		const links = screen.container.querySelectorAll('a.module-link');
+		const links = screen.container.querySelectorAll('a.mod-link');
 		expect(links.length).toBe(2);
 		for (const a of links) {
 			expect(a.getAttribute('href')).toMatch(/notes$/);
+			expect(a.textContent?.trim()).not.toBe('');
 		}
 	});
 });
@@ -173,14 +183,114 @@ describe('笔记缺失时的降级', () => {
 	});
 });
 
-describe('掌握度徽章', () => {
-	it('进度未载入时不渲染进度徽章，避免 hydration 前闪烁', () => {
+describe('进度可视化（方案 A 的核心）', () => {
+	it('进度未载入时不渲染进度条，避免 hydration 前闪烁', () => {
 		const screen = render(LearningPath, {
 			curriculum: buildCurriculum(FIXTURE),
 			progressReady: false
 		});
-		// 代码题数量徽章不依赖进度，仍会显示
-		const badges = [...screen.container.querySelectorAll('.badge')].map((b) => b.textContent);
-		expect(badges.every((t) => !/^\s*\d+ \/ \d+\s*$/.test(t ?? ''))).toBe(true);
+		expect(screen.container.querySelectorAll('[data-testid="module-bar"]').length).toBe(0);
+	});
+
+	it('进度条按已掌握 / 在学 / 需重练分段，宽度按题数占比', () => {
+		const ids = ['note:a-1', 'note:a-2', 'note:a-3', 'note:a-4'];
+		progress.records = {};
+		for (const [id, box] of [
+			[ids[0], MAX_BOX],
+			[ids[1], MAX_BOX],
+			[ids[2], 1]
+		] as const) {
+			progress.records[id] = { questionId: id, attempts: 1, correct: 1, lastAt: 0, box, dueAt: 0 };
+		}
+
+		const screen = render(LearningPath, {
+			curriculum: buildCurriculum(FIXTURE),
+			noteQuestionIds: { '00-入门准备/01-AI技术全景与概念辨析': ids },
+			progressReady: true
+		});
+
+		const bar = screen.getByTestId('module-bar').elements()[0];
+		const [done, learning] = bar.querySelectorAll('i');
+		// 4 道题：2 已掌握 = 50%，1 在学 = 25%
+		expect(done.getAttribute('style')).toContain('50%');
+		expect(learning.getAttribute('style')).toContain('25%');
+		expect(screen.getByTestId('module-legend').elements()[0].textContent).toBe(
+			'2 道已掌握 · 1 道在学 · 1 道未做'
+		);
+		progress.records = {};
+	});
+
+	it('图例只列非零的档，不显示「0 道需重练」这类噪声', () => {
+		progress.records = {};
+		const screen = render(LearningPath, {
+			curriculum: buildCurriculum(FIXTURE),
+			noteQuestionIds: { '00-入门准备/01-AI技术全景与概念辨析': ['note:z-1'] },
+			progressReady: true
+		});
+		expect(screen.getByTestId('module-legend').elements()[0].textContent).toBe('1 道未做');
+	});
+});
+
+describe('章节 chip 折叠', () => {
+	/** 造一个有 9 个章节的模块，超过 6 个的展示上限 */
+	const many: NotesManifest = {
+		generatedAt: '',
+		count: 9,
+		modules: [
+			{
+				id: '01-m',
+				label: '多章节模块',
+				notes: 9,
+				sections: Array.from({ length: 9 }, (_, i) => ({
+					dir: `0${i}-s${i}`,
+					section: `章节${i}`,
+					notes: [note(`01-m/0${i}-s${i}/01-x`, `X${i}`)]
+				}))
+			}
+		]
+	};
+
+	it('超过 6 个章节时折叠，按钮说明还有几个', async () => {
+		const screen = render(LearningPath, { curriculum: buildCurriculum(many) });
+		expect(screen.container.querySelectorAll('.chip-label').length).toBe(6);
+		await expect
+			.element(screen.getByRole('button', { name: '还有 3 个章节 ▾' }))
+			.toBeInTheDocument();
+	});
+
+	it('点开之后全部章节可见，按钮变成收起', async () => {
+		const screen = render(LearningPath, { curriculum: buildCurriculum(many) });
+		await screen.getByRole('button', { name: '还有 3 个章节 ▾' }).click();
+		expect(screen.container.querySelectorAll('.chip-label').length).toBe(9);
+		await expect.element(screen.getByRole('button', { name: '收起章节 ▴' })).toBeInTheDocument();
+	});
+
+	it('不超过 6 个章节时没有折叠按钮', () => {
+		const screen = render(LearningPath, { curriculum: buildCurriculum(FIXTURE) });
+		expect(screen.container.querySelectorAll('.chip-more').length).toBe(0);
+	});
+});
+
+describe('关卡行', () => {
+	it('进度未载入时显示题数，载入后换成进度环', () => {
+		const before = render(LearningPath, {
+			curriculum: buildCurriculum(FIXTURE),
+			progressReady: false
+		});
+		expect(before.container.querySelectorAll('.ring').length).toBe(0);
+		expect(before.container.querySelectorAll('.lv-q').length).toBeGreaterThan(0);
+
+		const after = render(LearningPath, {
+			curriculum: buildCurriculum(FIXTURE),
+			progressReady: true
+		});
+		expect(after.container.querySelectorAll('.ring').length).toBeGreaterThan(0);
+	});
+
+	it('副标题由数据拼出：指明读完哪一章之后用它验证', () => {
+		const screen = render(LearningPath, { curriculum: buildCurriculum(FIXTURE) });
+		const subs = [...screen.container.querySelectorAll('.lv-sub')].map((n) => n.textContent);
+		expect(subs.some((t) => t?.includes('读完「推理优化」之后用它验证'))).toBe(true);
+		expect(subs.some((t) => t?.includes('浏览器内 Python 题'))).toBe(true);
 	});
 });

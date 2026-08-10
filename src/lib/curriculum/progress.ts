@@ -100,6 +100,39 @@ export function noteProgress(
 	return { slug: note.slug, read, gradable, state: read ? 'read' : 'untouched' };
 }
 
+/**
+ * 一个模块里全部可判定题的 id，已去重。
+ *
+ * 去重是必须的：一个关卡可以是多篇笔记的配套（backprop 同时挂在
+ * 《反向传播推导》和《激活函数》下），题目按笔记累加会把总数放大一倍。
+ *
+ * 抽出来单独一个函数，是因为首页进度条要的是完整的 MasteryStats
+ * （已掌握 / 在学 / 需重练 / 未做四档），而 moduleProgress 只给总数与已掌握。
+ * 两处共用这一份 id 收集逻辑，避免去重规则漂移。
+ */
+export function moduleQuestionIds(
+	module: Curriculum['modules'][number],
+	noteQuestionIds: ProgressInputs['noteQuestionIds'] = {}
+): string[] {
+	const ids: string[] = [];
+	const countedLevels = new Set<string>();
+
+	for (const section of module.sections) {
+		for (const note of section.notes) {
+			ids.push(...(noteQuestionIds?.[note.slug] ?? []));
+
+			const levelId = levelForNote(note.slug);
+			const level = levelId ? getLevel(levelId) : undefined;
+			if (level && levelId && !countedLevels.has(levelId)) {
+				countedLevels.add(levelId);
+				ids.push(...level.questions.map((q) => q.id));
+			}
+		}
+	}
+
+	return ids;
+}
+
 export interface ModuleProgress {
 	moduleId: string;
 	noteCount: number;
@@ -109,8 +142,8 @@ export interface ModuleProgress {
 	gradableNotes: number;
 	/** 可判定内容已全部掌握的篇数 */
 	masteredNotes: number;
-	/** 题目层面的合计，用于「12 / 52 题已掌握」这类展示 */
-	questions: { total: number; mastered: number };
+	/** 题目层面的合计。四档齐全，首页的分段进度条直接用它 */
+	questions: MasteryStats;
 }
 
 /** 汇总一个模块的进度 */
@@ -124,11 +157,8 @@ export function moduleProgress(
 		readCount: 0,
 		gradableNotes: 0,
 		masteredNotes: 0,
-		questions: { total: 0, mastered: 0 }
+		questions: summarizeMastery(moduleQuestionIds(module, inputs.noteQuestionIds), inputs.schedule)
 	};
-
-	/** 同一关卡可能是多篇笔记的配套，关卡题只能计一次 */
-	const countedLevels = new Set<string>();
 
 	for (const section of module.sections) {
 		for (const note of section.notes) {
@@ -139,27 +169,6 @@ export function moduleProgress(
 
 			summary.gradableNotes += 1;
 			if (p.state === 'mastered') summary.masteredNotes += 1;
-
-			// 笔记自带的 Tier A 题是这一篇独有的，直接计入
-			const own = inputs.noteQuestionIds?.[note.slug] ?? [];
-			if (own.length > 0) {
-				const ownStats = summarizeMastery([...own], inputs.schedule);
-				summary.questions.total += ownStats.total;
-				summary.questions.mastered += ownStats.mastered;
-			}
-
-			// 关卡题按关卡去重，否则一关配两篇笔记会把题数放大一倍
-			const levelId = levelForNote(note.slug);
-			const level = levelId ? getLevel(levelId) : undefined;
-			if (level && levelId && !countedLevels.has(levelId)) {
-				countedLevels.add(levelId);
-				const levelStats = summarizeMastery(
-					level.questions.map((q) => q.id),
-					inputs.schedule
-				);
-				summary.questions.total += levelStats.total;
-				summary.questions.mastered += levelStats.mastered;
-			}
 		}
 	}
 

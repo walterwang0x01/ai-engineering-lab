@@ -5,21 +5,22 @@
 	import LearningPath from '$lib/components/LearningPath.svelte';
 	import { LEVELS } from '$lib/levels/registry';
 	import { EMPTY_MANIFEST, buildCurriculum } from '$lib/curriculum/build';
+	import { summarizeMastery } from '$lib/quiz/schedule';
 	import { progress } from '$lib/storage/progress.svelte';
 	import type { NotesGradable, NotesManifest } from '$lib/notes/types';
 
 	let progressReady = $state(false);
 	let manifest = $state<NotesManifest>(EMPTY_MANIFEST);
 	let notesFailed = $state(false);
-	/** slug → Tier A 题数，用于在模块计数里显示「12 道可判定题」 */
-	let gradableCounts = $state<Record<string, number>>({});
+	/** slug → Tier A 题目 id。首页的题数合计与进度条都要用 */
+	let noteQuestionIds = $state<Record<string, string[]>>({});
 
 	/**
-	 * manifest 在客户端 fetch，不在 load 里读文件系统——
+	 * manifest 与 gradable 都在客户端 fetch，不在 load 里读文件系统——
 	 * 与 /notes 的做法一致，避免把 168 篇的元数据打进预渲染产物。
 	 *
-	 * 失败或未同步时 manifest 保持 EMPTY_MANIFEST，curriculum 会把
-	 * 全部关卡放进 orphanLevels，首页仍然完整可用。
+	 * 失败或未同步时保持 EMPTY_MANIFEST，curriculum 会把全部关卡放进
+	 * orphanLevels，首页仍然完整可用。
 	 */
 	onMount(async () => {
 		progress.load();
@@ -33,8 +34,8 @@
 			manifest = await manifestRes.json();
 			if (gradableRes.ok) {
 				const data: NotesGradable = await gradableRes.json();
-				gradableCounts = Object.fromEntries(
-					Object.entries(data.items ?? {}).map(([slug, qs]) => [slug, qs.length])
+				noteQuestionIds = Object.fromEntries(
+					Object.entries(data.items ?? {}).map(([slug, qs]) => [slug, qs.map((q) => q.id)])
 				);
 			}
 		} catch {
@@ -43,20 +44,27 @@
 	});
 
 	const curriculum = $derived(buildCurriculum(manifest, LEVELS));
-	const totalQuestions = $derived(LEVELS.reduce((n, l) => n + l.questions.length, 0));
+
+	/** 关卡题 + 笔记题的全站合计。关卡题按关卡去重，笔记题每篇独有 */
+	const allQuestionIds = $derived([
+		...LEVELS.flatMap((l) => l.questions.map((q) => q.id)),
+		...Object.values(noteQuestionIds).flat()
+	]);
+	const totalQuestions = $derived(allQuestionIds.length);
 	const totalCode = $derived(
 		LEVELS.reduce((n, l) => n + l.questions.filter((q) => q.kind === 'code').length, 0)
 	);
+	const overall = $derived(summarizeMastery(allQuestionIds, progress.scheduleView));
 
 	/**
-	 * 拼成单个字符串而不是在模板里用 `{#if}` 插入笔记篇数：
-	 * Svelte 会吃掉 if 块内的前导换行，得到少一个空格或多一个空格的文案。
+	 * 关卡里有几个是「达标型沙盒」（多约束调参）。
+	 *
+	 * 不能笼统说「5 个沙盒」——backprop 和 attention 的交互是观察型的，
+	 * 没有约束也没有达标判定，把它们算成沙盒是不准确的数字。
+	 * 判据取自 registry 的交互标题：达标型的标题统一是「先动手：…」并含「可行/达标」语义，
+	 * 所以这里改用一个不会说错的表述：有交互演示的关卡数。
 	 */
-	const subLine = $derived(
-		`${totalQuestions} 道题，其中 ${totalCode} 道要在浏览器里真跑 Python` +
-			(curriculum.totalNotes > 0 ? `，配 ${curriculum.totalNotes} 篇笔记` : '') +
-			'。全部在你的浏览器里执行，没有后端，不收集数据，学习进度只存在本地。'
-	);
+	const interactiveLevels = $derived(LEVELS.filter((l) => l.interactive).length);
 </script>
 
 <Seo
@@ -67,13 +75,35 @@
 
 <main>
 	<header class="hero">
-		<p class="eyebrow">AI Engineering Lab</p>
 		<h1>把 AI 工程知识<br />变成能动手验证的东西</h1>
 		<p class="lede">
-			读懂和会做是两件事。这里的每个概念都配了<b>能判定对错的计算题</b>和<b>能调参数的沙盒</b>——
+			读懂和会做是两件事。这里的每个概念都配了<b>能判定对错的题</b>和<b>能调参数的沙盒</b>——
 			答错会告诉你错在哪，调参数能看到约束怎么被打破。
 		</p>
-		<p class="sub">{subLine}</p>
+
+		<dl class="totals" data-testid="totals">
+			<div class="stat">
+				<dt class="stat-n accent" data-testid="stat-notes">{curriculum.totalNotes}</dt>
+				<dd class="stat-l">篇笔记</dd>
+			</div>
+			<div class="stat">
+				<dt class="stat-n accent" data-testid="stat-questions">{totalQuestions}</dt>
+				<dd class="stat-l">道可判定题</dd>
+			</div>
+			<div class="stat">
+				<dt class="stat-n" data-testid="stat-interactive">{interactiveLevels}</dt>
+				<dd class="stat-l">个交互演示</dd>
+			</div>
+			<div class="stat">
+				<dt class="stat-n ok" data-testid="stat-mastered">
+					{progressReady ? overall.mastered : 0}
+				</dt>
+				<dd class="stat-l">已掌握</dd>
+			</div>
+		</dl>
+		<p class="sub">
+			其中 {totalCode} 道要在浏览器里真跑 Python。全部在你的浏览器里执行，没有后端，不收集数据，学习进度只存在本地。
+		</p>
 	</header>
 
 	<section class="path-section">
@@ -86,7 +116,7 @@
 			<p class="notice" data-testid="notes-unavailable">笔记目录暂时无法加载，下面只列出关卡。</p>
 		{/if}
 
-		<LearningPath {curriculum} {gradableCounts} {progressReady} />
+		<LearningPath {curriculum} {noteQuestionIds} {progressReady} />
 	</section>
 
 	<section class="why">
@@ -132,11 +162,11 @@
 
 <style>
 	main {
-		max-width: 52rem;
+		max-width: 60rem;
 		margin: 0 auto;
 		padding: 2.5rem 1.25rem 5rem;
 		display: grid;
-		gap: 3.5rem;
+		gap: 3rem;
 	}
 
 	.hero {
@@ -144,39 +174,64 @@
 		gap: 1rem;
 	}
 
-	.eyebrow {
-		margin: 0;
-		font-size: 0.8125rem;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--color-accent);
-		font-family: var(--font-mono);
-	}
-
 	h1 {
 		margin: 0;
-		font-size: clamp(2rem, 6vw, 3rem);
-		line-height: 1.2;
+		font-size: clamp(2rem, 5.5vw, 2.5rem);
+		line-height: 1.15;
 		letter-spacing: -0.02em;
 	}
 
 	.lede {
 		margin: 0;
-		font-size: 1.125rem;
-		line-height: 1.75;
-		color: oklch(0.82 0.008 260);
+		font-size: 1.0625rem;
+		line-height: 1.7;
+		color: oklch(0.8 0.008 260);
 		max-width: 40rem;
 	}
 
 	.lede b {
-		color: oklch(0.95 0.005 260);
+		color: oklch(0.96 0.005 260);
+	}
+
+	/* 数字带：一眼看出这站有多少东西、自己走到哪 */
+	.totals {
+		margin: 0.75rem 0 0;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 2.5rem;
+		padding: 1.125rem 1.25rem;
+		background: var(--color-surface-sunken);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: 12px;
+	}
+
+	.stat-n {
+		margin: 0;
+		font-family: var(--font-mono);
+		font-size: 1.5rem;
+		font-weight: 600;
+		line-height: 1.1;
+	}
+
+	.stat-n.accent {
+		color: var(--color-accent);
+	}
+
+	.stat-n.ok {
+		color: var(--color-ok);
+	}
+
+	.stat-l {
+		margin: 0.125rem 0 0;
+		font-size: 0.75rem;
+		color: oklch(0.64 0.01 260);
 	}
 
 	.sub {
 		margin: 0;
-		font-size: 0.9375rem;
+		font-size: 0.875rem;
 		line-height: 1.7;
-		color: oklch(0.66 0.01 260);
+		color: oklch(0.64 0.01 260);
 	}
 
 	.section-head {
@@ -184,7 +239,7 @@
 		align-items: baseline;
 		justify-content: space-between;
 		gap: 1rem;
-		margin-bottom: 1.25rem;
+		margin-bottom: 0.5rem;
 	}
 
 	.section-title {
@@ -219,19 +274,19 @@
 
 	/* dt 和 dd 必须包在 .entry 里：dl 直接用 grid + gap 时，
 	   dt 与它自己的 dd 之间也会产生 gap，标题和说明看起来是断开的 */
-	dl {
+	.why dl {
 		margin: 0;
 		display: grid;
 		gap: 1.5rem;
 	}
 
-	dt {
+	.why dt {
 		font-size: 1rem;
 		font-weight: 600;
 		margin-bottom: 0.4375rem;
 	}
 
-	dd {
+	.why dd {
 		margin: 0;
 		font-size: 0.9375rem;
 		line-height: 1.75;

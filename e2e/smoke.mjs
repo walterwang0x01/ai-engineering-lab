@@ -221,11 +221,22 @@ try {
 	check('刷新后连击归零（会话内设计）', (await page.locator('.stat-streak').count()) === 0);
 
 	// ---------- 跨页面共享进度 ----------
+	// 方案 A 用进度环 + 分段进度条取代了原来的 .badge 徽章，
+	// 所以这里改断言那两处：关卡行的 CTA 从「开始」变「继续」，模块图例出现在学/需重练。
 	await page.goto(BASE, { waitUntil: 'networkidle' });
-	await page.waitForSelector('.badge');
-	// 徽章按注册表顺序渲染，kv-cache 是第二张卡
-	const badges = await page.locator('a.card .badge').allInnerTexts();
-	check('首页读取到 kv-cache 的进度', badges.includes('2 / 12'), badges.join(' | '));
+	await page.waitForSelector('[data-testid="module-bar"]');
+	const ctas = await page.locator('a.lv .lv-go').allInnerTexts();
+	check(
+		'首页关卡行反映出已开始做题（开始 → 继续）',
+		ctas.some((t) => t.includes('继续')),
+		ctas.join(' | ')
+	);
+	const legends = await page.getByTestId('module-legend').allInnerTexts();
+	check(
+		'首页模块进度反映出 kv-cache 的作答',
+		legends.some((t) => t.includes('在学') && t.includes('需重练')),
+		legends.find((t) => t.includes('在学')) ?? legends.join(' | ')
+	);
 
 	// ---------- 代码题（放最后：会消耗进度，不能影响前面的持久化断言） ----------
 	// 只验证渲染与分派，不实际跑 Python：那要从 CDN 拉 10MB，
@@ -437,8 +448,28 @@ try {
 			pathModules === manifest.modules.length && pathModules > 1,
 			`${pathModules} 个模块 / manifest ${manifest.modules.length} 个`
 		);
-		const chipCount = await page.locator('[data-testid="section-chips"] li').count();
-		check('首页列出各模块的章节', chipCount > 20, `${chipCount} 个章节`);
+		// 章节默认折叠到每模块 6 个（24 个 chip 挤成灰块是改版前的问题之一），
+		// 所以这里断言的是折叠行为本身，而不是一个会随内容漂移的总数
+		const chipCount = await page.locator('.chip-label').count();
+		const moreButtons = await page.locator('.chip-more').count();
+		check(
+			'首页列出各模块的章节（默认折叠）',
+			chipCount > 0 && moreButtons > 0,
+			`${chipCount} 个 chip / ${moreButtons} 个折叠按钮`
+		);
+
+		await page.locator('.chip-more').first().click();
+		const expandedCount = await page.locator('.chip-label').count();
+		check(
+			'点开折叠按钮后章节全部展开',
+			expandedCount > chipCount,
+			`${chipCount} → ${expandedCount}`
+		);
+
+		// 进度可视化：分段条 + 图例
+		check('首页渲染模块进度条', (await page.locator('[data-testid="module-bar"]').count()) > 0);
+		const legend = await page.getByTestId('module-legend').first().innerText();
+		check('进度图例说明各档题数', /道(已掌握|在学|未做|需重练)/.test(legend), legend);
 
 		await page.goto(`${BASE}/notes`, { waitUntil: 'networkidle' });
 		await page.waitForSelector('a[href*="/notes/"]');
