@@ -13,6 +13,7 @@
 	 * 换题时调用方必须用 {#key question.id} 包裹，让组件整体重建。
 	 * 这比在组件内做 $effect 重置更不容易出状态残留。
 	 */
+	import { renderInline, renderProse } from '$lib/quiz/inline-markdown';
 	import { judge } from '$lib/quiz/judge';
 	import type { JudgeResult, SyncQuestion } from '$lib/quiz/types';
 
@@ -159,11 +160,13 @@
 		{/if}
 
 		{#if showHint}
-			<p class="hint">💡 {question.hint}</p>
+			<!-- eslint-disable-next-line svelte/no-at-html-tags -- renderInline 已转义 -->
+			<p class="hint">💡 {@html renderInline(question.hint ?? '')}</p>
 		{/if}
 
 		{#if distractorNote}
-			<p class="distractor">{distractorNote}</p>
+			<!-- eslint-disable-next-line svelte/no-at-html-tags -- renderInline 已转义 -->
+			<p class="distractor">{@html renderInline(distractorNote)}</p>
 		{/if}
 
 		{#if showExplanation}
@@ -173,8 +176,19 @@
 						正确答案：<b>{question.answer}{question.unit ?? ''}</b>
 					</p>
 				{/if}
-				{#each question.explanation.split('\n\n') as para (para)}
-					<p>{para}</p>
+				<!--
+					题库文案含 `**粗体**`、`` `代码` `` 和 ```` ``` ```` 围栏块（全站 91 处），
+					此前当纯文本渲染，屏幕上原样显示 `= **5**`——而每道题加粗的那行
+					恰好就是答案行。渲染器先转义再替换，顺序不可颠倒。
+				-->
+				{#each renderProse(question.explanation) as block, i (i)}
+					{#if block.kind === 'code'}
+						<!-- eslint-disable-next-line svelte/no-at-html-tags -- renderProse 已转义 -->
+						<pre class="prose-code"><code>{@html block.html}</code></pre>
+					{:else}
+						<!-- eslint-disable-next-line svelte/no-at-html-tags -- renderProse 已转义 -->
+						<p>{@html block.html}</p>
+					{/if}
 				{/each}
 			</div>
 		{/if}
@@ -389,6 +403,30 @@
 		background: var(--color-surface-sunken);
 		border-left: 2px solid var(--color-bad);
 		color: oklch(0.82 0.01 260);
+	}
+
+	/* explanation 里的参考解法代码块。不做语法高亮：关卡页不加载 highlight.js */
+	.prose-code {
+		margin: 0.75rem 0;
+		padding: 0.75rem 0.875rem;
+		background: var(--color-surface-sunken);
+		border-radius: 8px;
+		overflow-x: auto;
+		font-family: var(--font-mono);
+		font-size: 0.8125rem;
+		line-height: 1.6;
+	}
+
+	.explanation :global(code) {
+		font-family: var(--font-mono);
+		font-size: 0.875em;
+		padding: 0.0625rem 0.25rem;
+		border-radius: 4px;
+		background: var(--color-surface-sunken);
+	}
+
+	.explanation :global(strong) {
+		color: oklch(0.95 0.005 260);
 	}
 
 	.explanation {

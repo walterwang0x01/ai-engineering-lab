@@ -183,3 +183,46 @@ describe('QuizCard 交互契约', () => {
 		expect(live).not.toBeNull();
 	});
 });
+
+describe('题库文案的 Markdown 被渲染而不是原样显示', () => {
+	/**
+	 * 零上下文可用性复查抓到的严重度 3 缺陷：屏幕上显示 `= **5**`，
+	 * 而且每道题加粗的那一行恰好就是最终答案那一行。
+	 */
+	const q: NumericQuestion = {
+		kind: 'numeric',
+		id: 'demo-01-md',
+		prompt: '演示题',
+		answer: 5,
+		explanation: '推导：`∂L/∂out` = 2(out − y) = **5**\n\n```python\nreturn 2 * (out - y)\n```',
+		hint: '先看 **z1** 的符号'
+	};
+
+	it('答对后展开的推导里没有字面星号或反引号', async () => {
+		const screen = render(QuizCard, { question: q, onResolved: () => {}, onNext: () => {} });
+		await screen.getByRole('textbox').fill('5');
+		await screen.getByRole('button', { name: '提交' }).click();
+		const html = screen.container.querySelector('.explanation')?.innerHTML ?? '';
+		expect(html).not.toContain('**');
+		expect(html).toContain('<strong>5</strong>');
+		expect(html).toContain('<code>∂L/∂out</code>');
+	});
+
+	it('围栏代码块渲染成 pre 而不是段落里的字面反引号', async () => {
+		const screen = render(QuizCard, { question: q, onResolved: () => {}, onNext: () => {} });
+		await screen.getByRole('textbox').fill('5');
+		await screen.getByRole('button', { name: '提交' }).click();
+		const pre = screen.container.querySelector('.explanation .prose-code');
+		expect(pre?.textContent).toBe('return 2 * (out - y)');
+		expect(screen.container.querySelector('.explanation')?.textContent).not.toContain('```');
+	});
+
+	it('提示里的粗体同样被渲染', async () => {
+		const screen = render(QuizCard, { question: q, onResolved: () => {}, onNext: () => {} });
+		await screen.getByRole('textbox').fill('999');
+		await screen.getByRole('button', { name: '提交' }).click();
+		const hint = screen.container.querySelector('.hint');
+		expect(hint?.innerHTML).toContain('<strong>z1</strong>');
+		expect(hint?.textContent).not.toContain('**');
+	});
+});
