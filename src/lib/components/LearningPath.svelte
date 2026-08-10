@@ -17,11 +17,18 @@
 
 	interface Props {
 		curriculum: Curriculum;
+		/**
+		 * slug → 该篇的 Tier A 可判定题数。
+		 *
+		 * 不传就不显示。入门准备 4 篇有 12 道可判定题，
+		 * 而首页原先只显示「4 篇」——新功能在首页完全看不见。
+		 */
+		gradableCounts?: Readonly<Record<string, number>>;
 		/** 进度已从 localStorage 载入。false 时不渲染掌握度徽章，避免 hydration 前闪烁 */
 		progressReady?: boolean;
 	}
 
-	let { curriculum, progressReady = false }: Props = $props();
+	let { curriculum, gradableCounts = {}, progressReady = false }: Props = $props();
 
 	/** 关卡卡片要用的派生数据。徽章逻辑与旧首页一致，不改判定口径 */
 	function cardData(level: LevelDefinition) {
@@ -47,9 +54,13 @@
 	 * 而且断言要跟着模板缩进走，非常脆。
 	 */
 	function moduleMeta(mod: CurriculumModule): string {
-		return mod.levelCount > 0
-			? `${mod.noteCount} 篇 · ${mod.levelCount} 个关卡`
-			: `${mod.noteCount} 篇`;
+		const parts = [`${mod.noteCount} 篇`];
+		if (mod.levelCount > 0) parts.push(`${mod.levelCount} 个关卡`);
+		const gradable = mod.sections
+			.flatMap((s) => s.notes)
+			.reduce((n, note) => n + (gradableCounts[note.slug] ?? 0), 0);
+		if (gradable > 0) parts.push(`${gradable} 道可判定题`);
+		return parts.join(' · ');
 	}
 </script>
 
@@ -86,20 +97,25 @@
 				<span class="module-meta" data-testid="module-meta">{moduleMeta(mod)}</span>
 			</header>
 
-			<ul class="chips" data-testid="section-chips">
-				{#each mod.sections as sec (sec.section || mod.id)}
-					<li class="chip">
-						<span class="chip-label">{sectionLabel(sec.section)}</span>
-						<span class="chip-n">{sec.notes.length}</span>
-					</li>
-				{/each}
-			</ul>
-
+			<!--
+				只有一个「模块根目录」章节时不渲染 chips：那会显示成
+				「入门准备 4 篇 / 概览 4」，把同一个数字说两遍，没有信息量。
+			-->
+			{#if !(mod.sections.length === 1 && mod.sections[0].dir === '')}
+				<ul class="chips" data-testid="section-chips">
+					{#each mod.sections as sec (sec.dir)}
+						<li class="chip">
+							<span class="chip-label">{sectionLabel(sec.section)}</span>
+							<span class="chip-n">{sec.notes.length}</span>
+						</li>
+					{/each}
+				</ul>
+			{/if}
 			<a class="module-link" href={resolve('/notes')}>
 				查看这 {mod.noteCount} 篇笔记 →
 			</a>
 
-			{#each mod.sections as sec (sec.section || mod.id)}
+			{#each mod.sections as sec (sec.dir)}
 				{#each sec.levels as level (level.id)}
 					<div class="level-slot">
 						<p class="level-anchor">

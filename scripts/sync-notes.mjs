@@ -267,6 +267,10 @@ function main() {
 			title,
 			module: moduleId,
 			moduleLabel: moduleLabel(moduleId),
+			// 排序键与展示名必须分开保留：目录的数字前缀就是作者定的学习顺序，
+			// prettify 之后再排序会把那个顺序丢掉（曾经导致「数学基础」排到第 5 位、
+			// 「Transformer 原理」排到大模型模块最后）
+			sectionDir: section,
 			section: section ? prettify(section) : '',
 			wordCount,
 			minutes: estimateMinutes(f.content, wordCount),
@@ -321,7 +325,8 @@ function main() {
 			moduleMap.set(e.module, { id: e.module, label: e.moduleLabel, sections: new Map() });
 		}
 		const mod = moduleMap.get(e.module);
-		const sectionKey = e.section || '';
+		// 用原始目录名做 key：既是排序依据，也避免两个章节 prettify 后同名而被合并
+		const sectionKey = e.sectionDir || '';
 		if (!mod.sections.has(sectionKey)) mod.sections.set(sectionKey, []);
 		mod.sections.get(sectionKey).push({
 			slug: e.slug,
@@ -341,9 +346,11 @@ function main() {
 			id: mod.id,
 			label: mod.label,
 			notes: [...mod.sections.values()].reduce((n, arr) => n + arr.length, 0),
+			// 按原始目录名排序 —— 数字前缀即学习顺序。
+			// 模块根目录下的笔记（key 为空串）自然排在最前，这也正是想要的。
 			sections: [...mod.sections.entries()]
 				.sort(([a], [b]) => a.localeCompare(b, 'zh-CN'))
-				.map(([section, notes]) => ({ section, notes }))
+				.map(([dir, notes]) => ({ dir, section: dir ? prettify(dir) : '', notes }))
 		}));
 
 	ensureDir(OUT_DIR);

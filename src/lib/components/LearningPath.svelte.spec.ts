@@ -41,6 +41,7 @@ const FIXTURE: NotesManifest = {
 			notes: 2,
 			sections: [
 				{
+					dir: '',
 					section: '',
 					notes: [
 						note('00-入门准备/01-AI技术全景与概念辨析', 'AI 技术全景'),
@@ -55,10 +56,12 @@ const FIXTURE: NotesManifest = {
 			notes: 2,
 			sections: [
 				{
+					dir: '05-推理优化',
 					section: '推理优化',
 					notes: [note('02-llm/05-推理优化/01-KV-Cache与显存分析', 'KV Cache 与显存分析')]
 				},
 				{
+					dir: '02-分词与表示',
 					section: '分词与表示',
 					notes: [note('02-llm/02-分词与表示/01-分词算法', '分词算法')]
 				}
@@ -83,13 +86,41 @@ describe('模块与章节骨架', () => {
 		expect(metas[1].textContent).toBe('2 篇 · 2 个关卡');
 	});
 
-	it('章节名逐个列出，模块根目录下的笔记显示为「概览」', () => {
+	it('有真实章节的模块逐个列出章节名，只有根目录的模块不列', () => {
 		const screen = render(LearningPath, { curriculum: buildCurriculum(FIXTURE) });
 		const chipLists = screen.getByTestId('section-chips').elements();
-		const labels = (el: Element) =>
-			[...el.querySelectorAll('.chip-label')].map((n) => n.textContent);
-		expect(labels(chipLists[0])).toEqual(['概览']);
-		expect(labels(chipLists[1])).toEqual(['推理优化', '分词与表示']);
+		// 入门准备只有根目录一个章节 → 不渲染 chips，所以只剩大语言模型这一组
+		expect(chipLists.length).toBe(1);
+		expect([...chipLists[0].querySelectorAll('.chip-label')].map((n) => n.textContent)).toEqual([
+			'推理优化',
+			'分词与表示'
+		]);
+	});
+
+	it('只有「模块根目录」一个章节时不渲染 chips（避免把同一个数字说两遍）', () => {
+		const single: NotesManifest = {
+			generatedAt: '',
+			count: 1,
+			modules: [
+				{
+					id: '00-入门准备',
+					label: '入门准备',
+					notes: 1,
+					sections: [{ dir: '', section: '', notes: [note('00-入门准备/01-x', 'X')] }]
+				}
+			]
+		};
+		const screen = render(LearningPath, { curriculum: buildCurriculum(single) });
+		expect(screen.getByTestId('path-module').elements().length).toBe(1);
+		expect(screen.container.querySelectorAll('[data-testid="section-chips"]').length).toBe(0);
+	});
+
+	it('模块计数带上 Tier A 题数，让首页能看见可判定内容', () => {
+		const screen = render(LearningPath, {
+			curriculum: buildCurriculum(FIXTURE),
+			gradableCounts: { '00-入门准备/01-AI技术全景与概念辨析': 3, '00-入门准备/02-学习路线': 2 }
+		});
+		expect(screen.getByTestId('module-meta').elements()[0].textContent).toBe('2 篇 · 5 道可判定题');
 	});
 
 	it('每个模块都有进入笔记库的链接', () => {
