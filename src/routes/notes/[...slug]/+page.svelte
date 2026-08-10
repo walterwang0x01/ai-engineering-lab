@@ -297,6 +297,9 @@
 	}
 
 	.crumbs a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
 		color: var(--color-accent);
 		text-decoration: none;
 	}
@@ -631,6 +634,9 @@
 	}
 
 	.neighbours a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
 		color: var(--color-accent);
 		text-decoration: none;
 		max-width: 18rem;

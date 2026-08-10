@@ -391,6 +391,9 @@
 	}
 
 	.page-foot a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
 		color: var(--color-accent);
 		text-decoration: none;
 	}
