@@ -163,7 +163,7 @@
 				「入门准备 4 篇 / 概览 4」，把同一个数字说两遍，没有信息量。
 			-->
 			{#if !(mod.sections.length === 1 && mod.sections[0].dir === '')}
-				<ul class="chips" data-testid="section-chips">
+				<ul class="chips" id={`chips-${mod.id}`} data-testid="section-chips">
 					{#each visibleSections as sec (sec.dir)}
 						<li class="chip">
 							<span class="chip-label">{sectionLabel(sec.section)}</span>
@@ -172,7 +172,13 @@
 					{/each}
 					{#if hidden > 0 || open}
 						<li>
-							<button class="chip chip-more" type="button" onclick={() => toggle(mod.id)}>
+							<button
+								class="chip chip-more"
+								type="button"
+								aria-expanded={open}
+								aria-controls={`chips-${mod.id}`}
+								onclick={() => toggle(mod.id)}
+							>
 								{open ? '收起章节 ▴' : `还有 ${hidden} 个章节 ▾`}
 							</button>
 						</li>
@@ -227,11 +233,12 @@
 		align-items: baseline;
 	}
 
+	/* 序号原来是 oklch(0.42 …)，对比度只有 2.29:1，22px 粗体需要 ≥3.0（WCAG AA 大字） */
 	.mod-num {
 		font-family: var(--font-mono);
 		font-size: 1.375rem;
 		font-weight: 600;
-		color: oklch(0.42 0.02 260);
+		color: oklch(0.56 0.02 260);
 	}
 
 	.mod-name {
@@ -322,10 +329,11 @@
 		color: oklch(0.74 0.01 260);
 	}
 
+	/* 11px 小字需要 ≥4.5:1，原来的 oklch(0.56 …) 只有 4.2:1 */
 	.chip-n {
 		font-family: var(--font-mono);
 		font-size: 0.6875rem;
-		color: oklch(0.56 0.01 260);
+		color: oklch(0.62 0.01 260);
 	}
 
 	.chip-more {
@@ -430,6 +438,14 @@
 	}
 
 	@media (max-width: 34rem) {
+		/* 触摸目标至少 44×44（WCAG 2.5.5）。桌面上鼠标精度够，不需要加高 */
+		.mod-link,
+		.chip-more {
+			display: inline-flex;
+			align-items: center;
+			min-height: 44px;
+		}
+
 		.mod-top {
 			grid-template-columns: 2rem 1fr;
 		}

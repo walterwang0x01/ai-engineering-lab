@@ -75,9 +75,72 @@ export function detectFeatures(markdown: string): { hasMath: boolean; hasMermaid
  * 占位符在渲染后被替换回真实内容，公式/图表的实际渲染在调用方按需触发
  * （renderMath / renderMermaid），这里只负责把内容原样保留到 DOM 里。
  */
-export function renderMarkdown(markdown: string): RenderResult {
+export interface RenderOptions {
+	/**
+	 * 当前笔记的 slug，用于把正文里的相对 `.md` 链接解析成站内路由。
+	 *
+	 * 不传则跳过链接改写（单元测试和纯渲染场景用）。
+	 */
+	slug?: string;
+	/** manifest 里存在的全部 slug。用来判断一条内部链接是否真的指向已同步的篇目 */
+	knownSlugs?: ReadonlySet<string>;
+	/** 站点 base 路径，子路径部署时需要。默认空串 */
+	base?: string;
+}
+
+/**
+ * 把正文里的相对 `.md` 链接解析成本站路由。
+ *
+ * 为什么必须做：笔记之间大量互相引用（`../02-llm/05-推理优化/01-KV-Cache与显存分析.md`），
+ * 这些路径在源仓库里成立，在网站上不成立。改成 SSR 预渲染之后，SvelteKit 的
+ * 爬虫会跟着这些链接走并因 404 让构建失败——那其实是在报告一个真实缺陷：
+ * 之前客户端渲染时它们同样是死链，只是没人发现。
+ *
+ * **所有相对链接**都走这条规则，不只是 .md：源仓库里还有指向目录的链接
+ * （`../02-经典算法/`）和示例代码里的占位符（`[x](URL)`），它们在站内都没有对应页面。
+ * 解析后在 manifest 里查不到的一律返回 null，调用方渲染成不可点的文本，
+ * 而不是留一个会 404 的链接。
+ */
+function resolveNoteLink(
+	href: string,
+	slug: string,
+	knownSlugs: ReadonlySet<string>,
+	base: string
+): string | null {
+	// 外链、协议链接、纯锚点原样保留
+	if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith('//') || href.startsWith('#')) {
+		return href;
+	}
+
+	const [rawPath, hash = ''] = href.split('#');
+	if (rawPath === '') return href;
+
+	const fromDir = slug.split('/').slice(0, -1);
+	const raw = decodeURIComponent(rawPath);
+	const segments = raw.startsWith('/')
+		? raw.replace(/^\//, '').split('/')
+		: [...fromDir, ...raw.split('/')];
+
+	/** 逐段消解 . 与 ..。不能用 node:path，这个文件要在浏览器里跑 */
+	const stack: string[] = [];
+	for (const seg of segments) {
+		if (seg === '' || seg === '.') continue;
+		if (seg === '..') stack.pop();
+		else stack.push(seg);
+	}
+
+	// 去掉 .md 后缀再查：源仓库里写的是文件路径，站内是路由
+	const target = stack.join('/').replace(/\.md$/i, '');
+	if (!knownSlugs.has(target)) return null;
+
+	const encoded = target.split('/').map(encodeURIComponent).join('/');
+	return `${base}/notes/${encoded}${hash ? `#${hash}` : ''}`;
+}
+
+export function renderMarkdown(markdown: string, options: RenderOptions = {}): RenderResult {
 	const toc: TocEntry[] = [];
 	const seen = new Map<string, number>();
+	const { slug, knownSlugs, base = '' } = options;
 
 	const marked = new Marked({
 		gfm: true,
@@ -95,6 +158,24 @@ export function renderMarkdown(markdown: string): RenderResult {
 					return `<h${depth} id="${id}">${text}</h${depth}>\n`;
 				}
 				return `<h${depth}>${text}</h${depth}>\n`;
+			},
+			link({ href, title, tokens }) {
+				const text = this.parser.parseInline(tokens);
+				const titleAttr = title ? ` title="${escapeHtml(title)}"` : '';
+
+				// 没有 slug 上下文时不改写，保持纯渲染行为
+				if (!slug || !knownSlugs) {
+					return `<a href="${escapeHtml(href)}"${titleAttr}>${text}</a>`;
+				}
+
+				const resolved = resolveNoteLink(href, slug, knownSlugs, base);
+				if (resolved === null) {
+					// 指向未同步篇目：渲染成不可点的文本，不留 404 链接
+					return `<span class="link-unavailable" title="这篇笔记未收录在本站">${text}</span>`;
+				}
+				const external = /^https?:\/\//i.test(resolved);
+				const rel = external ? ' rel="noreferrer"' : '';
+				return `<a href="${escapeHtml(resolved)}"${titleAttr}${rel}>${text}</a>`;
 			},
 			code({ text, lang }) {
 				if (lang === 'mermaid') {

@@ -27,7 +27,7 @@
 	.site-nav {
 		max-width: 60rem;
 		margin: 0 auto;
-		padding: 1rem 1.25rem;
+		padding: 0.25rem 1.25rem;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -54,6 +54,11 @@
 		font-size: 0.875rem;
 		color: oklch(0.74 0.01 260);
 		text-decoration: none;
+		/* 触摸目标至少 44px 高（WCAG 2.5.5）。用 padding 撑开而不是改字号 */
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+		padding: 0 0.375rem;
 	}
 
 	.nav-links a:hover {
