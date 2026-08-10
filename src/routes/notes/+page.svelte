@@ -75,6 +75,25 @@
 		).state;
 	}
 
+	/**
+	 * 哪些模块处于展开状态。默认只展开第一个。
+	 *
+	 * 改版前 168 篇全平铺，页面 12.3 屏，首屏只看到 9 篇，
+	 * 要找某一篇只能 Cmd+F 或肉眼滚 —— 这是新用户复查里的严重度 3 问题。
+	 */
+	let open = $state<Record<string, boolean>>({});
+	const isOpen = (id: string, i: number) => open[id] ?? i === 0;
+	function toggleModule(id: string, i: number) {
+		open[id] = !isOpen(id, i);
+	}
+
+	/** 该模块有多少篇带 Tier A 可判定题。列表页此前完全没有这个信号 */
+	function gradableInModule(mod: NotesManifest['modules'][number]): number {
+		return mod.sections
+			.flatMap((sec) => sec.notes)
+			.filter((n) => (noteQuestionIds[n.slug]?.length ?? 0) > 0).length;
+	}
+
 	const BADGE: Record<string, { text: string; cls: string } | null> = {
 		mastered: { text: '已掌握', cls: 'badge-mastered' },
 		'in-progress': { text: '在学', cls: 'badge-learning' },
@@ -99,6 +118,7 @@
 				共 {manifest.count} 篇，已读 {totalRead} 篇。
 			{/if}
 		</p>
+		<p class="sub">阅读与答题进度只存在这台设备的浏览器里，换设备或清缓存会重新开始。</p>
 	</header>
 
 	{#if !ready}
@@ -109,43 +129,68 @@
 		<p class="placeholder" data-testid="notes-empty">笔记数据尚未同步。</p>
 	{:else}
 		<div class="modules" data-testid="notes-modules">
-			{#each manifest.modules as mod (mod.id)}
+			{#each manifest.modules as mod, i (mod.id)}
+				{@const shown = isOpen(mod.id, i)}
+				{@const gradableNotes = gradableInModule(mod)}
 				<section class="module">
-					<h2>{mod.label}<span class="count">{mod.notes} 篇</span></h2>
-					{#each mod.sections as sec (sec.section || mod.id)}
-						<div class="section">
-							{#if sec.section}
-								<h3>{sec.section}</h3>
+					<!-- 模块标题即折叠开关。aria-expanded 让屏幕阅读器听得出展开状态 -->
+					<h2>
+						<button
+							class="mod-toggle"
+							type="button"
+							aria-expanded={shown}
+							aria-controls={`mod-${mod.id}`}
+							onclick={() => toggleModule(mod.id, i)}
+						>
+							<span class="mod-caret" aria-hidden="true">{shown ? '▾' : '▸'}</span>
+							<span class="mod-label">{mod.label}</span>
+							<span class="count">{mod.notes} 篇</span>
+							{#if gradableNotes > 0}
+								<span class="count-gradable">{gradableNotes} 篇有可判定题</span>
 							{/if}
-							<ul class="note-list">
-								{#each sec.notes as note (note.slug)}
-									<li>
-										<a
-											class="note-link"
-											class:is-read={notesProgress.isRead(note.slug)}
-											href={resolve('/notes/[...slug]', { slug: note.slug })}
-											data-testid="note-link"
-										>
-											<span class="note-title">{note.title}</span>
-											<span class="note-meta">
-												{#if ready}
-													{@const badge = BADGE[stateOf(note.slug)]}
-													{#if badge}
-														<span class={badge.cls} data-testid="note-state">{badge.text}</span>
+						</button>
+					</h2>
+					<div id={`mod-${mod.id}`} class="mod-body" hidden={!shown}>
+						{#each mod.sections as sec (sec.dir)}
+							<div class="section">
+								{#if sec.section}
+									<h3>{sec.section}</h3>
+								{/if}
+								<ul class="note-list">
+									{#each sec.notes as note (note.slug)}
+										<li>
+											<a
+												class="note-link"
+												class:is-read={notesProgress.isRead(note.slug)}
+												href={resolve('/notes/[...slug]', { slug: note.slug })}
+												data-testid="note-link"
+											>
+												<span class="note-title">{note.title}</span>
+												<span class="note-meta">
+													{#if ready}
+														{@const badge = BADGE[stateOf(note.slug)]}
+														{#if badge}
+															<span class={badge.cls} data-testid="note-state">{badge.text}</span>
+														{/if}
 													{/if}
-												{/if}
-												{#if levelForNote(note.slug)}
-													<span class="badge-level" data-testid="note-has-level">关卡</span>
-												{/if}
-												<span>{note.minutes} 分钟</span>
-												{#if note.hasQuiz}<span>· 自测题</span>{/if}
-											</span>
-										</a>
-									</li>
-								{/each}
-							</ul>
-						</div>
-					{/each}
+													{#if (noteQuestionIds[note.slug]?.length ?? 0) > 0}
+														<span class="badge-gradable" data-testid="note-has-gradable">
+															{noteQuestionIds[note.slug].length} 道可判定题
+														</span>
+													{/if}
+													{#if levelForNote(note.slug)}
+														<span class="badge-level" data-testid="note-has-level">关卡</span>
+													{/if}
+													<span>{note.minutes} 分钟</span>
+													{#if note.hasQuiz}<span>· 自测题</span>{/if}
+												</span>
+											</a>
+										</li>
+									{/each}
+								</ul>
+							</div>
+						{/each}
+					</div>
 				</section>
 			{/each}
 		</div>
@@ -203,11 +248,53 @@
 	}
 
 	.module h2 {
-		margin: 0 0 1rem;
+		margin: 0 0 0.75rem;
 		font-size: 1.25rem;
+	}
+
+	/* 模块标题即折叠开关。做成 button 以获得原生键盘与语义支持 */
+	.mod-toggle {
+		font: inherit;
+		width: 100%;
 		display: flex;
 		align-items: baseline;
 		gap: 0.625rem;
+		padding: 0.5rem 0;
+		background: none;
+		border: 0;
+		color: inherit;
+		cursor: pointer;
+		text-align: left;
+	}
+
+	.mod-toggle:hover .mod-label {
+		color: var(--color-accent);
+	}
+
+	.mod-caret {
+		font-family: var(--font-mono);
+		font-size: 0.875rem;
+		color: oklch(0.6 0.01 260);
+	}
+
+	.mod-label {
+		font-size: 1.25rem;
+		font-weight: 600;
+	}
+
+	.count-gradable {
+		font-size: 0.75rem;
+		font-family: var(--font-mono);
+		color: var(--color-ok);
+	}
+
+	.mod-body[hidden] {
+		display: none;
+	}
+
+	.badge-gradable {
+		color: var(--color-ok);
+		white-space: nowrap;
 	}
 
 	.count {
@@ -261,6 +348,13 @@
 
 	.note-title {
 		font-size: 0.9375rem;
+	}
+
+	.sub {
+		margin: 0.375rem 0 0;
+		font-size: 0.8125rem;
+		line-height: 1.7;
+		color: oklch(0.64 0.01 260);
 	}
 
 	.note-meta {

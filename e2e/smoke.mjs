@@ -472,12 +472,34 @@ try {
 		check('进度图例说明各档题数', /道(已掌握|在学|未做|需重练)/.test(legend), legend);
 
 		await page.goto(`${BASE}/notes`, { waitUntil: 'networkidle' });
-		await page.waitForSelector('a[href*="/notes/"]');
-		const noteLinks = await page.locator('a[href*="/notes/"]').count();
-		check('学习路径页列出笔记', noteLinks > 100, `${noteLinks} 个链接`);
+		await page.waitForSelector('a.note-link');
+		// 列表页默认只展开第一个模块（168 篇全平铺是 12.3 屏，新用户复查里的严重度 3）
+		const shownFirst = await page.locator('a.note-link:visible').count();
+		const toggles = await page.locator('.mod-toggle').count();
+		check(
+			'笔记库按模块折叠',
+			shownFirst > 0 && toggles === 5,
+			`首屏 ${shownFirst} 篇 / ${toggles} 个模块开关`
+		);
+		const collapsed = await page.locator('.mod-toggle[aria-expanded="false"]').count();
+		check(
+			'折叠状态通过 aria-expanded 暴露给辅助技术',
+			collapsed === toggles - 1,
+			`${collapsed} 个收起`
+		);
+
+		await page.locator('.mod-toggle[aria-expanded="false"]').first().click();
+		const afterExpand = await page.locator('a.note-link:visible').count();
+		check('展开模块后出现更多篇目', afterExpand > shownFirst, `${shownFirst} → ${afterExpand}`);
+
+		// 有 Tier A 题的篇目必须在列表上可发现（复查严重度 3：此前完全没有标记）
+		check(
+			'列表标出哪些篇目有可判定题',
+			(await page.locator('[data-testid="note-has-gradable"]').count()) > 0
+		);
 
 		// 点进第一篇，验证客户端渲染真的产出正文
-		const firstNote = page.locator('a[href*="/notes/"]').first();
+		const firstNote = page.locator('a.note-link').first();
 		const noteHref = await firstNote.getAttribute('href');
 		await firstNote.click();
 		await page.waitForSelector('[data-testid="note-body"] p', { timeout: 20_000 });
@@ -485,11 +507,33 @@ try {
 		check('阅读页渲染出正文段落', paragraphs > 3, `${paragraphs} 个段落`);
 		check('阅读页渲染出标题', (await page.locator('[data-testid="note-body"] h1').count()) === 1);
 
-		// 直接访问深层 URL：验证 adapter 的 fallback 生效
+		// 深层 URL 现在是真实预渲染页面：状态码 200、正文在 HTML 里、可被索引。
+		// 改成 SSR 之前它走 404.html fallback —— 浏览器里看着正常，HTTP 状态却是 404，
+		// 分享出去和被爬虫抓到都算失效链接。
+		const deepRes = await fetch(`${BASE}${noteHref}`);
+		const deepHtml = await deepRes.text();
+		check(
+			'深层笔记 URL 返回 200（不再靠 fallback）',
+			deepRes.status === 200,
+			`HTTP ${deepRes.status}`
+		);
+		check(
+			'正文在服务端渲染的 HTML 里（可被搜索引擎抓取）',
+			(deepHtml.match(/<p>/g) ?? []).length > 3,
+			`${(deepHtml.match(/<p>/g) ?? []).length} 个段落`
+		);
+		check('阅读页不再带 noindex', !deepHtml.includes('noindex'));
+		check('阅读页有 canonical', /<link rel="canonical"/.test(deepHtml));
+		check(
+			'正文里的相对 .md 链接已改写成站内路由',
+			!/href="[^"]*\.md"/.test(deepHtml.replace(/href="https?:[^"]*"/g, '')),
+			'无残留 .md 内链'
+		);
+
 		await page.goto(`${BASE}${noteHref}`, { waitUntil: 'networkidle' });
 		await page.waitForSelector('[data-testid="note-body"] p', { timeout: 20_000 });
 		check(
-			'直接访问深层笔记 URL 可渲染（fallback 生效）',
+			'直接访问深层笔记 URL 可渲染',
 			(await page.locator('[data-testid="note-body"] p').count()) > 3
 		);
 
@@ -514,6 +558,14 @@ try {
 		// 不硬编码 slug：从列表里找带「关卡」徽章的篇目，走完整闭环。
 		// 这样改映射表不会让测试失效，而互链断掉一定会被抓到。
 		await page.goto(`${BASE}/notes`, { waitUntil: 'networkidle' });
+		await page.waitForSelector('a.note-link');
+		// 模块默认折叠，带关卡标记的篇目在收起的模块里。先全部展开再断言。
+		// 必须每次重新取第一个：点击会改变 aria-expanded，.all() 的快照会立刻失效
+		for (let i = 0; i < 10; i++) {
+			const collapsedToggle = page.locator('.mod-toggle[aria-expanded="false"]').first();
+			if ((await collapsedToggle.count()) === 0) break;
+			await collapsedToggle.click();
+		}
 		await page.waitForSelector('[data-testid="note-has-level"]');
 		const linkedCount = await page.locator('[data-testid="note-has-level"]').count();
 		check('笔记列表标出哪些篇目有配套关卡', linkedCount > 0, `${linkedCount} 篇`);
