@@ -4,9 +4,24 @@
 /**
  * 设计系统。
  *
- * 定位是「知识体检 / 工程决策沙盒」，不是打卡游戏。
- * 受众是资深工程师，所以配色克制、低饱和、深色为主，
- * 参考 Linear / Vercel 的专业感，刻意避开鲜艳的游戏化配色。
+ * 定位是「知识体检 / 工程决策沙盒」，不是打卡游戏。受众是资深工程师，
+ * 所以配色克制、低饱和，参考 Linear / Vercel 的专业感，刻意避开鲜艳的游戏化配色。
+ *
+ * ## 两套主题，一套 token
+ *
+ * `@theme` 里是**浅色**（默认，也是无偏好访客拿到的那套），深色在文件末尾的
+ * `prefers-color-scheme: dark` 里逐项覆盖。组件只引用 token，不知道当前是哪套，
+ * 所以加一套主题不需要改任何组件。
+ *
+ * 浅色作默认而不是深色：深色对长时间读技术长文偏暗，而 168 篇笔记是本站的主体内容。
+ *
+ * ## 改这个文件之前先知道两件事
+ *
+ * 1. **`src/lib/design/palette.spec.ts` 会校验这里的每一个取值**：两套主题各自
+ *    对比度达标、相邻灰阶可分辨、深色必须覆盖全部与主题相关的 token。
+ *    改坏了是测试失败，不是上线后才发现。
+ * 2. **不要在组件里写颜色字面量**。同一份门禁会拦。收敛前那 113 处字面量的代价，
+ *    是三处小字对比度不达标躺了很久没人发现——因为没有任何一个地方能一眼看全所有取值。
  */
 @theme {
 	/* 中文字体栈：优先系统中文字体，避免宋体渲染 */
@@ -15,51 +30,69 @@
 		'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 	--font-mono: 'SF Mono', 'JetBrains Mono', Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
 
-	/* 语义色：只定义三种状态，不做花哨的色阶 */
-	--color-surface: oklch(0.16 0.012 260);
-	--color-surface-raised: oklch(0.21 0.014 260);
-	--color-surface-sunken: oklch(0.13 0.01 260);
-	--color-border-subtle: oklch(0.29 0.015 260);
-	--color-accent: oklch(0.72 0.14 200);
-	--color-accent-dim: oklch(0.45 0.09 200);
-	--color-ok: oklch(0.72 0.16 155);
-	--color-bad: oklch(0.66 0.19 22);
-	--color-warn: oklch(0.78 0.15 75);
+	/*
+	 * ── 面层 ─────────────────────────────────────────────
+	 * 浅色下 raised 比 surface 更亮（卡片纯白浮在灰白页面上），
+	 * 深色下同样是 raised 更亮。两套主题里「raised 更靠近观察者」这个语义一致。
+	 */
+	--color-surface: oklch(0.988 0.003 264);
+	--color-surface-raised: oklch(1 0 0);
+	--color-surface-sunken: oklch(0.955 0.006 264);
+	/** 嵌套在卡片内部的下沉面 */
+	--color-surface-inset: oklch(0.972 0.005 264);
+	/** 浮在卡片之上的层，如 hover 态 */
+	--color-surface-overlay: oklch(0.94 0.01 264);
+	/** 代码块底色，略偏蓝以与普通下沉面区分 */
+	--color-surface-code: oklch(0.965 0.014 250);
 
 	/*
-	 * 文字层级。
+	 * 分隔线。
 	 *
-	 * 收敛前：113 处 oklch(...) 字面量散在 17 个文件里，其中 L=0.55–0.84 之间
-	 * 挤着 8 个几乎无法分辨的灰（0.60/0.62/0.64/0.66/0.68/0.70/0.72/0.74）——
-	 * 历次「凭感觉挑个灰」的产物。组件引用 token 而不是字面量之后，
-	 * 换主题（比如深色转浅色）才可能是改这一个文件。
+	 * 刻意不要求 3:1：它只用于卡片轮廓和导航底边这类**装饰性**分隔，
+	 * 而那些容器本身已有底色差异可辨。WCAG 1.4.11 的 3:1 针对的是
+	 * 「边框是控件边界的唯一视觉指示」的情形——那种场合请用 --color-accent-dim。
+	 */
+	--color-border-subtle: oklch(0.835 0.008 264);
+
+	/*
+	 * ── 文字层级 ─────────────────────────────────────────
 	 *
-	 * 每档的代表值取原先该区间里出现频次最高的那个，使归并造成的偏移最小。
-	 * 归并前后做过全页像素 diff，差异低于感知阈值。
+	 * 五档，每档对底色的对比度都 ≥4.5:1（AA 小字），且相邻档至少差 0.04 明度。
+	 * 收敛前 L=0.55–0.84 之间挤着 8 个几乎无法分辨的灰，那不是层级，是错觉。
+	 *
+	 * 注意参考配色里的次要文字 #94a3b8 实测只有 2.48:1，远不过 AA。
+	 * 这里取的是那套配色的性格，不是它不达标的取值。
 	 */
 	/** 强调文字：答案、被强调的结论 */
-	--color-text-strong: oklch(0.95 0.005 260);
+	--color-text-strong: oklch(0.237 0.02 260);
 	/** 正文 */
-	--color-text: oklch(0.82 0.008 260);
+	--color-text: oklch(0.367 0.018 260);
 	/** 次级正文：卡片说明、解释段 */
-	--color-text-soft: oklch(0.76 0.008 260);
+	--color-text-soft: oklch(0.425 0.016 260);
 	/** 弱化文字：元信息、列表次要项 */
-	--color-text-muted: oklch(0.68 0.01 260);
+	--color-text-muted: oklch(0.492 0.014 260);
 	/** 更弱：计数、单位、脚注 */
-	--color-text-faint: oklch(0.63 0.01 260);
+	--color-text-faint: oklch(0.542 0.012 260);
 	/*
-	 * 这里原本还有一档 --color-text-dim（L=0.56，4.19:1）。删掉了：
-	 * 它对小字不达标，而收敛后发现它只剩一处用处，同样的「序号」角色在另两个
-	 * 页面已经用 faint —— 同一角色两个取值，正是这次收敛要消除的东西。
-	 * 需要更弱的观感请调整字号或字重，不要再引入第七档灰。
+	 * 这里原本还有一档 --color-text-dim（4.19:1）。删掉了：它对小字不达标，
+	 * 而收敛后发现它只剩一处用处，同样的「序号」角色在另两个页面已经用 faint ——
+	 * 同一角色两个取值，正是这次收敛要消除的东西。
+	 * 需要更弱的观感请调整字号或字重，不要再引入第六档灰。
 	 */
 
-	/** 代码块底色，略偏青以与普通下沉面区分 */
-	--color-surface-code: oklch(0.15 0.02 200);
-	/** 嵌套在卡片内部的下沉面 */
-	--color-surface-inset: oklch(0.2 0.01 260);
-	/** 浮在卡片之上的层，如 hover 态 */
-	--color-surface-overlay: oklch(0.24 0.012 260);
+	/*
+	 * ── 语义色 ───────────────────────────────────────────
+	 * 只定义状态，不做花哨色阶。
+	 */
+	--color-accent: oklch(0.546 0.215 263);
+	/**
+	 * 弱化的强调色。**只用于边框**（hover 态、选中态的轮廓），从不用于文字。
+	 * 因此它的门槛是 WCAG 1.4.11 的 3:1（非文字对比），不是 4.5:1。
+	 */
+	--color-accent-dim: oklch(0.646 0.12 263);
+	--color-ok: oklch(0.508 0.105 166);
+	--color-warn: oklch(0.555 0.146 49);
+	--color-bad: oklch(0.505 0.19 27);
 
 	/**
 	 * 错误态里的柔化文字。
@@ -67,23 +100,76 @@
 	 * 不能直接用 --color-bad：那个饱和度是给「超标 / 答错」这类判定结论的，
 	 * 用在 traceback 这种长文本上会刺眼。这两档是同色相的低饱和版本。
 	 */
-	--color-bad-text: oklch(0.78 0.05 22);
-	--color-bad-text-strong: oklch(0.72 0.06 22);
+	--color-bad-text: oklch(0.47 0.08 27);
+	--color-bad-text-strong: oklch(0.405 0.095 27);
 
-	/**
-	 * 需要压在任意深浅背景上的前景色（注意力热力图的格子文字与焦点环）。
+	/*
+	 * ── 注意力热力图 ─────────────────────────────────────
 	 *
-	 * 刻意用纯灰而不是带蓝的中性色：格子底色本身在整个蓝紫区间变化，
+	 * 这四个 token **刻意在两套主题里相同**。
+	 *
+	 * 热力图是数据可视化，有自己的画布：色阶从 lo 到 hi 编码权重大小，
+	 * 「越亮 = 权重越大」这个方向必须固定。跟着主题翻转会让浅色下读成反的，
+	 * 而让前景在两套主题间换色又会在中间调格子上两边都不达标。
+	 * 所以这里认下「深色画布」，前景固定为近白。
+	 *
+	 * 前景用纯灰而不是带蓝的中性色：格子底色本身在整个蓝青区间变化，
 	 * 带色相的前景在某些格子上会显脏。
 	 */
+	--color-heat-lo: oklch(0.32 0.04 200);
+	--color-heat-hi: oklch(0.74 0.17 200);
 	--color-on-heat: oklch(0.97 0 0);
 	--color-on-heat-outline: oklch(0.95 0 0);
 }
 
 @layer base {
+	/*
+	 * 深色主题。
+	 *
+	 * 逐项覆盖上面与主题相关的每一个 token —— 漏一个的后果是那一项留着浅色取值，
+	 * 比如 text-strong 会变成近黑压在深色底上，直接看不见。
+	 * `palette.spec.ts` 有一条专门校验覆盖的完整性，不靠自觉。
+	 */
+	@media (prefers-color-scheme: dark) {
+		:root {
+			--color-surface: oklch(0.16 0.012 260);
+			--color-surface-raised: oklch(0.21 0.014 260);
+			--color-surface-sunken: oklch(0.13 0.01 260);
+			--color-surface-inset: oklch(0.2 0.01 260);
+			--color-surface-overlay: oklch(0.24 0.012 260);
+			--color-surface-code: oklch(0.15 0.02 200);
+			--color-border-subtle: oklch(0.29 0.015 260);
+
+			--color-text-strong: oklch(0.95 0.005 260);
+			--color-text: oklch(0.82 0.008 260);
+			--color-text-soft: oklch(0.76 0.008 260);
+			--color-text-muted: oklch(0.68 0.01 260);
+			--color-text-faint: oklch(0.63 0.01 260);
+
+			--color-accent: oklch(0.72 0.14 200);
+			/* 原为 0.45，对底色只有 2.78:1，作为 hover 边框不满足 1.4.11 的 3:1 */
+			--color-accent-dim: oklch(0.48 0.09 200);
+			--color-ok: oklch(0.72 0.16 155);
+			--color-warn: oklch(0.78 0.15 75);
+			--color-bad: oklch(0.66 0.19 22);
+			--color-bad-text: oklch(0.78 0.05 22);
+			--color-bad-text-strong: oklch(0.72 0.06 22);
+		}
+	}
+
+	:root {
+		/*
+		 * 让浏览器的原生控件跟着主题走。
+		 *
+		 * 沙盒里有 <input type="range">，滑轨与滑块是 UA 绘制的。不声明这一行，
+		 * 浅色主题下会拿到为深色底设计的原生控件配色。
+		 */
+		color-scheme: light dark;
+	}
+
 	html {
 		background: var(--color-surface);
-		color: oklch(0.92 0.005 260);
+		color: var(--color-text);
 		font-family: var(--font-sans);
 		/* 防止横向溢出导致居中计算异常 */
 		overflow-x: clip;

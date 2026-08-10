@@ -9,12 +9,17 @@
 	 */
 	import './layout.css';
 	import { resolve } from '$app/paths';
+	import Mascot from '$lib/components/Mascot.svelte';
 
 	let { children } = $props();
 </script>
 
 <nav class="site-nav" aria-label="站点导航">
-	<a class="brand" href={resolve('/')}>AI Engineering Lab</a>
+	<a class="brand" href={resolve('/')}>
+		<!-- 装饰性：紧挨着站名文字，不传 label 以免读屏重复播报 -->
+		<Mascot size={26} />
+		<span>AI Engineering Lab</span>
+	</a>
 	<div class="nav-links">
 		<!--
 			「关卡」原来指向首页本身，点了页面不变——零上下文复查者的第一反应是
@@ -44,6 +49,7 @@
 		/* 与 .nav-links a 同样的 44px 触摸目标（WCAG 2.5.5） */
 		display: inline-flex;
 		align-items: center;
+		gap: 0.5rem;
 		min-height: 44px;
 		font-family: var(--font-mono);
 		font-size: 0.8125rem;

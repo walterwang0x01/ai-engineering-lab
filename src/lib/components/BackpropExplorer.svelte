@@ -16,6 +16,7 @@
 	 * 死亡不是渐变的削弱，是阶跃的截断。
 	 */
 	import { BACKPROP_NET, BACKPROP_INPUT } from '$lib/quiz/backprop-questions';
+	import Mascot from '$lib/components/Mascot.svelte';
 
 	const NET = BACKPROP_NET;
 
@@ -231,26 +232,34 @@
 	</div>
 
 	<div class="status" class:dead={!computed.alive2} data-testid="status-banner">
-		{#if !touched}
-			<p class="status-prompt">
-				先猜：把 x1 往右拖过临界点 {fmt(criticalX1)}，<code>ReLU'(z2)</code> 那一栏会变成什么？ w21/w22/b2
-				的梯度会跟着变吗？——拖一下，这里就会给出结论。
-			</p>
-		{:else if !computed.alive2}
-			<p>
-				<strong>h2 已死亡。</strong>
-				z2 = {fmt(computed.z2)} ≤ 0，ReLU'(z2) = 0，δ2 归零，w21/w22/b2 的梯度全部为 0。 梯度下降的更新公式是
-				<code>w ← w − η·∂L/∂w</code>，梯度为 0 意味着不管学习率多大、
-				训练多少步，这三个参数这一步都不会变。只要 z2 依然 ≤ 0，下一步梯度仍然是 0——
-				这就是"死亡"：不是暂时沉默，是训练本身没有能力把它救回来。
-			</p>
-		{:else}
-			<p>
-				<strong>h2 存活。</strong>
-				z2 = {fmt(computed.z2)} &gt; 0，ReLU'(z2) = 1，误差可以正常传到 w21/w22/b2， 梯度下降能够继续修正这三个参数。把
-				x1 拖到临界点 {fmt(criticalX1)} 以下， 看 h2 何时切换到死亡状态——切换的瞬间没有过渡，是阶跃式的。
-			</p>
-		{/if}
+		<!--
+			吉祥物的身体就是 ReLU 折线，跟着 alive2 压平/上扬。
+			刻意不传 label：下面这段文字已经把状态说全了，再给图形一个名字会让读屏
+			把「已死亡」听两遍。它在这里是同一信息的视觉编码，不是额外信息。
+		-->
+		<Mascot size={44} state={computed.alive2 ? 'alive' : 'dead'} />
+		<div class="status-body">
+			{#if !touched}
+				<p class="status-prompt">
+					先猜：把 x1 往右拖过临界点 {fmt(criticalX1)}，<code>ReLU'(z2)</code> 那一栏会变成什么？ w21/w22/b2
+					的梯度会跟着变吗？——拖一下，这里就会给出结论。
+				</p>
+			{:else if !computed.alive2}
+				<p>
+					<strong>h2 已死亡。</strong>
+					z2 = {fmt(computed.z2)} ≤ 0，ReLU'(z2) = 0，δ2 归零，w21/w22/b2 的梯度全部为 0。 梯度下降的更新公式是
+					<code>w ← w − η·∂L/∂w</code>，梯度为 0 意味着不管学习率多大、
+					训练多少步，这三个参数这一步都不会变。只要 z2 依然 ≤ 0，下一步梯度仍然是 0——
+					这就是"死亡"：不是暂时沉默，是训练本身没有能力把它救回来。
+				</p>
+			{:else}
+				<p>
+					<strong>h2 存活。</strong>
+					z2 = {fmt(computed.z2)} &gt; 0，ReLU'(z2) = 1，误差可以正常传到 w21/w22/b2， 梯度下降能够继续修正这三个参数。把
+					x1 拖到临界点 {fmt(criticalX1)} 以下， 看 h2 何时切换到死亡状态——切换的瞬间没有过渡，是阶跃式的。
+				</p>
+			{/if}
+		</div>
 	</div>
 
 	<p class="disclaimer">
@@ -525,10 +534,22 @@
 		background: var(--color-surface-sunken);
 		border-left: 2px solid var(--color-ok);
 		border-radius: 8px;
+		/* 吉祥物与文字并排。顶部对齐，文字多行时图形不跟着往下飘 */
+		display: flex;
+		align-items: flex-start;
+		gap: 0.875rem;
+		/* 吉祥物用 currentColor，所以整块的 color 决定它的颜色 */
+		color: var(--color-ok);
+	}
+
+	.status-body {
+		min-width: 0;
+		color: var(--color-text-soft);
 	}
 
 	.status.dead {
 		border-left-color: var(--color-bad);
+		color: var(--color-bad);
 	}
 
 	.status p {
