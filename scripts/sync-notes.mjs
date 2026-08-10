@@ -24,10 +24,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { extractNoteQuestions, mergeSources, parseLocalQuestions } from './lib/extract-quiz.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
 const OUT_DIR = path.join(ROOT, 'static', 'notes');
+/** 本仓库自己维护的 Tier A 题库，与笔记正文的 ael-quiz 块共用同一套 schema */
+const LOCAL_QUESTIONS_DIR = path.join(ROOT, 'content', 'note-questions');
 
 /** git-crypt 加密目录，按仓库 .gitattributes 规则硬编码排除 */
 const ENCRYPTED_DIR_PATTERNS = ['04-ai-agent/20-Agent支付', '24-2026技术更新'];
@@ -56,6 +59,18 @@ function findSource() {
 
 function isEncryptedPath(relPath) {
 	return ENCRYPTED_DIR_PATTERNS.some((pat) => relPath.includes(pat));
+}
+
+/** 递归列出 content/note-questions 下的全部 .json（相对该目录的路径） */
+function listLocalQuestionFiles(dir = LOCAL_QUESTIONS_DIR, relBase = '') {
+	if (!fs.existsSync(dir)) return [];
+	const out = [];
+	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+		const rel = path.posix.join(relBase, entry.name);
+		if (entry.isDirectory()) out.push(...listLocalQuestionFiles(path.join(dir, entry.name), rel));
+		else if (entry.name.endsWith('.json')) out.push(rel);
+	}
+	return out;
 }
 
 /**
@@ -204,6 +219,16 @@ function main() {
 			path.join(OUT_DIR, 'quiz.json'),
 			JSON.stringify({ generatedAt: new Date().toISOString(), total: 0, items: {} }, null, 2)
 		);
+		// 可判定题同样写空产物：页面 fetch 不到文件时 adapter 的 fallback 会返回
+		// 404.html，JSON.parse 直接抛 SyntaxError（这个坑在 quiz.json 上踩过一次）
+		fs.writeFileSync(
+			path.join(OUT_DIR, 'gradable.json'),
+			JSON.stringify(
+				{ generatedAt: new Date().toISOString(), total: 0, drafts: 0, notes: 0, items: {} },
+				null,
+				2
+			)
+		);
 		return;
 	}
 
@@ -214,6 +239,12 @@ function main() {
 
 	const entries = [];
 	const quizItems = {};
+	/** slug → 可判定题（Tier A） */
+	const gradableItems = {};
+	/** 抽取过程中的全部结构问题。非空则让构建失败 */
+	const gradableIssues = [];
+	let gradableTotal = 0;
+	let gradableDrafts = 0;
 	let totalQuestions = 0;
 	let notesWithQuiz = 0;
 
@@ -248,6 +279,39 @@ function main() {
 			totalQuestions += questions.length;
 			notesWithQuiz += 1;
 		}
+
+		// Tier A：可判定题。两个来源——笔记正文的 ael-quiz 块 + 本仓库的本地题库
+		const localPath = path.join(LOCAL_QUESTIONS_DIR, `${slug}.json`);
+		const local = fs.existsSync(localPath)
+			? parseLocalQuestions(slug, fs.readFileSync(localPath, 'utf8'))
+			: { questions: [], drafts: 0, issues: [] };
+		const merged = mergeSources(slug, extractNoteQuestions(slug, f.content), local);
+
+		gradableIssues.push(...merged.issues);
+		gradableDrafts += merged.drafts;
+		if (merged.questions.length > 0) {
+			gradableItems[slug] = merged.questions;
+			gradableTotal += merged.questions.length;
+		}
+	}
+
+	// 本地题库指向了不存在的篇目 —— 笔记改名或写错路径，题目会静默消失
+	const knownSlugs = new Set(entries.map((e) => e.slug));
+	for (const rel of listLocalQuestionFiles()) {
+		const slug = rel.replace(/\.json$/, '');
+		if (!knownSlugs.has(slug)) {
+			gradableIssues.push({
+				where: `content/note-questions/${rel}`,
+				problem: '这个 slug 在笔记里不存在（改名了？），题目不会出现在任何页面上'
+			});
+		}
+	}
+
+	// 抽取问题一律让构建失败。静默跳过等于把坏掉的题悄悄丢掉，
+	// 而作者以为自己出的题已经上线了
+	if (gradableIssues.length > 0) {
+		const detail = gradableIssues.map((i) => `  · [${i.where}] ${i.problem}`).join('\n');
+		throw new Error(`Tier A 题目有 ${gradableIssues.length} 处问题：\n${detail}`);
 	}
 
 	// 按模块 → 章节分组，用于 /notes 学习路径页
@@ -299,11 +363,29 @@ function main() {
 			2
 		)
 	);
+	fs.writeFileSync(
+		path.join(OUT_DIR, 'gradable.json'),
+		JSON.stringify(
+			{
+				generatedAt: new Date().toISOString(),
+				total: gradableTotal,
+				drafts: gradableDrafts,
+				notes: Object.keys(gradableItems).length,
+				items: gradableItems
+			},
+			null,
+			2
+		)
+	);
 
 	console.log(
 		`  ✅ 笔记: ${entries.length} 篇（跳过加密目录 ${stats.skippedEncryptedDirs} 个 / 加密文件 ${stats.skippedEncryptedFiles} 个）`
 	);
 	console.log(`  ✅ 自测题: ${notesWithQuiz} 篇笔记 / ${totalQuestions} 道题`);
+	console.log(
+		`  ✅ 可判定题（Tier A）: ${Object.keys(gradableItems).length} 篇 / ${gradableTotal} 道` +
+			(gradableDrafts > 0 ? `（另有 ${gradableDrafts} 道未过审，已排除）` : '')
+	);
 	for (const mod of modules) {
 		console.log(`     ${mod.label}: ${mod.notes} 篇`);
 	}

@@ -11,6 +11,9 @@
 	import { resolve } from '$app/paths';
 	import Seo from '$lib/components/Seo.svelte';
 	import { notesProgress } from '$lib/storage/notes-progress.svelte';
+	import { progress } from '$lib/storage/progress.svelte';
+	import { levelForNote } from '$lib/curriculum/mapping';
+	import { noteProgress } from '$lib/curriculum/progress';
 	import type { NotesManifest } from '$lib/notes/types';
 
 	let manifest = $state<NotesManifest | null>(null);
@@ -19,6 +22,7 @@
 
 	onMount(async () => {
 		notesProgress.load();
+		progress.load();
 		try {
 			const res = await fetch(`${base}/notes/manifest.json`);
 			if (!res.ok) throw new Error(String(res.status));
@@ -43,11 +47,30 @@
 				)
 			: 0
 	);
+
+	/**
+	 * 单篇的统一状态。
+	 *
+	 * 走 curriculum 的裁决规则而不是直接读 `isRead`：有配套关卡的篇目，
+	 * 题做完了就该显示「已掌握」，不能因为没点过「标记为读完」而显示成未开始。
+	 * 两套存储仍各自独立，这里只是读时合并。
+	 */
+	function stateOf(slug: string) {
+		return noteProgress({ slug }, { read: notesProgress.read, schedule: progress.scheduleView })
+			.state;
+	}
+
+	const BADGE: Record<string, { text: string; cls: string } | null> = {
+		mastered: { text: '已掌握', cls: 'badge-mastered' },
+		'in-progress': { text: '在学', cls: 'badge-learning' },
+		read: { text: '已读', cls: 'badge-read' },
+		untouched: null
+	};
 </script>
 
 <Seo
 	title="笔记库 · AI Engineering Lab"
-	description="196 篇 AI 工程笔记，按模块与章节组织的学习路径。每篇笔记末尾配 3 道自测题，帮你确认读完是不是真的懂了。"
+	description="AI 工程笔记合集，按模块与章节组织的学习路径。每篇笔记末尾配自测题，帮你确认读完是不是真的懂了。"
 	ogImage="home.png"
 />
 
@@ -90,8 +113,14 @@
 										>
 											<span class="note-title">{note.title}</span>
 											<span class="note-meta">
-												{#if notesProgress.isRead(note.slug)}
-													<span class="badge-read">已读</span>
+												{#if ready}
+													{@const badge = BADGE[stateOf(note.slug)]}
+													{#if badge}
+														<span class={badge.cls} data-testid="note-state">{badge.text}</span>
+													{/if}
+												{/if}
+												{#if levelForNote(note.slug)}
+													<span class="badge-level" data-testid="note-has-level">关卡</span>
 												{/if}
 												<span>{note.minutes} 分钟</span>
 												{#if note.hasQuiz}<span>· 自测题</span>{/if}
@@ -231,6 +260,19 @@
 
 	.badge-read {
 		color: var(--color-ok);
+	}
+
+	.badge-mastered {
+		color: var(--color-ok);
+		font-weight: 600;
+	}
+
+	.badge-learning {
+		color: var(--color-warn);
+	}
+
+	.badge-level {
+		color: var(--color-accent);
 	}
 
 	.page-foot {

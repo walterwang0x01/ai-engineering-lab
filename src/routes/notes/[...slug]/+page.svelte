@@ -19,10 +19,23 @@
 		renderMermaidBlocks,
 		type TocEntry
 	} from '$lib/notes/render';
-	import type { NoteEntry, NotesManifest, NotesQuiz } from '$lib/notes/types';
+	import type { NoteEntry, NotesGradable, NotesManifest, NotesQuiz } from '$lib/notes/types';
 	import { notesProgress } from '$lib/storage/notes-progress.svelte';
+	import { progress } from '$lib/storage/progress.svelte';
+	import { levelForNote } from '$lib/curriculum/mapping';
+	import { getLevel } from '$lib/levels/registry';
+	import QuizCard from '$lib/components/QuizCard.svelte';
+	import type { ChoiceQuestion } from '$lib/quiz/types';
 
 	const slug = $derived(decodeURIComponent(page.params.slug ?? ''));
+
+	/**
+	 * 这篇笔记对应的关卡。
+	 *
+	 * 从 registry 静态取，不需要 fetch——映射表和关卡定义都是 TS 模块。
+	 * 没有对应关卡时为 undefined，相关区块整块不渲染。
+	 */
+	const relatedLevel = $derived(getLevel(levelForNote(slug) ?? ''));
 
 	let html = $state('');
 	let toc = $state<TocEntry[]>([]);
@@ -32,6 +45,14 @@
 		next: null
 	});
 	let quizItems = $state<string[]>([]);
+	/**
+	 * Tier A 可判定题。
+	 *
+	 * 与上面的 quizItems（开放题、纯展示）是两回事：这些走 judge() 判定，
+	 * 进度写进和关卡题完全相同的间隔重复存储。
+	 */
+	let gradable = $state<ChoiceQuestion[]>([]);
+	let gradableIndex = $state(0);
 	let loadError = $state('');
 	let loading = $state(true);
 	let ready = $state(false);
@@ -45,6 +66,7 @@
 
 	onMount(() => {
 		notesProgress.load();
+		progress.load();
 		ready = true;
 
 		void loadNote();
@@ -67,10 +89,11 @@
 
 		try {
 			// manifest 用来取元数据和上下篇；正文单独 fetch
-			const [mdRes, manifestRes, quizRes] = await Promise.all([
+			const [mdRes, manifestRes, quizRes, gradableRes] = await Promise.all([
 				fetch(`${base}/notes/${slug}.md`),
 				fetch(`${base}/notes/manifest.json`),
-				fetch(`${base}/notes/quiz.json`)
+				fetch(`${base}/notes/quiz.json`),
+				fetch(`${base}/notes/gradable.json`)
 			]);
 
 			if (!mdRes.ok) throw new Error(`找不到这篇笔记（HTTP ${mdRes.status}）`);
@@ -90,6 +113,18 @@
 			if (quizRes.ok) {
 				const quiz: NotesQuiz = await quizRes.json();
 				quizItems = quiz.items[slug] ?? [];
+			}
+
+			// gradable.json 缺失是合法状态（笔记源仓库不存在时写的是空产物），
+			// 解析失败也只是这一块不显示，不影响正文
+			if (gradableRes.ok) {
+				try {
+					const data: NotesGradable = await gradableRes.json();
+					gradable = data.items?.[slug] ?? [];
+					gradableIndex = 0;
+				} catch {
+					gradable = [];
+				}
 			}
 
 			const rendered = renderMarkdown(markdown);
@@ -119,6 +154,31 @@
 
 	function markRead() {
 		notesProgress.markRead(slug);
+	}
+
+	/** 可判定题的当前一题 */
+	const currentGradable = $derived(
+		gradableIndex < gradable.length ? gradable[gradableIndex] : undefined
+	);
+
+	/**
+	 * 写进全站统一的进度存储。
+	 *
+	 * 题目 id 带 `note:` 前缀（见 scripts/lib/extract-quiz.mjs），
+	 * 与关卡题共用一个命名空间但不会撞车，因此可以直接复用 progress.record，
+	 * 间隔重复调度对两类题目完全一致。
+	 */
+	function handleGradableResolved(correct: boolean) {
+		const q = currentGradable;
+		if (q) progress.record(q.id, correct);
+	}
+
+	function nextGradable() {
+		gradableIndex += 1;
+	}
+
+	function restartGradable() {
+		gradableIndex = 0;
 	}
 </script>
 
@@ -174,19 +234,80 @@
 			</article>
 		</div>
 
+		{#if gradable.length > 0}
+			<!--
+				Tier A 可判定题。QuizCard 刻意不自我重置，换题必须靠 {#key}——
+				否则会残留上一题的输入、判定结果和错误次数（AGENTS.md 硬约定 #3）。
+			-->
+			<section class="gradable" data-testid="note-gradable">
+				<div class="gradable-head">
+					<h2>自测：{gradable.length} 道可判定题</h2>
+					{#if currentGradable}
+						<span class="gradable-counter" data-testid="note-gradable-counter">
+							第 {gradableIndex + 1} / {gradable.length} 题
+						</span>
+					{/if}
+				</div>
+				<p class="dim">
+					这些题由程序判定对错，答错会给出针对那个选项的解释。 答对的题按 1、3、7、16、35
+					天排复习，与关卡题共用同一套进度。
+				</p>
+
+				{#if currentGradable}
+					{#key currentGradable.id}
+						<QuizCard
+							question={currentGradable}
+							onResolved={handleGradableResolved}
+							onNext={nextGradable}
+						/>
+					{/key}
+				{:else}
+					<div class="gradable-done" data-testid="note-gradable-done">
+						<p class="gradable-done-title">这篇的可判定题做完了</p>
+						<button class="btn-ghost" onclick={restartGradable}>再练一遍</button>
+					</div>
+				{/if}
+			</section>
+		{/if}
+
 		{#if quizItems.length > 0}
 			<section class="self-check" data-testid="note-quiz">
 				<h2>读完你应该能回答</h2>
 				<p class="dim">
-					这些是开放题，没有自动判定。答不上就是需要重读的信号—— 想要能判定对错的题目，去<a
-						href={resolve('/')}>关卡</a
-					>。
+					这些是开放题，没有自动判定。答不上就是需要重读的信号——
+					{#if relatedLevel}
+						想要能判定对错的题目，去<a href={resolve('/[levelId]', { levelId: relatedLevel.id })}
+							>「{relatedLevel.title}」</a
+						>。
+					{:else}
+						想要能判定对错的题目，去<a href={resolve('/')}>关卡</a>。
+					{/if}
 				</p>
 				<ol>
 					{#each quizItems as q (q)}
 						<li>{q}</li>
 					{/each}
 				</ol>
+			</section>
+		{/if}
+
+		{#if relatedLevel}
+			<!--
+				笔记 → 关卡的反向链接。
+				没有它，读完笔记的人不知道站里有配套的可判定练习，
+				而关卡页那边也找不回背景笔记 —— 两侧各自成孤岛。
+			-->
+			<section class="to-level" data-testid="note-to-level">
+				<p class="to-level-eyebrow">{relatedLevel.card.tag} · 配套关卡</p>
+				<h2>{relatedLevel.title}</h2>
+				<p class="to-level-body">{relatedLevel.card.summary}</p>
+				<a
+					class="to-level-cta"
+					href={resolve('/[levelId]', { levelId: relatedLevel.id })}
+					data-testid="note-level-link"
+				>
+					去做这一关的可判定题 →
+				</a>
 			</section>
 		{/if}
 
@@ -440,6 +561,105 @@
 		border: 1px solid var(--color-border-subtle);
 		border-radius: 14px;
 		padding: 1.5rem 1.75rem;
+	}
+
+	.to-level {
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-accent-dim);
+		border-radius: 14px;
+		padding: 1.5rem 1.75rem;
+		display: grid;
+		gap: 0.5rem;
+		justify-items: start;
+	}
+
+	.gradable {
+		display: grid;
+		gap: 0.875rem;
+	}
+
+	.gradable-head {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 0.75rem;
+		flex-wrap: wrap;
+	}
+
+	.gradable-head h2 {
+		margin: 0;
+		font-size: 1.125rem;
+	}
+
+	.gradable-counter {
+		font-size: 0.8125rem;
+		font-family: var(--font-mono);
+		color: oklch(0.66 0.01 260);
+	}
+
+	.gradable-done {
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: 14px;
+		padding: 1.5rem 1.75rem;
+		display: grid;
+		gap: 0.75rem;
+		justify-items: start;
+	}
+
+	.gradable-done-title {
+		margin: 0;
+		font-size: 1rem;
+		font-weight: 600;
+		color: var(--color-ok);
+	}
+
+	.btn-ghost {
+		font: inherit;
+		font-size: 0.9375rem;
+		padding: 0.5rem 1rem;
+		background: transparent;
+		color: var(--color-accent);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: 8px;
+		cursor: pointer;
+		transition: border-color 140ms ease;
+	}
+
+	.btn-ghost:hover {
+		border-color: var(--color-accent);
+	}
+
+	.to-level-eyebrow {
+		margin: 0;
+		font-size: 0.75rem;
+		font-family: var(--font-mono);
+		letter-spacing: 0.04em;
+		color: var(--color-accent);
+	}
+
+	.to-level h2 {
+		margin: 0;
+		font-size: 1.125rem;
+	}
+
+	.to-level-body {
+		margin: 0;
+		font-size: 0.9375rem;
+		line-height: 1.75;
+		color: oklch(0.76 0.008 260);
+	}
+
+	.to-level-cta {
+		margin-top: 0.25rem;
+		font-size: 0.9375rem;
+		font-weight: 600;
+		color: var(--color-accent);
+		text-decoration: none;
+	}
+
+	.to-level-cta:hover {
+		text-decoration: underline;
 	}
 
 	.self-check h2 {

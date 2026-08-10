@@ -38,6 +38,10 @@
 	 *   "chunk 数量本身是一项独立成本"才能找到可行解。
 	 */
 
+	import ConstraintGauge from './ConstraintGauge.svelte';
+	import OptionChips from './OptionChips.svelte';
+	import { allSatisfied } from '$lib/sandbox/constraints';
+
 	/** 场景固定参数 */
 	const SCENARIO = {
 		totalChars: 3_000_000,
@@ -130,7 +134,7 @@
 	const okRecall = $derived(recall >= CONSTRAINTS.recallMin);
 	const okNoise = $derived(noise <= CONSTRAINTS.noiseMax);
 	const okCost = $derived(totalCostUsd <= CONSTRAINTS.costMaxUsd);
-	const solved = $derived(okRecall && okNoise && okCost);
+	const solved = $derived(allSatisfied([okRecall, okNoise, okCost]));
 
 	let solvedOnce = $state(false);
 
@@ -157,10 +161,6 @@
 	function fmtCount(n: number): string {
 		return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : n.toFixed(0);
 	}
-
-	function barPct(value: number, budget: number): number {
-		return Math.min(100, (value / budget) * 100);
-	}
 </script>
 
 <section class="sandbox" data-solved={solved} aria-labelledby="rag-chunking-sandbox-title">
@@ -180,74 +180,55 @@
 	</header>
 
 	<div class="controls">
-		<fieldset>
-			<legend>chunk_size（分块大小）</legend>
-			<div class="chips">
-				{#each CHUNK_SIZE_OPTIONS as opt (opt.id)}
-					<label class="chip">
-						<input type="radio" name="chunkSize" value={opt.id} bind:group={chunkSizeId} />
-						<span class="chip-label">{opt.label}</span>
-						<span class="chip-detail">{opt.detail}</span>
-					</label>
-				{/each}
-			</div>
-		</fieldset>
-
-		<fieldset>
-			<legend>chunk_overlap（重叠比例）</legend>
-			<div class="chips">
-				{#each OVERLAP_OPTIONS as opt (opt.id)}
-					<label class="chip">
-						<input type="radio" name="overlap" value={opt.id} bind:group={overlapId} />
-						<span class="chip-label">{opt.label}</span>
-					</label>
-				{/each}
-			</div>
-		</fieldset>
+		<OptionChips
+			legend="chunk_size（分块大小）"
+			name="chunkSize"
+			options={CHUNK_SIZE_OPTIONS}
+			bind:value={chunkSizeId}
+		/>
+		<OptionChips
+			legend="chunk_overlap（重叠比例）"
+			name="overlap"
+			options={OVERLAP_OPTIONS}
+			bind:value={overlapId}
+		/>
 	</div>
 
 	<div class="gauges" aria-live="polite">
-		<div class="gauge" data-ok={okRecall}>
-			<div class="gauge-head">
-				<span class="gauge-name">召回率（示意性估算）</span>
-				<span class="gauge-value" data-testid="recall-value">{fmtPct(recall)}</span>
-			</div>
-			<div class="track">
-				<div class="fill" style="width: {barPct(recall, 1)}%"></div>
-			</div>
-			<div class="gauge-foot">
-				<span>下限 {fmtPct(CONSTRAINTS.recallMin)}</span>
-				<span class="verdict">{okRecall ? '达标' : '不足'}</span>
-			</div>
-		</div>
+		<!-- 召回率是下限型约束：分母用 1（整个百分比量程）而不是阈值，
+		     否则达标时进度条永远是满的，看不出还剩多少余量 -->
+		<ConstraintGauge
+			name="召回率（示意性估算）"
+			value={fmtPct(recall)}
+			testId="recall-value"
+			ok={okRecall}
+			current={recall}
+			scale={1}
+			budgetLabel={`下限 ${fmtPct(CONSTRAINTS.recallMin)}`}
+			verdict={okRecall ? '达标' : '不足'}
+		/>
 
-		<div class="gauge" data-ok={okNoise}>
-			<div class="gauge-head">
-				<span class="gauge-name">噪声比（示意性估算）</span>
-				<span class="gauge-value" data-testid="noise-value">{fmtPct(noise)}</span>
-			</div>
-			<div class="track">
-				<div class="fill" style="width: {barPct(noise, 1)}%"></div>
-			</div>
-			<div class="gauge-foot">
-				<span>上限 {fmtPct(CONSTRAINTS.noiseMax)}</span>
-				<span class="verdict">{okNoise ? '达标' : '超标'}</span>
-			</div>
-		</div>
+		<ConstraintGauge
+			name="噪声比（示意性估算）"
+			value={fmtPct(noise)}
+			testId="noise-value"
+			ok={okNoise}
+			current={noise}
+			scale={1}
+			budgetLabel={`上限 ${fmtPct(CONSTRAINTS.noiseMax)}`}
+			verdict={okNoise ? '达标' : '超标'}
+		/>
 
-		<div class="gauge" data-ok={okCost}>
-			<div class="gauge-head">
-				<span class="gauge-name">处理总成本</span>
-				<span class="gauge-value" data-testid="cost-value">{fmtCost(totalCostUsd)}</span>
-			</div>
-			<div class="track">
-				<div class="fill" style="width: {barPct(totalCostUsd, CONSTRAINTS.costMaxUsd)}%"></div>
-			</div>
-			<div class="gauge-foot">
-				<span>预算 {fmtCost(CONSTRAINTS.costMaxUsd)}</span>
-				<span class="verdict">{okCost ? '在预算内' : '超支'}</span>
-			</div>
-		</div>
+		<ConstraintGauge
+			name="处理总成本"
+			value={fmtCost(totalCostUsd)}
+			testId="cost-value"
+			ok={okCost}
+			current={totalCostUsd}
+			scale={CONSTRAINTS.costMaxUsd}
+			budgetLabel={`预算 ${fmtCost(CONSTRAINTS.costMaxUsd)}`}
+			verdict={okCost ? '在预算内' : '超支'}
+		/>
 	</div>
 
 	<div class="readout">
@@ -344,69 +325,6 @@
 		gap: 1.125rem;
 	}
 
-	fieldset {
-		border: 0;
-		margin: 0;
-		padding: 0;
-	}
-
-	legend {
-		font-size: 0.8125rem;
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		color: oklch(0.68 0.01 260);
-		margin-bottom: 0.5rem;
-	}
-
-	.chips {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-	}
-
-	.chip {
-		display: grid;
-		gap: 0.125rem;
-		padding: 0.5rem 0.875rem;
-		background: var(--color-surface-sunken);
-		border: 1px solid var(--color-border-subtle);
-		border-radius: 9px;
-		cursor: pointer;
-		transition: border-color 140ms ease;
-		min-width: 6.5rem;
-	}
-
-	.chip:hover {
-		border-color: var(--color-accent-dim);
-	}
-
-	.chip input {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		opacity: 0;
-	}
-
-	.chip:has(input:checked) {
-		border-color: var(--color-accent);
-		background: color-mix(in oklch, var(--color-accent) 12%, var(--color-surface-sunken));
-	}
-
-	.chip:has(input:focus-visible) {
-		outline: 2px solid var(--color-accent);
-		outline-offset: 2px;
-	}
-
-	.chip-label {
-		font-weight: 600;
-		font-size: 0.9375rem;
-	}
-
-	.chip-detail {
-		font-size: 0.75rem;
-		color: oklch(0.66 0.01 260);
-	}
-
 	.gauges {
 		display: grid;
 		gap: 1rem;
@@ -416,67 +334,6 @@
 		.gauges {
 			grid-template-columns: 1fr 1fr 1fr;
 		}
-	}
-
-	.gauge {
-		display: grid;
-		gap: 0.4375rem;
-	}
-
-	.gauge-head,
-	.gauge-foot {
-		display: flex;
-		justify-content: space-between;
-		align-items: baseline;
-		gap: 0.5rem;
-	}
-
-	.gauge-name {
-		font-size: 0.875rem;
-	}
-
-	.gauge-value {
-		font-family: var(--font-mono);
-		font-size: 1.0625rem;
-		font-weight: 600;
-	}
-
-	.gauge[data-ok='true'] .gauge-value {
-		color: var(--color-ok);
-	}
-	.gauge[data-ok='false'] .gauge-value {
-		color: var(--color-bad);
-	}
-
-	.track {
-		height: 7px;
-		background: var(--color-surface-sunken);
-		border-radius: 999px;
-		overflow: hidden;
-	}
-
-	.fill {
-		height: 100%;
-		border-radius: 999px;
-		transition:
-			width 200ms ease,
-			background-color 200ms ease;
-	}
-
-	.gauge[data-ok='true'] .fill {
-		background: var(--color-ok);
-	}
-	.gauge[data-ok='false'] .fill {
-		background: var(--color-bad);
-	}
-
-	.gauge-foot {
-		font-size: 0.75rem;
-		color: oklch(0.66 0.01 260);
-	}
-
-	.gauge[data-ok='false'] .verdict {
-		color: var(--color-bad);
 	}
 
 	.readout {

@@ -1,0 +1,56 @@
+[
+	{
+		"id": "needs-gpu",
+		"prompt": "按笔记的判断表，下面哪件事**需要** GPU（显存是硬门槛）？",
+		"options": [
+			"微调几亿参数级的小模型",
+			"调用大模型 API 做应用",
+			"学习决策树、SVM、聚类这类经典机器学习",
+			"跑只依赖 numpy 的原理篇代码"
+		],
+		"answerIndex": 0,
+		"explanation": "微调小模型时显存是硬门槛，这一档开始需要 GPU。而调 API 的算力在服务商那边、经典机器学习在 CPU 上跑得很好、只依赖 numpy 的原理代码纯 CPU 秒级完成——这三类都不需要 GPU。结论：从 0 开始学的绝大部分路径不需要自备显卡。",
+		"distractorNotes": {
+			"1": "调 API 时算力消耗发生在服务商那边，本地只是发请求。",
+			"2": "决策树、SVM、聚类这类算法在 CPU 上跑得很好，不需要 GPU。",
+			"3": "原理篇的代码只依赖 numpy，纯 CPU 秒级完成。"
+		},
+		"reviewed": true
+	},
+	{
+		"id": "mac-mps",
+		"prompt": "笔记怎么描述 Mac（M 系列芯片）做深度学习加速的情况？",
+		"options": [
+			"PyTorch 支持 MPS 后端，比 CPU 快但不如 NVIDIA，且部分算子不兼容",
+			"完全不支持加速，只能用 CPU",
+			"通过 CUDA 获得与 NVIDIA 同级的加速",
+			"需要装 ROCm 之后才能加速"
+		],
+		"answerIndex": 0,
+		"explanation": "M 系列是「部分支持」：PyTorch 有 MPS 后端，比纯 CPU 快，但达不到 NVIDIA 的水平，而且部分算子不兼容，遇到时得退回 CPU。笔记的建议是学原理够用，真要训模型转云端。",
+		"distractorNotes": {
+			"1": "那是 Intel 芯片的 Mac —— 只有 CPU。M 系列有 MPS 后端可用。",
+			"2": "CUDA 是 NVIDIA 的专有技术，Apple 芯片上没有 CUDA。",
+			"3": "ROCm 是 AMD 显卡的方案，与 Apple 芯片无关。"
+		},
+		"reviewed": true
+	},
+	{
+		"id": "cuda-false",
+		"prompt": "`torch.cuda.is_available()` 返回 False，按笔记的问题速查表，最可能的原因是什么？",
+		"options": [
+			"装成了 CPU 版 PyTorch，或驱动太旧、版本不匹配",
+			"显存不够，需要减小 batch size",
+			"pip 走了境外源，包没装全",
+			"Notebook 的格子执行顺序乱了"
+		],
+		"answerIndex": 0,
+		"explanation": "这个函数返回 False 说明 PyTorch 根本没识别到可用的 CUDA 设备，典型原因是装了 CPU 版的包、显卡驱动过旧，或者 PyTorch 与 CUDA 版本不匹配。解决办法是按官网选择器重新安装对应版本。",
+		"distractorNotes": {
+			"1": "显存不够的症状是 `CUDA out of memory`——那说明 CUDA 已经可用了，只是装不下。",
+			"2": "走境外源的症状是 `pip install` 极慢或中断，与能否识别到 CUDA 设备无关。",
+			"3": "格子顺序乱了会让结果诡异，解决办法是 Restart & Run All，与 CUDA 检测无关。"
+		},
+		"reviewed": true
+	}
+]

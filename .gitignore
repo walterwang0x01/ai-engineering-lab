@@ -30,3 +30,6 @@ static/notes
 
 # CI 里 checkout 的笔记仓库（见 .github/workflows/），不是本仓库内容
 notes-src
+
+# 本地 AI agent 的工作区配置，与项目产物无关
+.kiro

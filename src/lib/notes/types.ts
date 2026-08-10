@@ -6,6 +6,8 @@
  * 改了 sync-notes.mjs 的输出结构，务必同步改这里。
  */
 
+import type { ChoiceQuestion } from '$lib/quiz/types';
+
 /** 单篇笔记的元数据（学习路径页渲染用） */
 export interface NoteEntry {
 	/** 笔记的唯一标识，同时是 static/notes/ 下的相对路径（不含 .md 后缀） */
@@ -46,4 +48,24 @@ export interface NotesQuiz {
 	generatedAt: string;
 	total: number;
 	items: QuizItems;
+}
+
+/**
+ * slug → 该篇的**可判定**题（Tier A）。
+ *
+ * 与上面的 NotesQuiz 是两回事：那个是开放题、只能自评；
+ * 这个由 judge() 判定对错，走和关卡题完全相同的判定与间隔重复路径。
+ *
+ * 只含选择题：数值题必须留在关卡题库里，因为 AGENTS.md 要求每道数值题
+ * 都有测试用独立公式重算答案，抽取管道无法代替那一步。
+ */
+export interface NotesGradable {
+	generatedAt: string;
+	/** 已过审并进入产物的题目总数 */
+	total: number;
+	/** 因 reviewed 不为 true 而被排除的草稿数，仅用于可观测性 */
+	drafts: number;
+	/** 有可判定题的篇数 */
+	notes: number;
+	items: Record<string, ChoiceQuestion[]>;
 }

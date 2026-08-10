@@ -49,8 +49,19 @@ jobs:
       - name: 类型检查
         run: pnpm run check
 
+      # curriculum 的映射门禁要校验 slug 在 manifest 里真实存在，
+      # 而 test:unit 不触发 assets:sync，manifest 不会自己出现。
+      # 不显式同步的话那批门禁会被 skipIf 跳过，CI 绿了却没校验。
+      - name: 同步笔记（curriculum 映射门禁需要 manifest）
+        run: pnpm run notes:sync
+        env:
+          NOTES_SRC: ${{ github.workspace }}/notes-src/learning-notes/00-ai
+
       - name: 单元与组件测试
         run: pnpm run test:unit
+        env:
+          # 置位后，manifest 缺失或为空会让门禁硬失败而不是静默跳过
+          REQUIRE_NOTES: '1'
 
       - name: 全链路冒烟测试
         run: pnpm run test:smoke

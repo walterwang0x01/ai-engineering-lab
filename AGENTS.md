@@ -189,6 +189,68 @@ Pyodide 执行 Python 是同步阻塞的，Worker 内部收不到消息，
 `scripts/generate-og.mjs` 里已有程序化溢出检测（`scrollWidth > clientWidth` 就报错退出）。
 **不要删掉那段检测**——目测很容易漏掉换行。
 
+### 15. 首页与导航必须从 curriculum 派生，不要手写
+
+`src/lib/curriculum/` 是学习路径的**唯一数据源**：它把 `levels/registry.ts` 的关卡
+和 `static/notes/manifest.json` 的 168 篇笔记 join 成模块 → 章节 → 篇目的结构。
+
+背景：`/notes` 和 168 篇笔记曾经是**孤儿页面**——部署好了、返回 200，
+但站内没有任何链接指向它，只能手输 URL 才能进去。根 `+layout.svelte` 当时是个没有
+导航的空壳，首页只渲染 registry 的关卡卡片。这与阶段 0 审计抓到的「关卡能直连访问但
+首页进不去」是同一个缺陷，只是换了个位置又发生了一遍。
+
+**`Curriculum.orphanLevels` 必须渲染。** 笔记未同步时 `modules` 是空的，
+不单独渲染这一段会让 5 个关卡从首页整体消失——把孤儿缺陷反向复制一遍。
+组件测试 `LearningPath.svelte.spec.ts` 有一条专门守这个。
+
+关卡 ↔ 笔记的映射在 `curriculum/mapping.ts`，**人工维护**。不要改成按标题自动匹配：
+一关的背景常横跨多篇（backprop 同时依赖《反向传播推导》和《激活函数》），
+自动匹配会产出看似合理但错误的关联，而错误关联比没有关联更糟。
+
+### 16. 冒烟测试用 `a.card` 计数关卡，别拿 `card` 类给别的东西
+
+`e2e/smoke.mjs` 断言「首页 `a.card` 数量 === 预渲染的关卡页数量」。
+给笔记模块之类的元素套 `card` 类会污染这条断言，而且症状是「新增关卡后测试莫名失败」。
+
+### 17. Tier A 笔记题只能是选择题，且必须显式过审
+
+笔记里的可判定题走 `scripts/lib/extract-quiz.mjs`，来源有两处（同一套 schema、同一道校验）：
+
+- 笔记正文里的 ` ```ael-quiz ` 围栏块（JSON 数组）
+- 本仓库的 `content/note-questions/<slug>.json`
+
+三条不可协商的规则：
+
+1. **只允许 `choice`。** 数值题必须写在关卡题库里——第 10 条的独立重算门禁是人工领域
+   工作，抽取管道代替不了。管道遇到 `kind: "numeric"` 直接报错。
+2. **`reviewed` 必须显式为 `true` 才进产物。** 缺字段是错误，不默认放行。
+   LLM 起草的题一律先 `false`，人工逐题过审后翻转。未过审内容在物理上到不了线上。
+3. **id 带 `note:` 前缀**（`note:<slug>-<局部id>`）。进度存储是全站单一命名空间，
+   这个前缀是笔记题与关卡题不撞车的保障，由 `assertValidQuestionSet` 校验。
+
+抽取出任何结构问题**让构建失败**，不静默跳过——否则作者以为题上线了，实际被丢掉了。
+
+### 18. 达标型沙盒的仪表与选项组用共享组件
+
+`ConstraintGauge.svelte`、`OptionChips.svelte`、`lib/sandbox/constraints.ts`。
+
+`levels/types.ts` 里「交互组件不抽象」的判断依然成立——那是针对**跨类别**的。
+但达标型（多约束调参）现在有三个同构样本，仪表盘 CSS 逐条比对后完全相同，
+24 条规则重复了三遍。抽的是这一个具体形状里可证明重复的部分，公式、阈值、文案
+仍留在各自沙盒里。观察型的 `AttentionHeatmap` / `BackpropExplorer` 不要往这上面套。
+
+改这两个共享组件时，**`KvCacheSandbox.svelte.spec.ts` 的断言一字不改仍须全绿**——
+那 17 条断言就是行为等价性的证明。
+
+### 19. `test:unit` 在 CI 里需要 `REQUIRE_NOTES=1`
+
+curriculum 的映射一致性门禁要校验 slug 在 manifest 里真实存在，
+而 `test:unit` 不触发 `assets:sync`，manifest 不会自己出现。
+
+本地没有笔记源仓库时那批断言按 `it.skipIf` 跳过（vitest 会显示 skipped，不是 passed）；
+CI 里 `REQUIRE_NOTES=1` 让 manifest 缺失或为空**直接失败**。
+CI 因此多了一步显式的 `pnpm run notes:sync`。删掉任何一环都会退回「CI 绿了却没校验」。
+
 ---
 
 ## 目录职责
@@ -198,6 +260,17 @@ src/lib/levels/        关卡定义层
   types.ts             LevelDefinition 契约
   registry.ts          ★ 全站唯一关卡数据源。路由、首页卡片、预渲染路径都从这里派生
   registry.spec.ts     结构门禁，新增关卡自动覆盖
+
+src/lib/curriculum/    学习路径层。关卡与 168 篇笔记的唯一交汇点
+  types.ts             Curriculum / CurriculumModule 契约（含 orphanLevels）
+  mapping.ts           ★ 关卡 ↔ 背景笔记映射，人工维护
+  build.ts             buildCurriculum(manifest)：registry + manifest → 学习路径
+  progress.ts          统一进度视图。可判定信号优先于「已读」这个自评信号
+  curriculum.spec.ts   映射门禁（结构恒跑，slug 一致性需 manifest）
+  progress.spec.ts     两套进度冲突态的裁决
+
+src/lib/sandbox/       达标型沙盒的共享纯逻辑
+  constraints.ts       barPct / allSatisfied / SolvedLatch
 
 src/lib/quiz/          判定与调度的纯逻辑，不含 UI
   types.ts             题目与判定结果的类型契约
@@ -215,15 +288,27 @@ src/lib/python/        浏览器内 Python 执行
 
 src/lib/storage/       持久化
   backend.ts           StorageBackend 接口 + localStorage / 内存两种实现
-  progress.svelte.ts   Svelte 5 runes 状态。文件名必须以 .svelte.ts 结尾才能用 runes
+  progress.svelte.ts   题目进度（Leitner）。文件名必须以 .svelte.ts 结尾才能用 runes
+  notes-progress.svelte.ts  笔记已读集合。与题目进度**刻意不共享存储**
 
 src/lib/components/    UI 组件
+  LearningPath.svelte  首页学习路径。模块骨架 + 关卡卡片 + orphanLevels
+  ConstraintGauge.svelte / OptionChips.svelte  达标型沙盒共享件（见第 18 条）
+
+content/note-questions/  本仓库维护的 Tier A 题库，路径镜像笔记 slug
+
+scripts/
+  sync-notes.mjs         构建期同步笔记 + 抽取 Tier A 题目
+  lib/extract-quiz.mjs   Tier A 抽取与校验。被构建脚本和单测共用
+  generate-og.mjs        OG 图生成（手动跑，不进构建）
+
 src/routes/            页面
-  +page.svelte         首页。卡片从 registry 生成，不要手写关卡卡片
+  +layout.svelte       全站外壳。★ 导航在这里，不要让页面各自写
+  +page.svelte         首页。从 curriculum 派生，不要手写关卡卡片
   [levelId]/           ★ 所有关卡共用这一个页面实现，不要为新关卡建目录
+  notes/               笔记库列表页与阅读页（阅读页含 Tier A 题卡）
   layout.css           设计系统（@theme token）。改配色只改这里
 e2e/smoke.mjs          全链路冒烟测试，自管服务器生命周期
-scripts/generate-og.mjs  OG 图生成（手动跑，不进构建）
 ```
 
 ---
