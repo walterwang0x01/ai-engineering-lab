@@ -160,6 +160,18 @@
 		{/if}
 	</nav>
 
+	{#if gradable.length > 0}
+		<!--
+			题目区在整篇最底部，在「推荐视频资源 / 系统课程与教材」这些附录之后。
+			零上下文复查者的原话：「我滚到延伸阅读的时候已经认定笔记结束了，
+			正常人会在这里关掉页面」——全站唯一的 12 道笔记题就藏在那后面。
+		-->
+		<a class="jump-quiz" href="#gradable" data-testid="jump-to-gradable">
+			本篇有 {gradable.length} 道可判定题{#if ready && mastery.mastered > 0}（已掌握 {mastery.mastered}）{/if}·
+			直接去做 ↓
+		</a>
+	{/if}
+
 	<div class="layout">
 		{#if toc.length > 2}
 			<aside class="toc" aria-label="目录">
@@ -185,7 +197,7 @@
 				Tier A 可判定题。QuizCard 刻意不自我重置，换题必须靠 {#key}——
 				否则会残留上一题的输入、判定结果和错误次数（AGENTS.md 硬约定 #3）。
 			-->
-		<section class="gradable" data-testid="note-gradable">
+		<section class="gradable" id="gradable" data-testid="note-gradable">
 			<div class="gradable-head">
 				<h2>动手自测：{gradable.length} 道题，程序判对错</h2>
 				{#if ready && mastery.mastered > 0}
@@ -541,6 +553,24 @@
 		display: grid;
 		gap: 0.5rem;
 		justify-items: start;
+	}
+
+	.jump-quiz {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+		padding: 0 0.875rem;
+		border-radius: 9px;
+		background: var(--color-surface-sunken);
+		border: 1px solid var(--color-accent-dim);
+		color: var(--color-accent);
+		font-size: 0.875rem;
+		text-decoration: none;
+		transition: border-color 140ms ease;
+	}
+
+	.jump-quiz:hover {
+		border-color: var(--color-accent);
 	}
 
 	.gradable {

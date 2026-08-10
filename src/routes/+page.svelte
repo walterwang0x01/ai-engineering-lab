@@ -104,6 +104,19 @@
 		<p class="sub">
 			其中 {totalCode} 道要在浏览器里真跑 Python。全部在你的浏览器里执行，没有后端，不收集数据，学习进度只存在本地。
 		</p>
+		<!--
+			首屏原来没有任何主 CTA：唯一显眼的彩色元素是数字本身（不可点）。
+			零上下文复查者「盯着看了几秒不知道下一步动作是什么」。
+			两个按钮对应两种真实意图：想动手的直接进关卡，想按顺序读的从笔记读起。
+		-->
+		<div class="cta-row">
+			<a class="btn-primary" href={resolve('/levels')} data-testid="cta-levels">
+				动手做题 · {totalQuestions} 道可判定题
+			</a>
+			<a class="btn-secondary" href={resolve('/notes')} data-testid="cta-notes">
+				从第一篇笔记读起 →
+			</a>
+		</div>
 	</header>
 
 	<section class="path-section">
@@ -225,6 +238,45 @@
 		margin: 0.125rem 0 0;
 		font-size: 0.75rem;
 		color: oklch(0.64 0.01 260);
+	}
+
+	.cta-row {
+		margin-top: 0.5rem;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+	}
+
+	.btn-primary,
+	.btn-secondary {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+		padding: 0 1.125rem;
+		border-radius: 10px;
+		font-size: 0.9375rem;
+		font-weight: 600;
+		text-decoration: none;
+		transition:
+			border-color 160ms ease,
+			transform 160ms ease;
+	}
+
+	.btn-primary {
+		background: var(--color-accent);
+		color: oklch(0.16 0.012 260);
+		border: 1px solid var(--color-accent);
+	}
+
+	.btn-secondary {
+		color: var(--color-accent);
+		border: 1px solid var(--color-border-subtle);
+	}
+
+	.btn-primary:hover,
+	.btn-secondary:hover {
+		transform: translateY(-1px);
+		border-color: var(--color-accent);
 	}
 
 	.sub {
