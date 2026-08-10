@@ -95,9 +95,15 @@ one-line change if a backend ever becomes necessary.
 
 ### Deployment
 
-The build is fully static. `paths.relative` defaults to `true`, so all links and
-assets are emitted as relative paths — the output works unchanged under a
-subpath like `username.github.io/repo/` without configuring `paths.base`.
+The build is fully static. Prerendered pages emit relative asset paths, but the
+SPA fallback (`404.html`) cannot — it gets served from arbitrary depth, so
+SvelteKit emits root-absolute paths for it. **Deploying under a subpath
+therefore requires `BASE_PATH`**, or the fallback loads no JS and every
+non-prerendered deep URL renders blank while every prerendered page looks fine.
+
+`scripts/assert-fallback-base.mjs` runs after each build and fails if the
+fallback's asset prefix does not match `BASE_PATH`. The deploy workflow sets
+`BASE_PATH: /ai-engineering-lab`.
 
 ### Conventions worth knowing
 

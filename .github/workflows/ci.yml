@@ -63,6 +63,14 @@ jobs:
           # 置位后，manifest 缺失或为空会让门禁硬失败而不是静默跳过
           REQUIRE_NOTES: '1'
 
+      # 子路径部署的 fallback 前缀断言。冒烟测试服务在域名根上，
+      # 结构上抓不到这个缺陷，所以单独构建一次子路径产物来校验。
+      - name: 子路径部署产物校验
+        run: pnpm run build
+        env:
+          NOTES_SRC: ${{ github.workspace }}/notes-src/learning-notes/00-ai
+          BASE_PATH: /ai-engineering-lab
+
       - name: 全链路冒烟测试
         run: pnpm run test:smoke
         env:
