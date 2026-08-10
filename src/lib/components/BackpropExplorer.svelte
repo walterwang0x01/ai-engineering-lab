@@ -25,6 +25,14 @@
 	const X1_STEP = 0.05;
 
 	let x1 = $state<number>(BACKPROP_INPUT.x1);
+	/**
+	 * 用户是否动过滑块。
+	 *
+	 * 顶部写着「先猜…再动手拖」，但结论那一大段原来在页面加载时就全文展开，
+	 * 答案就在「猜」的下方三厘米处——零上下文复查者的原话是
+	 * 「'猜'这个动作没有意义」。所以结论等动手之后再出现。
+	 */
+	let touched = $state(false);
 	/** x2、y 固定，与题库一致，只让 x1 可调以保持交互聚焦在单一变量上 */
 	const x2 = BACKPROP_INPUT.x2;
 	const y = BACKPROP_INPUT.y;
@@ -113,8 +121,13 @@
 	<div class="net-diagram" aria-hidden="true">
 		<div class="col">
 			<span class="col-label">输入</span>
-			<div class="node input">x1 = {fmt(x1)}</div>
-			<div class="node input dim">x2 = {fmt(x2)}</div>
+			<!--
+				这两个框原来带圆角描边 + 等宽字体，和真输入框视觉一致，
+				复查者第一个动作就是去点它想改数字。现在去掉输入框外观，
+				可调的那一个明确标出「用下面的滑块调」。
+			-->
+			<div class="node readout">x1 = {fmt(x1)} <span class="readout-hint">滑块可调 ↓</span></div>
+			<div class="node readout dim">x2 = {fmt(x2)} <span class="readout-hint">固定</span></div>
 		</div>
 		<div class="col">
 			<span class="col-label">隐藏层</span>
@@ -141,7 +154,18 @@
 			<label for="x1-slider">x1</label>
 			<span class="control-value" data-testid="x1-value">{fmt(x1)}</span>
 		</div>
-		<input id="x1-slider" type="range" min={X1_MIN} max={X1_MAX} step={X1_STEP} bind:value={x1} />
+		<!-- 滑块此前没有可访问名称：屏幕阅读器只会听到一个没名字的滑块 -->
+		<input
+			id="x1-slider"
+			type="range"
+			min={X1_MIN}
+			max={X1_MAX}
+			step={X1_STEP}
+			bind:value={x1}
+			oninput={() => (touched = true)}
+			aria-label="输入 x1，临界点约 {fmt(criticalX1)}"
+			aria-valuetext="x1 = {fmt(x1)}，h2 {computed.alive2 ? '存活' : '已死亡'}"
+		/>
 		<div class="slider-scale">
 			<span>{X1_MIN}</span>
 			<span class="critical-mark" style="left: {criticalPercent}%">
@@ -207,7 +231,12 @@
 	</div>
 
 	<div class="status" class:dead={!computed.alive2} data-testid="status-banner">
-		{#if !computed.alive2}
+		{#if !touched}
+			<p class="status-prompt">
+				先猜：把 x1 往右拖过临界点 {fmt(criticalX1)}，<code>ReLU'(z2)</code> 那一栏会变成什么？ w21/w22/b2
+				的梯度会跟着变吗？——拖一下，这里就会给出结论。
+			</p>
+		{:else if !computed.alive2}
 			<p>
 				<strong>h2 已死亡。</strong>
 				z2 = {fmt(computed.z2)} ≤ 0，ReLU'(z2) = 0，δ2 归零，w21/w22/b2 的梯度全部为 0。 梯度下降的更新公式是
@@ -293,12 +322,26 @@
 			background 160ms ease;
 	}
 
-	.node.input {
-		font-size: 0.8125rem;
+	.node.readout {
+		/* 不做输入框外观：无描边、左对齐、说明用小字，避免被当成可编辑 */
+		background: none;
+		border: 0;
+		padding: 0.3125rem 0;
+		display: flex;
+		align-items: baseline;
+		gap: 0.5rem;
+		font-family: var(--font-mono);
+		font-size: 0.875rem;
 	}
 
-	.node.input.dim {
+	.readout-hint {
+		font-family: var(--font-sans);
+		font-size: 0.6875rem;
 		color: oklch(0.62 0.01 260);
+	}
+
+	.node.readout.dim {
+		color: oklch(0.68 0.01 260);
 	}
 
 	.node.output {
@@ -368,6 +411,23 @@
 		white-space: nowrap;
 	}
 
+	/* 420px 下「临界点 x1 ≈ 2.33」和右端刻度 4 几乎贴在一起，挤成一团 */
+	@media (max-width: 34rem) {
+		.slider-scale {
+			height: auto;
+			flex-wrap: wrap;
+			row-gap: 0.25rem;
+		}
+
+		.critical-mark {
+			position: static;
+			transform: none;
+			order: 3;
+			flex-basis: 100%;
+			text-align: center;
+		}
+	}
+
 	.control-note {
 		margin: 0;
 		font-size: 0.8125rem;
@@ -414,6 +474,24 @@
 		font-size: 1rem;
 	}
 
+	/*
+	 * 窄屏：链路必须纵向堆叠。
+	 *
+	 * 改版前是 flex-wrap，420px 下第一行变成 `z2 → ReLU'(z2) →`，
+	 * 第二个箭头悬在屏幕右缘指向空白，δ2 掉到下一行——而这个演示的
+	 * 全部意义就是因果链的方向。零上下文复查者把它列为严重度 2。
+	 */
+	@media (max-width: 34rem) {
+		.chain-row {
+			flex-direction: column;
+			align-items: stretch;
+		}
+
+		.chain-arrow {
+			transform: rotate(90deg);
+		}
+	}
+
 	.chain-label {
 		font-size: 0.75rem;
 		color: oklch(0.66 0.01 260);
@@ -435,6 +513,11 @@
 		font-size: 0.8125rem;
 		line-height: 1.7;
 		color: oklch(0.68 0.01 260);
+	}
+
+	.status-prompt {
+		margin: 0;
+		line-height: 1.75;
 	}
 
 	.status {

@@ -226,3 +226,36 @@ describe('题库文案的 Markdown 被渲染而不是原样显示', () => {
 		expect(hint?.textContent).not.toContain('**');
 	});
 });
+
+describe('答错之后不必先点「再试一次」', () => {
+	/**
+	 * 改版前：答错后直接改数字再回车，handleSubmit 会走到 retry() 把刚输入的
+	 * 答案清空。零上下文复查者「愣了一下才找到再试一次」。
+	 */
+	const q: NumericQuestion = {
+		kind: 'numeric',
+		id: 'demo-02-retry',
+		prompt: '演示题',
+		answer: 5,
+		explanation: '推导',
+		hint: '提示'
+	};
+
+	it('改动输入即清掉上一次的错误判定，按钮回到「提交」', async () => {
+		const screen = render(QuizCard, { question: q, onResolved: () => {}, onNext: () => {} });
+		await screen.getByRole('textbox').fill('4');
+		await screen.getByRole('button', { name: '提交' }).click();
+		await expect.element(screen.getByRole('button', { name: '再试一次' })).toBeInTheDocument();
+
+		await screen.getByRole('textbox').fill('5');
+		// 改完之后应该能直接提交，而不是被迫先点「再试一次」
+		await expect.element(screen.getByRole('button', { name: '提交' })).toBeInTheDocument();
+		await screen.getByRole('button', { name: '提交' }).click();
+		await expect.element(screen.getByText('答对了')).toBeInTheDocument();
+	});
+
+	it('未填答案时说明为什么不能提交，而不是只把按钮置灰', async () => {
+		const screen = render(QuizCard, { question: q, onResolved: () => {}, onNext: () => {} });
+		await expect.element(screen.getByText('先填一个数值')).toBeInTheDocument();
+	});
+});
