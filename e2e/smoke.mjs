@@ -77,7 +77,7 @@ try {
 	// 期望的关卡数从产物推断（每个关卡预渲染一个 html），
 	// 这样新增关卡不需要改测试 —— 硬编码数字的断言每次都要跟着改，太脆弱。
 	// 非关卡页面要排除：清单很短且变化很低频，新增时测试会失败提醒。
-	const NON_LEVEL_PAGES = new Set(['index.html', '404.html', 'notes.html']);
+	const NON_LEVEL_PAGES = new Set(['index.html', '404.html', 'notes.html', 'levels.html']);
 	const builtPages = (await readdir('build')).filter(
 		(f) => f.endsWith('.html') && !NON_LEVEL_PAGES.has(f)
 	);
@@ -135,6 +135,25 @@ try {
 	// 关卡 id 从产物推断，不硬编码 —— 调整关卡顺序不该让测试失效
 	const levelIds = builtPages.map((f) => f.replace(/\.html$/, ''));
 	const anyLevel = new RegExp(`/(${levelIds.join('|')})$`);
+
+	// 关卡索引页。导航里的「关卡」原来指向首页本身，点了页面不变，
+	// 零上下文复查者的第一反应是「链接坏了」；而且全站没有关卡索引，
+	// 5 个关卡只能在学习路径里散着找。
+	await page.getByTestId('nav-levels').click();
+	await page.waitForURL(/\/levels$/);
+	const indexCards = await page.locator('[data-testid="level-index"] a.card').count();
+	check('关卡索引页列出全部关卡', indexCards === builtPages.length, `${indexCards} 张`);
+	check('索引页标出哪些关卡有代码题', (await page.locator('.fact-code').count()) > 0);
+	// 间隔重复承诺了复习，但改版前全站没有任何「今天该复习什么」的入口，
+	// dueAt 一直只存在 localStorage 里，用户看不到——复查里唯一的功能缺口
+	check(
+		'索引页有复习面板（首次访问时说明还没有到期的题）',
+		(await page.getByTestId('review-panel').count()) <= 1,
+		'无进度时不渲染，有进度时出现'
+	);
+
+	await page.goto(BASE, { waitUntil: 'networkidle' });
+	check('首页有主 CTA', (await page.getByTestId('cta-levels').count()) === 1);
 
 	// 全站导航。/notes 曾经是孤儿页面：部署好了、返回 200，但站内没有任何链接指向它，
 	// 只能手输 URL 才能进去。这条断言让那个缺陷不能悄悄复发。

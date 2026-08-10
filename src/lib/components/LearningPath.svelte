@@ -41,6 +41,10 @@
 		expanded[moduleId] = !expanded[moduleId];
 	}
 
+	// 锚点地址直接拼在 href 里：ESLint 的 no-navigation-without-resolve
+	// 只认 href 上字面出现的 resolve(...)，包一层函数就检测不到。
+	// 笔记库页面会读 hash 并自动展开对应模块——不然跳过去只看到一片折叠。
+
 	/** 章节名。manifest 里模块根目录下的笔记 section 为空字符串 */
 	function sectionLabel(section: string): string {
 		return section || '概览';
@@ -144,7 +148,10 @@
 					但入口不能一起去掉，否则模块变成纯展示。
 				-->
 				<h2 class="mod-name">
-					<a class="mod-link" href={resolve('/notes')}>{mod.label}</a>
+					<!-- 5 个模块标题原来全指向同一个 /notes，点「AI Agent 工程」（105 篇）
+					     落到笔记库首页还得再找一遍。现在直达该模块。 -->
+					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- 路径由 resolve() 生成，这里只追加锚点 -->
+					<a class="mod-link" href={`${resolve('/notes')}#m-${mod.id}`}>{mod.label}</a>
 				</h2>
 				<span class="mod-meta" data-testid="module-meta">{moduleMeta(mod, mastery.total)}</span>
 			</div>
@@ -165,9 +172,19 @@
 			{#if !(mod.sections.length === 1 && mod.sections[0].dir === '')}
 				<ul class="chips" id={`chips-${mod.id}`} data-testid="section-chips">
 					{#each visibleSections as sec (sec.dir)}
-						<li class="chip">
-							<span class="chip-label">{sectionLabel(sec.section)}</span>
-							<span class="chip-n">{sec.notes.length}</span>
+						{@const secHash = sec.dir === '' ? `#m-${mod.id}` : `#s-${mod.id}-${sec.dir}`}
+						<li>
+							<!--
+								chip 原来是 <li><span>，cursor: auto，无 href/role/tabindex，
+								但长得就是带角标的胶囊按钮。零上下文复查者进站第一个动作就是去点它，
+								毫无反应，「以为站崩了」——那是整场复查里最强的一次挫败。
+								现在它真的通向笔记库里对应的章节。
+							-->
+							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- 路径由 resolve() 生成，这里只追加锚点 -->
+							<a class="chip chip-link" href={`${resolve('/notes')}${secHash}`}>
+								<span class="chip-label">{sectionLabel(sec.section)}</span>
+								<span class="chip-n">{sec.notes.length}</span>
+							</a>
 						</li>
 					{/each}
 					{#if hidden > 0 || open}
@@ -336,6 +353,19 @@
 		color: oklch(0.62 0.01 260);
 	}
 
+	.chip-link {
+		text-decoration: none;
+		transition: border-color 140ms ease;
+	}
+
+	.chip-link:hover {
+		border-color: var(--color-accent);
+	}
+
+	.chip-link:hover .chip-label {
+		color: var(--color-accent);
+	}
+
 	.chip-more {
 		font: inherit;
 		font-size: 0.75rem;
@@ -440,6 +470,19 @@
 	@media (max-width: 34rem) {
 		/* 触摸目标至少 44×44（WCAG 2.5.5）。桌面上鼠标精度够，不需要加高 */
 		.mod-link,
+		.chip-link {
+			text-decoration: none;
+			transition: border-color 140ms ease;
+		}
+
+		.chip-link:hover {
+			border-color: var(--color-accent);
+		}
+
+		.chip-link:hover .chip-label {
+			color: var(--color-accent);
+		}
+
 		.chip-more {
 			display: inline-flex;
 			align-items: center;

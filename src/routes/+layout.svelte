@@ -16,7 +16,12 @@
 <nav class="site-nav" aria-label="站点导航">
 	<a class="brand" href={resolve('/')}>AI Engineering Lab</a>
 	<div class="nav-links">
-		<a href={resolve('/')}>关卡</a>
+		<!--
+			「关卡」原来指向首页本身，点了页面不变——零上下文复查者的第一反应是
+			「链接坏了」。现在指向真正的关卡索引页。
+		-->
+		<a href={resolve('/')} data-testid="nav-path">学习路径</a>
+		<a href={resolve('/levels')} data-testid="nav-levels">关卡</a>
 		<a href={resolve('/notes')} data-testid="nav-notes">笔记库</a>
 	</div>
 </nav>

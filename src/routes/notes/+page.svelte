@@ -44,6 +44,8 @@
 			loadError = true;
 		} finally {
 			ready = true;
+			// 必须等 manifest 到位：s-<模块>-<章节> 形式的锚点要用真实模块 id 做前缀匹配
+			openFromHash();
 		}
 	});
 
@@ -87,6 +89,40 @@
 		open[id] = !isOpen(id, i);
 	}
 
+	/**
+	 * 按 URL 的 hash 展开对应模块。
+	 *
+	 * 首页的章节 chip 和模块名现在链到 `#m-<模块>` / `#s-<模块>-<章节>`。
+	 * 模块默认折叠，如果不主动展开，点过来只会看到一片收起的标题——
+	 * 那比原来「全部指向 /notes」更糟。
+	 */
+	function openFromHash() {
+		const hash = decodeURIComponent(location.hash.replace(/^#/, ''));
+		if (hash === '') return;
+		const moduleId = hash.startsWith('m-')
+			? hash.slice(2)
+			: hash.startsWith('s-')
+				? (manifestModuleIdFor(hash.slice(2)) ?? '')
+				: '';
+		if (moduleId) open[moduleId] = true;
+
+		// 展开是响应式的，要等 DOM 更新后再滚
+		requestAnimationFrame(() => {
+			document.getElementById(hash)?.scrollIntoView({ block: 'start' });
+		});
+	}
+
+	/**
+	 * 从 `s-<模块>-<章节目录>` 里切出模块 id。
+	 *
+	 * 不能简单按第一个 `-` 切：模块 id 本身就带数字前缀和连字符
+	 * （`01-machine-learning`），章节目录也是（`04-神经网络原理`）。
+	 * 所以拿真实模块 id 去前缀匹配，而不是猜分隔位置。
+	 */
+	function manifestModuleIdFor(rest: string): string | undefined {
+		return manifest?.modules.find((m) => rest.startsWith(`${m.id}-`))?.id;
+	}
+
 	/** 该模块有多少篇带 Tier A 可判定题。列表页此前完全没有这个信号 */
 	function gradableInModule(mod: NotesManifest['modules'][number]): number {
 		return mod.sections
@@ -118,7 +154,11 @@
 				共 {manifest.count} 篇，已读 {totalRead} 篇。
 			{/if}
 		</p>
-		<p class="sub">阅读与答题进度只存在这台设备的浏览器里，换设备或清缓存会重新开始。</p>
+		<p class="sub">
+			「已读」要在笔记末尾自己点一下「标记为读完」——这个站不按滚动位置猜你读没读。
+			有可判定题的篇目会显示掌握度，那个是程序判的。
+			阅读与答题进度只存在这台设备的浏览器里，换设备或清缓存会重新开始。
+		</p>
 	</header>
 
 	{#if !ready}
@@ -132,7 +172,7 @@
 			{#each manifest.modules as mod, i (mod.id)}
 				{@const shown = isOpen(mod.id, i)}
 				{@const gradableNotes = gradableInModule(mod)}
-				<section class="module">
+				<section class="module" id={`m-${mod.id}`}>
 					<!-- 模块标题即折叠开关。aria-expanded 让屏幕阅读器听得出展开状态 -->
 					<h2>
 						<button
@@ -152,7 +192,7 @@
 					</h2>
 					<div id={`mod-${mod.id}`} class="mod-body" hidden={!shown}>
 						{#each mod.sections as sec (sec.dir)}
-							<div class="section">
+							<div class="section" id={`s-${mod.id}-${sec.dir}`}>
 								{#if sec.section}
 									<h3>{sec.section}</h3>
 								{/if}
@@ -182,7 +222,13 @@
 														<span class="badge-level" data-testid="note-has-level">关卡</span>
 													{/if}
 													<span>{note.minutes} 分钟</span>
-													{#if note.hasQuiz}<span>· 自测题</span>{/if}
+													<!--
+												原来这里写「· 自测题」，挂在几乎全部 168 篇上，
+												但它指的是开放式回顾题、不可判定。而真正有可判定题的
+												只有绿色那个标记。零上下文复查者被这个假标签骗了一次：
+												「两个长得几乎一样的标签，一个有信息量一个没有」。
+											-->
+													{#if note.hasQuiz}<span>· 开放题</span>{/if}
 												</span>
 											</a>
 										</li>

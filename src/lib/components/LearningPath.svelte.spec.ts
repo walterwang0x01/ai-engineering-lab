@@ -132,14 +132,28 @@ describe('模块与章节骨架', () => {
 		expect(screen.getByTestId('module-meta').elements()[0].textContent).toBe('2 篇 · 5 道题');
 	});
 
-	it('模块名是通往笔记库的链接（方案 A 去掉了重复五遍的那行链接）', () => {
+	it('模块名链到笔记库里该模块的锚点，而不是笔记库首页', () => {
+		// 5 个模块标题原来全指向同一个 /notes：点「AI Agent 工程」（105 篇）
+		// 落到大而全的列表页还得再找一遍，这是复查里的严重度 3
 		const screen = render(LearningPath, { curriculum: buildCurriculum(FIXTURE) });
-		const links = screen.container.querySelectorAll('a.mod-link');
+		const links = [...screen.container.querySelectorAll('a.mod-link')];
 		expect(links.length).toBe(2);
-		for (const a of links) {
-			expect(a.getAttribute('href')).toMatch(/notes$/);
-			expect(a.textContent?.trim()).not.toBe('');
+		expect(links.map((a) => a.getAttribute('href'))).toEqual([
+			expect.stringContaining('/notes#m-00-入门准备'),
+			expect.stringContaining('/notes#m-02-llm')
+		]);
+	});
+
+	it('章节 chip 是真链接，通向对应章节的锚点', () => {
+		// chip 原来是 <li><span>、cursor:auto、无 href —— 但长得就是胶囊按钮。
+		// 复查者进站第一个动作就是去点它，毫无反应，「以为站崩了」
+		const screen = render(LearningPath, { curriculum: buildCurriculum(FIXTURE) });
+		const chips = [...screen.container.querySelectorAll('a.chip-link')];
+		expect(chips.length).toBeGreaterThan(0);
+		for (const a of chips) {
+			expect(a.getAttribute('href')).toMatch(/\/notes#[ms]-/);
 		}
+		expect(chips.some((a) => a.getAttribute('href')?.includes('#s-02-llm-05-推理优化'))).toBe(true);
 	});
 });
 
