@@ -25,7 +25,7 @@
 
 <style>
 	.site-nav {
-		max-width: 52rem;
+		max-width: 60rem;
 		margin: 0 auto;
 		padding: 1rem 1.25rem;
 		display: flex;
