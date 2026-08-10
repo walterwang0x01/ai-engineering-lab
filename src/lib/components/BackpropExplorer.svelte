@@ -79,6 +79,21 @@
 
 	/** 令 z2 = 0 的临界 x1（固定 x2、b2、w21 时的反解），用于标注滑块上的分界点 */
 	const criticalX1 = $derived((0 - NET.w22 * x2 - NET.b2) / NET.w21);
+	/**
+	 * 上游误差那段说明。按 h2 是否存活切换，且拼成单一字符串——
+	 * 模板里用 `{#if}` 拼接会被 Svelte 吃掉前导空白，中英混排处少一个空格。
+	 */
+	const upstreamNote = $derived.by(() => {
+		const delta = `上游误差 δ_h2 = ∂L/∂h2 = ${fmt(computed.dH2, 3)}`;
+		const self = computed.dH2 === 0 ? '（恰好也是 0）' : '（本身不是 0）';
+		return computed.alive2
+			? `${delta}${self}。此刻 z2 = ${fmt(computed.z2, 2)} > 0，ReLU'(z2) = 1，` +
+					'上游误差原样传了下去，所以 w21/w22/b2 的梯度都不是 0——这一侧还在学。' +
+					'把 x1 拖回临界点左边，看它们怎么一起归零。'
+			: `${delta}${self}。死亡的关键在 ReLU'(z2)，不在上游误差本身：` +
+					'即使上游传来非零信号，乘上 0 之后，h2 这一侧的三个参数梯度必然全部归零。';
+	});
+
 	const criticalPercent = $derived(((criticalX1 - X1_MIN) / (X1_MAX - X1_MIN)) * 100);
 
 	function fmt(n: number, digits = 2): string {
@@ -183,12 +198,12 @@
 			</div>
 		</div>
 
-		<p class="chain-upstream">
-			上游误差 δ_h2 = ∂L/∂h2 = {fmt(computed.dH2, 3)}（{computed.dH2 === 0
-				? '恰好也是 0'
-				: '本身不是 0'}）—— 死亡的关键在 ReLU'(z2)，不在上游误差本身。 即使上游传来非零信号，乘上 0
-			之后，h2 这一侧的三个参数梯度必然全部归零。
-		</p>
+		<!--
+			这段文案必须跟着 h2 的存活状态走。改版前它是固定的「必然全部归零」，
+			于是 h2 存活时屏幕上同时出现 ∂L/∂w21 = -32.550（非零）和「必然全部归零」，
+			零上下文复查的原话是「到底该信数字还是信文字」——停下来想了远超 5 秒。
+		-->
+		<p class="chain-upstream" data-testid="chain-upstream">{upstreamNote}</p>
 	</div>
 
 	<div class="status" class:dead={!computed.alive2} data-testid="status-banner">

@@ -19,7 +19,7 @@
 	import { progress } from '$lib/storage/progress.svelte';
 	import { levelForNote } from '$lib/curriculum/mapping';
 	import { getLevel } from '$lib/levels/registry';
-	import { summarizeMastery } from '$lib/quiz/schedule';
+	import { INTERVALS_DAYS, buildDueDeck, summarizeMastery } from '$lib/quiz/schedule';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -34,6 +34,16 @@
 	const relatedLevel = $derived(getLevel(levelForNote(slug) ?? ''));
 
 	let gradableIndex = $state(0);
+	/**
+	 * 本篇要练的题序列。
+	 *
+	 * 必须走 buildDueDeck 而不是顺序遍历全部题目：改版前刷新页面后，
+	 * 已经答对的题会回到未答状态重新出现一遍。进度其实存着
+	 * （localStorage 里有 box 和 dueAt，首页也显示「1 道在学」），
+	 * 但题目界面不认——零上下文复查的原话是「作为新人我的结论会是'白做了'，
+	 * 而不是'这是间隔重复'」。关卡页一直是用 buildDueDeck 的，两处行为不一致。
+	 */
+	let deck = $state<string[]>([]);
 	let ready = $state(false);
 	/** 正文容器，公式与图表渲染需要真实 DOM */
 	let articleEl = $state<HTMLElement | null>(null);
@@ -54,6 +64,7 @@
 		notesProgress.load();
 		progress.load();
 		ready = true;
+		rebuildDeck();
 
 		const onScroll = () => {
 			const el = document.documentElement;
@@ -86,9 +97,25 @@
 		notesProgress.markRead(slug);
 	}
 
+	/** 按到期时间排队。新题优先，其次是已到期的旧题 */
+	function rebuildDeck() {
+		const ids = gradable.map((q) => q.id);
+		deck = buildDueDeck(ids, progress.scheduleView, Date.now(), ids.length);
+		gradableIndex = 0;
+	}
+
 	const currentGradable = $derived(
-		gradableIndex < gradable.length ? gradable[gradableIndex] : undefined
+		gradableIndex < deck.length ? gradable.find((q) => q.id === deck[gradableIndex]) : undefined
 	);
+
+	/** 本轮排队为空（全部答过且未到期）时，告诉用户下次复习大概在什么时候 */
+	const nextReviewDays = $derived.by(() => {
+		const boxes = gradable
+			.map((q) => progress.get(q.id)?.box ?? 0)
+			.filter((b) => b > 0 && b < INTERVALS_DAYS.length);
+		if (boxes.length === 0) return 0;
+		return Math.min(...boxes.map((b) => INTERVALS_DAYS[b]));
+	});
 
 	/**
 	 * 写进全站统一的进度存储。题目 id 带 `note:` 前缀，
@@ -103,7 +130,9 @@
 		gradableIndex += 1;
 	}
 
-	function restartGradable() {
+	/** 不等到期，现在就把这篇的题全部再练一遍 */
+	function practiseAll() {
+		deck = gradable.map((q) => q.id);
 		gradableIndex = 0;
 	}
 
@@ -166,7 +195,7 @@
 				{/if}
 				{#if currentGradable}
 					<span class="gradable-counter" data-testid="note-gradable-counter">
-						第 {gradableIndex + 1} / {gradable.length} 题
+						第 {gradableIndex + 1} / {deck.length} 题
 					</span>
 				{/if}
 			</div>
@@ -183,10 +212,27 @@
 						onNext={nextGradable}
 					/>
 				{/key}
-			{:else}
+			{:else if ready}
+				<!--
+					排队为空有两种原因，必须说清是哪一种：
+					刚做完一轮，还是全部答过、正等着到期复习。
+					改版前这里只有一句「做完了」，而刷新后题目会重新出现，
+					用户会以为进度丢了。
+				-->
 				<div class="gradable-done" data-testid="note-gradable-done">
-					<p class="gradable-done-title">这篇的可判定题做完了</p>
-					<button class="btn-ghost" onclick={restartGradable}>再练一遍</button>
+					{#if mastery.total > 0 && mastery.untouched === 0}
+						<p class="gradable-done-title">这篇的 {mastery.total} 道题都答过了</p>
+						<p class="gradable-done-body">
+							{#if nextReviewDays > 0}
+								按间隔重复，最早的一道会在约 {nextReviewDays} 天后重新排进队列。答对的题不会立刻再问你——这是刻意的，隔一段时间再检索才能看出是真记住还是刚看过。
+							{:else}
+								答错的题会立刻回到队列。
+							{/if}
+						</p>
+					{:else}
+						<p class="gradable-done-title">这一轮做完了</p>
+					{/if}
+					<button class="btn-ghost" onclick={practiseAll}>不等了，现在就练一遍</button>
 				</div>
 			{/if}
 		</section>
@@ -535,6 +581,13 @@
 		display: grid;
 		gap: 0.75rem;
 		justify-items: start;
+	}
+
+	.gradable-done-body {
+		margin: 0;
+		font-size: 0.875rem;
+		line-height: 1.75;
+		color: oklch(0.74 0.01 260);
 	}
 
 	.gradable-done-title {
