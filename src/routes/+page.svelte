@@ -3,6 +3,7 @@
 	import { base, resolve } from '$app/paths';
 	import Seo from '$lib/components/Seo.svelte';
 	import LearningPath from '$lib/components/LearningPath.svelte';
+	import MasteryLegend from '$lib/components/MasteryLegend.svelte';
 	import { LEVELS } from '$lib/levels/registry';
 	import { EMPTY_MANIFEST, buildCurriculum } from '$lib/curriculum/build';
 	import { summarizeMastery } from '$lib/quiz/schedule';
@@ -88,7 +89,8 @@
 			</div>
 			<div class="stat">
 				<dt class="stat-n accent" data-testid="stat-questions">{totalQuestions}</dt>
-				<dd class="stat-l">道可判定题</dd>
+				<!-- 「可判定题」是这个站的自造词。解释原来在页尾，离首次出现差 1600px -->
+				<dd class="stat-l">道可判定题<span class="stat-gloss">程序判对错，不是自评</span></dd>
 			</div>
 			<div class="stat">
 				<dt class="stat-n" data-testid="stat-interactive">{interactiveLevels}</dt>
@@ -130,6 +132,10 @@
 		{/if}
 
 		<LearningPath {curriculum} {noteQuestionIds} {progressReady} />
+
+		{#if progressReady && overall.mastered + overall.learning + overall.struggling > 0}
+			<div class="legend-slot"><MasteryLegend /></div>
+		{/if}
 	</section>
 
 	<section class="why">
@@ -232,6 +238,17 @@
 
 	.stat-n.ok {
 		color: var(--color-ok);
+	}
+
+	.stat-gloss {
+		display: block;
+		font-size: 0.6875rem;
+		color: oklch(0.56 0.01 260);
+		margin-top: 0.0625rem;
+	}
+
+	.legend-slot {
+		margin-top: 1.25rem;
 	}
 
 	.stat-l {

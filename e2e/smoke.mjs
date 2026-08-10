@@ -144,6 +144,13 @@ try {
 	const indexCards = await page.locator('[data-testid="level-index"] a.card').count();
 	check('关卡索引页列出全部关卡', indexCards === builtPages.length, `${indexCards} 张`);
 	check('索引页标出哪些关卡有代码题', (await page.locator('.fact-code').count()) > 0);
+	// 间隔重复承诺了复习，但改版前全站没有任何「今天该复习什么」的入口，
+	// dueAt 一直只存在 localStorage 里，用户看不到——复查里唯一的功能缺口
+	check(
+		'索引页有复习面板（首次访问时说明还没有到期的题）',
+		(await page.getByTestId('review-panel').count()) <= 1,
+		'无进度时不渲染，有进度时出现'
+	);
 
 	await page.goto(BASE, { waitUntil: 'networkidle' });
 	check('首页有主 CTA', (await page.getByTestId('cta-levels').count()) === 1);

@@ -17,7 +17,7 @@
 	import Seo from '$lib/components/Seo.svelte';
 	import { LEVELS } from '$lib/levels/registry';
 	import { notesForLevel } from '$lib/curriculum/mapping';
-	import { summarizeMastery } from '$lib/quiz/schedule';
+	import { INTERVALS_DAYS, isDue, summarizeMastery } from '$lib/quiz/schedule';
 	import { progress } from '$lib/storage/progress.svelte';
 
 	let ready = $state(false);
@@ -42,6 +42,37 @@
 			};
 		})
 	);
+
+	/**
+	 * 今天到期需要复习的题，按关卡分组。
+	 *
+	 * 零上下文复查里唯一的**功能缺口**：页尾承诺「答对的题按 1、3、7、16、35 天
+	 * 安排复习」，但全站导航只有关卡和笔记库，没有任何「今天该复习什么」的入口。
+	 * `dueAt` 一直写进了 localStorage，用户却看不到它。复查者的原话：
+	 * 「这是承诺了一个我看不到的功能」。
+	 */
+	const dueByLevel = $derived(
+		LEVELS.map((level) => {
+			const due = level.questions.filter((q) => {
+				const rec = progress.get(q.id);
+				return rec !== undefined && rec.box > 0 && isDue(rec.dueAt, Date.now());
+			});
+			return { level, count: due.length };
+		}).filter((r) => r.count > 0)
+	);
+
+	const dueTotal = $derived(dueByLevel.reduce((n, r) => n + r.count, 0));
+
+	/** 一道题都没到期时，最近的一次复习还有多久 */
+	const nextDueInDays = $derived.by(() => {
+		const dues = LEVELS.flatMap((l) => l.questions)
+			.map((q) => progress.get(q.id))
+			.filter((r) => r !== undefined && r.box > 0)
+			.map((r) => r!.dueAt);
+		if (dues.length === 0) return null;
+		const soonest = Math.min(...dues);
+		return Math.max(0, Math.ceil((soonest - Date.now()) / 86_400_000));
+	});
 
 	const totals = $derived({
 		questions: rows.reduce((n, r) => n + r.mastery.total, 0),
@@ -69,6 +100,36 @@
 				{totals.mastered} 道{/if}。进度只存在这台设备的浏览器里。
 		</p>
 	</header>
+
+	{#if ready && (dueTotal > 0 || nextDueInDays !== null)}
+		<section class="review" data-testid="review-panel">
+			{#if dueTotal > 0}
+				<h2 class="review-title">今天有 {dueTotal} 道题到期复习</h2>
+				<p class="review-body">
+					间隔重复按 {INTERVALS_DAYS.slice(1).join('、')} 天排。到期的题会自动排在关卡队列的前面，进去就能做。
+				</p>
+				<ul class="review-list">
+					{#each dueByLevel as row (row.level.id)}
+						<li>
+							<a href={resolve('/[levelId]', { levelId: row.level.id })}>
+								{row.level.title}
+								<span class="review-n">{row.count} 道</span>
+							</a>
+						</li>
+					{/each}
+				</ul>
+			{:else}
+				<h2 class="review-title">今天没有到期的题</h2>
+				<p class="review-body">
+					{#if nextDueInDays === 0}
+						最近的一道就在今天之内到期。
+					{:else}
+						最近的一道大约 {nextDueInDays} 天后回到队列。答对的题不会立刻再问你——隔几天再检索才能区分「真记住了」和「刚看过」。
+					{/if}
+				</p>
+			{/if}
+		</section>
+	{/if}
 
 	<ol class="levels" data-testid="level-index">
 		{#each rows as row, i (row.level.id)}
@@ -156,6 +217,60 @@
 		font-size: 0.875rem;
 		line-height: 1.7;
 		color: oklch(0.64 0.01 260);
+	}
+
+	.review {
+		padding: 1.25rem 1.5rem;
+		background: var(--color-surface-sunken);
+		border: 1px solid var(--color-accent-dim);
+		border-radius: 12px;
+		display: grid;
+		gap: 0.5rem;
+	}
+
+	.review-title {
+		margin: 0;
+		font-size: 1.0625rem;
+	}
+
+	.review-body {
+		margin: 0;
+		font-size: 0.875rem;
+		line-height: 1.75;
+		color: oklch(0.74 0.01 260);
+	}
+
+	.review-list {
+		margin: 0.25rem 0 0;
+		padding: 0;
+		list-style: none;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.review-list a {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4375rem;
+		min-height: 44px;
+		padding: 0 0.75rem;
+		border-radius: 8px;
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border-subtle);
+		color: inherit;
+		text-decoration: none;
+		font-size: 0.875rem;
+	}
+
+	.review-list a:hover {
+		border-color: var(--color-accent);
+	}
+
+	.review-n {
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		color: var(--color-warn);
 	}
 
 	.levels {

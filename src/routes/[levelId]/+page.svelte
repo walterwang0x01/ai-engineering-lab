@@ -7,6 +7,7 @@
 	 */
 	import { onMount } from 'svelte';
 	import QuizCard from '$lib/components/QuizCard.svelte';
+	import MasteryLegend from '$lib/components/MasteryLegend.svelte';
 	import CodeQuestionCard from '$lib/components/CodeQuestionCard.svelte';
 	import Seo from '$lib/components/Seo.svelte';
 	import { buildDueDeck, summarizeMastery } from '$lib/quiz/schedule';
@@ -168,6 +169,10 @@
 				</div>
 			{/if}
 		</div>
+
+		{#if ready}
+			<MasteryLegend compact />
+		{/if}
 
 		<p class="section-note">
 			每道题都有确定答案，答错会给出针对性的解释。
