@@ -273,7 +273,7 @@
 		font-family: var(--font-mono);
 		font-size: 1.375rem;
 		font-weight: 600;
-		color: oklch(0.56 0.02 260);
+		color: var(--color-text-faint);
 	}
 
 	.mod-name {
@@ -294,7 +294,7 @@
 	.mod-meta {
 		font-family: var(--font-mono);
 		font-size: 0.75rem;
-		color: oklch(0.64 0.01 260);
+		color: var(--color-text-faint);
 		white-space: nowrap;
 	}
 
@@ -306,7 +306,7 @@
 	.mod-tier-a {
 		margin: 0.875rem 0 0 3.25rem;
 		font-size: 0.8125rem;
-		color: oklch(0.7 0.01 260);
+		color: var(--color-text-muted);
 	}
 
 	.orphan-note {
@@ -345,7 +345,7 @@
 		margin-bottom: 0;
 		font-size: 0.75rem;
 		font-family: var(--font-mono);
-		color: oklch(0.6 0.01 260);
+		color: var(--color-text-faint);
 	}
 
 	.chips {
@@ -367,14 +367,14 @@
 		border-radius: 5px;
 		background: var(--color-surface-sunken);
 		border: 1px solid var(--color-border-subtle);
-		color: oklch(0.74 0.01 260);
+		color: var(--color-text-soft);
 	}
 
 	/* 11px 小字需要 ≥4.5:1，原来的 oklch(0.56 …) 只有 4.2:1 */
 	.chip-n {
 		font-family: var(--font-mono);
 		font-size: 0.6875rem;
-		color: oklch(0.62 0.01 260);
+		color: var(--color-text-faint);
 	}
 
 	.chip-link {
@@ -445,14 +445,14 @@
 	.lv-sub {
 		display: block;
 		font-size: 0.75rem;
-		color: oklch(0.64 0.01 260);
+		color: var(--color-text-faint);
 		margin-top: 0.125rem;
 	}
 
 	.lv-q {
 		font-family: var(--font-mono);
 		font-size: 0.75rem;
-		color: oklch(0.66 0.01 260);
+		color: var(--color-text-muted);
 		white-space: nowrap;
 	}
 
@@ -482,13 +482,13 @@
 		font-size: 0.5625rem;
 		display: grid;
 		place-items: center;
-		color: oklch(0.7 0.01 260);
+		color: var(--color-text-muted);
 	}
 
 	.orphan-note {
 		margin: 0.75rem 0 0 3.25rem;
 		font-size: 0.875rem;
-		color: oklch(0.66 0.01 260);
+		color: var(--color-text-muted);
 	}
 
 	@media (max-width: 34rem) {

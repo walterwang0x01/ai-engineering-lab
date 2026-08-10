@@ -259,7 +259,7 @@
 		margin: 0;
 		font-size: 1.0625rem;
 		line-height: 1.75;
-		color: oklch(0.78 0.008 260);
+		color: var(--color-text-soft);
 	}
 
 	.panel {
@@ -280,7 +280,7 @@
 		font-size: 0.8125rem;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: oklch(0.64 0.01 260);
+		color: var(--color-text-faint);
 		font-weight: 500;
 	}
 
@@ -315,7 +315,7 @@
 		flex-shrink: 0;
 		font-size: 0.75rem;
 		font-family: var(--font-mono);
-		color: oklch(0.62 0.01 260);
+		color: var(--color-text-faint);
 		white-space: nowrap;
 	}
 
@@ -328,7 +328,7 @@
 		margin: 0;
 		font-size: 0.9375rem;
 		line-height: 1.75;
-		color: oklch(0.7 0.01 260);
+		color: var(--color-text-muted);
 	}
 
 	.quiz-head {
@@ -344,11 +344,11 @@
 		flex-wrap: wrap;
 		gap: 0.875rem;
 		font-size: 0.8125rem;
-		color: oklch(0.68 0.01 260);
+		color: var(--color-text-muted);
 	}
 
 	.stat b {
-		color: oklch(0.92 0.005 260);
+		color: var(--color-text-strong);
 		font-family: var(--font-mono);
 	}
 
@@ -364,12 +364,12 @@
 		margin: 0;
 		font-size: 0.8125rem;
 		font-family: var(--font-mono);
-		color: oklch(0.66 0.01 260);
+		color: var(--color-text-muted);
 	}
 
 	.placeholder {
 		margin: 0;
-		color: oklch(0.62 0.01 260);
+		color: var(--color-text-faint);
 		font-size: 0.9375rem;
 	}
 
@@ -394,7 +394,7 @@
 		margin: 0;
 		font-size: 0.9375rem;
 		line-height: 1.75;
-		color: oklch(0.78 0.008 260);
+		color: var(--color-text-soft);
 	}
 
 	.btn-ghost {

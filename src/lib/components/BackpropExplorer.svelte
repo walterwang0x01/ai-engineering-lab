@@ -283,7 +283,7 @@
 		margin: 0;
 		font-size: 0.9375rem;
 		line-height: 1.7;
-		color: oklch(0.76 0.008 260);
+		color: var(--color-text-soft);
 	}
 
 	.net-diagram {
@@ -303,7 +303,7 @@
 		font-size: 0.75rem;
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
-		color: oklch(0.62 0.01 260);
+		color: var(--color-text-faint);
 	}
 
 	.node {
@@ -337,11 +337,11 @@
 	.readout-hint {
 		font-family: var(--font-sans);
 		font-size: 0.6875rem;
-		color: oklch(0.62 0.01 260);
+		color: var(--color-text-faint);
 	}
 
 	.node.readout.dim {
-		color: oklch(0.68 0.01 260);
+		color: var(--color-text-muted);
 	}
 
 	.node.output {
@@ -360,7 +360,7 @@
 
 	.node-name {
 		font-size: 0.75rem;
-		color: oklch(0.68 0.01 260);
+		color: var(--color-text-muted);
 	}
 
 	.node-value {
@@ -399,7 +399,7 @@
 		display: flex;
 		justify-content: space-between;
 		font-size: 0.75rem;
-		color: oklch(0.6 0.01 260);
+		color: var(--color-text-faint);
 		height: 1.25rem;
 	}
 
@@ -432,7 +432,7 @@
 		margin: 0;
 		font-size: 0.8125rem;
 		line-height: 1.6;
-		color: oklch(0.62 0.01 260);
+		color: var(--color-text-faint);
 	}
 
 	.chain {
@@ -470,7 +470,7 @@
 	.chain-arrow {
 		display: grid;
 		place-items: center;
-		color: oklch(0.55 0.01 260);
+		color: var(--color-text-faint);
 		font-size: 1rem;
 	}
 
@@ -494,7 +494,7 @@
 
 	.chain-label {
 		font-size: 0.75rem;
-		color: oklch(0.66 0.01 260);
+		color: var(--color-text-muted);
 	}
 
 	.chain-value {
@@ -512,7 +512,7 @@
 		margin: 0;
 		font-size: 0.8125rem;
 		line-height: 1.7;
-		color: oklch(0.68 0.01 260);
+		color: var(--color-text-muted);
 	}
 
 	.status-prompt {
@@ -549,7 +549,7 @@
 		margin: 0;
 		font-size: 0.75rem;
 		line-height: 1.7;
-		color: oklch(0.6 0.01 260);
+		color: var(--color-text-faint);
 		border-top: 1px solid var(--color-border-subtle);
 		padding-top: 0.875rem;
 	}

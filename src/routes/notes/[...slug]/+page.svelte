@@ -383,7 +383,7 @@
 	.crumb-meta {
 		font-family: var(--font-mono);
 		font-size: 0.8125rem;
-		color: oklch(0.62 0.01 260);
+		color: var(--color-text-faint);
 	}
 
 	.layout {
@@ -422,7 +422,7 @@
 		margin: 0 0 0.5rem;
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
-		color: oklch(0.62 0.01 260);
+		color: var(--color-text-faint);
 	}
 
 	.toc ul {
@@ -438,7 +438,7 @@
 	}
 
 	.toc a {
-		color: oklch(0.72 0.01 260);
+		color: var(--color-text-muted);
 		text-decoration: none;
 		line-height: 1.5;
 	}
@@ -475,12 +475,12 @@
 	.note-body :global(h4) {
 		font-size: 1rem;
 		margin: 1.5rem 0 0.5rem;
-		color: oklch(0.82 0.008 260);
+		color: var(--color-text);
 	}
 
 	.note-body :global(p),
 	.note-body :global(li) {
-		color: oklch(0.84 0.006 260);
+		color: var(--color-text);
 	}
 
 	.note-body :global(a) {
@@ -614,7 +614,7 @@
 	.gradable-counter {
 		font-size: 0.8125rem;
 		font-family: var(--font-mono);
-		color: oklch(0.66 0.01 260);
+		color: var(--color-text-muted);
 	}
 
 	.gradable-done {
@@ -631,7 +631,7 @@
 		margin: 0;
 		font-size: 0.875rem;
 		line-height: 1.75;
-		color: oklch(0.74 0.01 260);
+		color: var(--color-text-soft);
 	}
 
 	.gradable-done-title {
@@ -674,7 +674,7 @@
 		margin: 0;
 		font-size: 0.9375rem;
 		line-height: 1.75;
-		color: oklch(0.76 0.008 260);
+		color: var(--color-text-soft);
 	}
 
 	.to-level-cta {
@@ -709,7 +709,7 @@
 
 	.dim {
 		font-size: 0.875rem;
-		color: oklch(0.64 0.01 260);
+		color: var(--color-text-faint);
 		line-height: 1.7;
 	}
 

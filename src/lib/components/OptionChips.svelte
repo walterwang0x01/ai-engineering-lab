@@ -56,7 +56,7 @@
 		font-size: 0.8125rem;
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
-		color: oklch(0.68 0.01 260);
+		color: var(--color-text-muted);
 		margin-bottom: 0.5rem;
 	}
 
@@ -106,6 +106,6 @@
 
 	.chip-detail {
 		font-size: 0.75rem;
-		color: oklch(0.66 0.01 260);
+		color: var(--color-text-muted);
 	}
 </style>

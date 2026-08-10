@@ -57,7 +57,7 @@
 <style>
 	.legend {
 		font-size: 0.8125rem;
-		color: oklch(0.72 0.01 260);
+		color: var(--color-text-muted);
 	}
 
 	.legend.compact {
@@ -101,13 +101,13 @@
 	dd {
 		margin: 0.125rem 0 0;
 		line-height: 1.7;
-		color: oklch(0.74 0.01 260);
+		color: var(--color-text-soft);
 	}
 
 	.note {
 		margin: 0.5rem 0 0;
 		padding: 0 1rem;
 		line-height: 1.7;
-		color: oklch(0.66 0.01 260);
+		color: var(--color-text-muted);
 	}
 </style>
