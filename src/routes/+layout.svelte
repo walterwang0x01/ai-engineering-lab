@@ -36,6 +36,10 @@
 	}
 
 	.brand {
+		/* 与 .nav-links a 同样的 44px 触摸目标（WCAG 2.5.5） */
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
 		font-family: var(--font-mono);
 		font-size: 0.8125rem;
 		letter-spacing: 0.06em;

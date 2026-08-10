@@ -252,6 +252,10 @@
 	}
 
 	.all-notes {
+		/* 独立的导航性链接，窄屏要够大点。行内正文链接不适用这条 */
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
 		font-size: 0.8125rem;
 		color: var(--color-accent);
 		text-decoration: none;
@@ -308,6 +312,15 @@
 	.foot a {
 		color: var(--color-accent);
 		text-decoration: none;
+	}
+
+	@media (max-width: 34rem) {
+		/* 页脚是两条独立链接，不是句中行内链接，所以适用 44px 规则 */
+		.foot a {
+			display: inline-flex;
+			align-items: center;
+			min-height: 44px;
+		}
 	}
 
 	.foot a:hover {
