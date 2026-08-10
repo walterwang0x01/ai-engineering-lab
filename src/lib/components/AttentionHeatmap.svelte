@@ -117,11 +117,20 @@
 	/** 均匀分布的熵，作为对照上界 */
 	const uniformEntropy = $derived(Math.log2(computed.n));
 
-	function cellColor(w: number): string {
-		if (w <= 0) return 'transparent';
-		// 用 oklch 的 lightness 与 chroma 同步表达强度，比单纯改透明度更清晰
-		const t = Math.min(1, Math.pow(w, 0.55));
-		return `oklch(${0.32 + t * 0.42} ${0.04 + t * 0.13} 200)`;
+	/**
+	 * 格子强度 → 0..1 的插值参数。
+	 *
+	 * 实际颜色由 CSS 在 `--color-heat-lo` 与 `--color-heat-hi` 之间用
+	 * `color-mix(in oklch)` 插出来。这里刻意只返回一个数、不返回颜色：
+	 * 颜色字面量留在 JS 里的话，`palette.spec.ts` 的收敛门禁扫不到它
+	 * （它扫的是 CSS 里 `oklch(` 后面紧跟数字的形式，模板字符串正好躲过去）。
+	 *
+	 * 这与原先手算 `oklch(0.32 + t*0.42, 0.04 + t*0.13, 200)` 逐像素等价：
+	 * oklch 插值对 L/C/H 分别做线性混合，端点取 t=0 与 t=1 的值即可复现同一条曲线。
+	 */
+	function cellIntensity(w: number): number {
+		if (w <= 0) return 0;
+		return Math.min(1, Math.pow(w, 0.55));
 	}
 </script>
 
@@ -180,7 +189,7 @@
 						type="button"
 						class="cell"
 						class:masked={causal && j > i}
-						style="background: {cellColor(w)}"
+						style="--t: {cellIntensity(w)}"
 						onmouseenter={() => (hovered = { i, j })}
 						onmouseleave={() => (hovered = null)}
 						onfocus={() => (hovered = { i, j })}
@@ -437,6 +446,12 @@
 		transition: outline-color 120ms ease;
 		outline: 1px solid transparent;
 		min-width: 0;
+		/* --t 由标记内联给出（0..1）。见 cellIntensity 的注释 */
+		background: color-mix(
+			in oklch,
+			var(--color-heat-hi) calc(var(--t) * 100%),
+			var(--color-heat-lo)
+		);
 	}
 
 	.cell:hover,

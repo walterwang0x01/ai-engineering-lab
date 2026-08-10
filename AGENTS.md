@@ -268,6 +268,54 @@ CI 因此多了一步显式的 `pnpm run notes:sync`。删掉任何一环都会�
 
 ---
 
+### 20. 颜色只能写在 `layout.css`，两套主题必须成对维护
+
+`src/routes/layout.css` 是**唯一**能出现颜色取值的地方。`@theme` 里是浅色（默认），
+文件末尾 `prefers-color-scheme: dark` 里逐项覆盖成深色。组件只引用 token。
+
+这条不靠自觉，`src/lib/design/palette.spec.ts` 守三件事：
+
+1. **`layout.css` 之外零颜色字面量。** 包括 JS 里拼出来的——热力图的色阶曾经写成
+   `` `oklch(${0.32 + t * 0.42} …)` ``，而只匹配「`oklch(` 后紧跟数字」的正则**正好躲过去**，
+   让它在门禁下藏了一整轮。现在两种形式都数。
+   注释里的历史取值不算违规（先剥注释）：那是取值背后的原因，删掉解释是本末倒置。
+2. **两套主题各自达标。** 文字与语义色对各自的 `--color-surface` ≥4.5:1；
+   `--color-accent-dim` 只用于状态边框，按 WCAG 1.4.11 的 3:1 算。
+3. **深色必须覆盖每一个与主题相关的 token。** 漏一个的后果不是「不好看」而是看不见——
+   `--color-text-strong` 漏了就是近黑压在深色底上。刻意两套一致的（热力图那四个）
+   写进 `THEME_INVARIANT` 并说明理由。
+
+背景：收敛前有 113 处 `oklch()` 字面量散在 17 个文件里，L=0.55–0.84 之间挤着 8 个
+几乎无法分辨的灰。真正的代价不是「换主题很麻烦」，而是**三处灰用在 11–14px 小字上、
+对比度 4.19:1 不达标，躺了很久没人发现**——因为没有任何一个地方能一眼看全所有取值。
+
+写新档位前先想清楚：`--color-text-dim` 那一档就是这么来的，也因此被删掉了。
+相邻灰阶至少差 0.04 明度，肉眼分不出来的层级等于没有层级。
+
+对比度在 Node 里用 OKLab 矩阵算，不启动浏览器；有一条把结果钉在 canvas 实测值上，
+防止矩阵被改坏之后所有断言静默失真。
+
+### 21. 吉祥物是「不要卡通游戏风」的唯一例外
+
+`src/lib/components/Mascot.svelte`。它的身体**就是 ReLU 折线**：存活时上扬、
+头部（输出端）抬起并发光，死亡时整条压平、头跌回基线。这正是第一关要教的那件事，
+所以它在 `BackpropExplorer` 里跟着 `alive2` 走，是内容的一部分，不是贴上去的插画。
+
+例外的边界靠三件事守住，改它的时候别越界：
+
+- **单色**。所有结构线条用 `currentColor`，由调用方的 `color` 决定，
+  因此天然跟随主题，也不引入第二套配色。
+- **默认不动**。没有自发动画。
+- **面部只有点和短线**。没有渐变、高光这类插画语言。
+
+第一版把胞体放在折线拐点正上方，结果胞体把水平段整段盖住——存活态读不出「折线」，
+死亡态看着像个带胡须的禁止标志。头放在上扬笔画的末端才能让折线全程可见。
+
+不传 `label` 时它是装饰（`aria-hidden`）。`BackpropExplorer` 里刻意不传：
+旁边那段文字已经把状态说全了，再给图形一个名字会让读屏把「已死亡」听两遍。
+
+---
+
 ## 目录职责
 
 ```
@@ -283,6 +331,9 @@ src/lib/curriculum/    学习路径层。关卡与 168 篇笔记的唯一交汇�
   progress.ts          统一进度视图。可判定信号优先于「已读」这个自评信号
   curriculum.spec.ts   映射门禁（结构恒跑，slug 一致性需 manifest）
   progress.spec.ts     两套进度冲突态的裁决
+
+src/lib/design/       设计系统的门禁（无运行时代码）
+  palette.spec.ts      颜色收敛 + 两套主题的对比度与完整性校验（见第 20 条）
 
 src/lib/sandbox/       达标型沙盒的共享纯逻辑
   constraints.ts       barPct / allSatisfied / SolvedLatch
@@ -308,6 +359,7 @@ src/lib/storage/       持久化
 
 src/lib/components/    UI 组件
   LearningPath.svelte  首页学习路径。模块骨架 + 关卡卡片 + orphanLevels
+  Mascot.svelte        吉祥物。身体是 ReLU 折线，跟着存活状态走（见第 21 条）
   ConstraintGauge.svelte / OptionChips.svelte  达标型沙盒共享件（见第 18 条）
 
 content/note-questions/  本仓库维护的 Tier A 题库，路径镜像笔记 slug
@@ -322,7 +374,7 @@ src/routes/            页面
   +page.svelte         首页。从 curriculum 派生，不要手写关卡卡片
   [levelId]/           ★ 所有关卡共用这一个页面实现，不要为新关卡建目录
   notes/               笔记库列表页与阅读页（阅读页含 Tier A 题卡）
-  layout.css           设计系统（@theme token）。改配色只改这里
+  layout.css           设计系统。浅色在 @theme，深色在 prefers-color-scheme 里覆盖
 e2e/smoke.mjs          全链路冒烟测试，自管服务器生命周期
 ```
 
@@ -389,7 +441,8 @@ pnpm run check:all
 
 **反馈必须快于 300ms。** 慢了就失去「击中感」。当前动画控制在 180ms。
 
-**视觉克制。** 深色、低饱和、专业感，参考 Linear / Vercel。不要卡通游戏风。
+**视觉克制。** 低饱和、专业感，参考 Linear / Vercel。不要卡通游戏风——
+唯一的例外是吉祥物，边界见第 21 条。浅色与深色两套主题都要维护，浅色是默认。
 
 ---
 
