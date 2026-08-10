@@ -153,6 +153,16 @@
 <main>
 	<nav class="crumbs">
 		<a href={resolve('/notes')}>← 笔记库</a>
+		{#if relatedLevel}
+			<!-- 关卡 → 笔记原来是单向的：读完想回去做题只能按浏览器后退 -->
+			<a
+				class="crumb-level"
+				href={resolve('/[levelId]', { levelId: relatedLevel.id })}
+				data-testid="crumb-to-level"
+			>
+				← 回到「{relatedLevel.title}」
+			</a>
+		{/if}
 		{#if meta}
 			<span class="crumb-meta" data-testid="note-meta">
 				{meta.wordCount.toLocaleString()} 字 · 约 {meta.minutes} 分钟
@@ -352,6 +362,10 @@
 		gap: 1rem;
 		flex-wrap: wrap;
 		font-size: 0.875rem;
+	}
+
+	.crumb-level {
+		color: var(--color-accent);
 	}
 
 	.crumbs a {

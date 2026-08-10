@@ -130,6 +130,27 @@
 			.filter((n) => (noteQuestionIds[n.slug]?.length ?? 0) > 0).length;
 	}
 
+	let query = $state('');
+	let onlyGradable = $state(false);
+
+	const filtering = $derived(query.trim() !== '' || onlyGradable);
+
+	/** 一篇笔记是否通过当前筛选 */
+	function matches(note: { slug: string; title: string }): boolean {
+		if (onlyGradable && (noteQuestionIds[note.slug]?.length ?? 0) === 0) return false;
+		const q = query.trim().toLowerCase();
+		return q === '' || note.title.toLowerCase().includes(q);
+	}
+
+	const matchCount = $derived(
+		manifest
+			? manifest.modules.reduce(
+					(n, mod) => n + mod.sections.reduce((m, sec) => m + sec.notes.filter(matches).length, 0),
+					0
+				)
+			: 0
+	);
+
 	const BADGE: Record<string, { text: string; cls: string } | null> = {
 		mastered: { text: '已掌握', cls: 'badge-mastered' },
 		'in-progress': { text: '在学', cls: 'badge-learning' },
@@ -161,6 +182,31 @@
 		</p>
 	</header>
 
+	{#if ready && manifest && manifest.count > 0}
+		<!--
+			168 篇原来既无搜索也无筛选，「AI Agent 工程」一个模块 105 篇，
+			展开就是一面墙。搜索是纯客户端过滤，命中时自动展开所有模块。
+		-->
+		<div class="filters">
+			<label class="search">
+				<span class="sr-only">按标题搜索笔记</span>
+				<input
+					type="search"
+					placeholder="搜索标题…"
+					bind:value={query}
+					data-testid="notes-search"
+				/>
+			</label>
+			<label class="only-gradable">
+				<input type="checkbox" bind:checked={onlyGradable} data-testid="only-gradable" />
+				只看有可判定题的
+			</label>
+			{#if query.trim() !== '' || onlyGradable}
+				<span class="filter-count" data-testid="filter-count">{matchCount} 篇匹配</span>
+			{/if}
+		</div>
+	{/if}
+
 	{#if !ready}
 		<p class="placeholder" data-testid="notes-loading">载入笔记目录…</p>
 	{:else if loadError || !manifest}
@@ -170,7 +216,7 @@
 	{:else}
 		<div class="modules" data-testid="notes-modules">
 			{#each manifest.modules as mod, i (mod.id)}
-				{@const shown = isOpen(mod.id, i)}
+				{@const shown = filtering ? true : isOpen(mod.id, i)}
 				{@const gradableNotes = gradableInModule(mod)}
 				<section class="module" id={`m-${mod.id}`}>
 					<!-- 模块标题即折叠开关。aria-expanded 让屏幕阅读器听得出展开状态 -->
@@ -183,6 +229,8 @@
 							onclick={() => toggleModule(mod.id, i)}
 						>
 							<span class="mod-caret" aria-hidden="true">{shown ? '▾' : '▸'}</span>
+							<!-- 首页的模块带 01–05 编号，这里原来没有：同一组东西两套写法 -->
+							<span class="mod-num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
 							<span class="mod-label">{mod.label}</span>
 							<span class="count">{mod.notes} 篇</span>
 							{#if gradableNotes > 0}
@@ -197,7 +245,7 @@
 									<h3>{sec.section}</h3>
 								{/if}
 								<ul class="note-list">
-									{#each sec.notes as note (note.slug)}
+									{#each sec.notes.filter(matches) as note (note.slug)}
 										<li>
 											<a
 												class="note-link"
@@ -315,6 +363,62 @@
 
 	.mod-toggle:hover .mod-label {
 		color: var(--color-accent);
+	}
+
+	.filters {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.875rem;
+	}
+
+	.search input {
+		font: inherit;
+		font-size: 0.9375rem;
+		min-height: 44px;
+		padding: 0 0.75rem;
+		min-width: 14rem;
+		background: var(--color-surface-sunken);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: 9px;
+		color: inherit;
+	}
+
+	.search input:focus-visible {
+		border-color: var(--color-accent);
+	}
+
+	.only-gradable {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4375rem;
+		min-height: 44px;
+		font-size: 0.875rem;
+		color: oklch(0.74 0.01 260);
+		cursor: pointer;
+	}
+
+	.filter-count {
+		font-family: var(--font-mono);
+		font-size: 0.8125rem;
+		color: var(--color-accent);
+	}
+
+	.mod-num {
+		font-family: var(--font-mono);
+		font-size: 0.875rem;
+		color: oklch(0.56 0.02 260);
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 
 	.mod-caret {

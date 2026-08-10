@@ -511,6 +511,18 @@ try {
 		const afterExpand = await page.locator('a.note-link:visible').count();
 		check('展开模块后出现更多篇目', afterExpand > shownFirst, `${shownFirst} → ${afterExpand}`);
 
+		// 搜索与筛选：168 篇原来既无搜索也无筛选，一个模块 105 篇展开就是一面墙
+		await page.getByTestId('notes-search').fill('注意力');
+		await page.waitForTimeout(200);
+		const searched = await page.locator('a.note-link:visible').count();
+		check('搜索能过滤篇目', searched > 0 && searched < 20, `${searched} 篇命中`);
+		await page.getByTestId('notes-search').fill('');
+		await page.getByTestId('only-gradable').check();
+		await page.waitForTimeout(200);
+		const gradableOnly = await page.locator('a.note-link:visible').count();
+		check('「只看有可判定题的」筛选生效', gradableOnly === 4, `${gradableOnly} 篇`);
+		await page.getByTestId('only-gradable').uncheck();
+
 		// 有 Tier A 题的篇目必须在列表上可发现（复查严重度 3：此前完全没有标记）
 		check(
 			'列表标出哪些篇目有可判定题',

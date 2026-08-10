@@ -74,6 +74,19 @@
 		}
 	}
 
+	/**
+	 * 改动答案时清掉上一次的错误判定。
+	 *
+	 * 改版前答错后必须先点「再试一次」才能重提：直接改数字再回车，
+	 * handleSubmit 会走到 retry() 把刚输入的答案清空。零上下文复查者
+	 * 「愣了一下才找到再试一次」。现在改答案就等于重新开始这一次作答，
+	 * 「再试一次」保留给不想改答案、只想清空重来的人。
+	 */
+	function clearWrongResult() {
+		if (settled) return;
+		if (result && !result.correct) result = null;
+	}
+
 	function retry() {
 		result = null;
 		if (question.kind === 'numeric') input = '';
@@ -118,6 +131,7 @@
 				autocomplete="off"
 				placeholder="输入数值"
 				bind:value={input}
+				oninput={clearWrongResult}
 				disabled={settled}
 				aria-describedby="feedback-{question.id}"
 			/>
@@ -131,6 +145,7 @@
 			{#each question.options as option, i (i)}
 				<label
 					class="option"
+					onchange={clearWrongResult}
 					data-correct={settled && i === question.answerIndex}
 					data-chosen={settled && selected === i && i !== question.answerIndex}
 				>
@@ -203,6 +218,12 @@
 			<button class="btn btn-primary" type="submit">再试一次</button>
 		{:else}
 			<button class="btn btn-primary" type="submit" disabled={!canSubmit}>提交</button>
+			{#if !canSubmit}
+				<!-- 按钮置灰但不说原因时，用户会以为按钮坏了 -->
+				<span class="submit-why">
+					{question.kind === 'numeric' ? '先填一个数值' : '先选一项'}
+				</span>
+			{/if}
 		{/if}
 	</div>
 </form>
@@ -461,6 +482,11 @@
 		border: 1px solid transparent;
 		cursor: pointer;
 		transition: opacity 140ms ease;
+	}
+
+	.submit-why {
+		font-size: 0.8125rem;
+		color: oklch(0.62 0.01 260);
 	}
 
 	.btn:disabled {

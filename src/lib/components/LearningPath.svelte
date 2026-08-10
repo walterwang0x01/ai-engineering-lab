@@ -45,6 +45,13 @@
 	// 只认 href 上字面出现的 resolve(...)，包一层函数就检测不到。
 	// 笔记库页面会读 hash 并自动展开对应模块——不然跳过去只看到一片折叠。
 
+	/** 该模块里 Tier A 题目的总数 */
+	function tierAInModule(mod: CurriculumModule): number {
+		return mod.sections
+			.flatMap((s) => s.notes)
+			.reduce((n, note) => n + (noteQuestionIds[note.slug]?.length ?? 0), 0);
+	}
+
 	/** 章节名。manifest 里模块根目录下的笔记 section 为空字符串 */
 	function sectionLabel(section: string): string {
 		return section || '概览';
@@ -203,6 +210,17 @@
 				</ul>
 			{/if}
 
+			{#if mod.levelCount === 0 && tierAInModule(mod) > 0}
+				<!--
+					入门准备有 12 道可判定题却一个关卡都没有，排版和其他模块明显不同，
+					而首页此前没有任何入口通向那 12 道题——唯一能点的是模块标题，
+					而它去的是笔记库列表。
+				-->
+				<p class="mod-tier-a">
+					这个模块的 {tierAInModule(mod)} 道可判定题写在笔记里，读到末尾就能做。
+				</p>
+			{/if}
+
 			{#each mod.sections as sec (sec.dir)}
 				{#each sec.levels as level (level.id)}
 					{@render levelRow(level, levelSub(sec, levelData(level).codeCount))}
@@ -285,6 +303,12 @@
 	.bar-legend,
 	.chips,
 	.lv,
+	.mod-tier-a {
+		margin: 0.875rem 0 0 3.25rem;
+		font-size: 0.8125rem;
+		color: oklch(0.7 0.01 260);
+	}
+
 	.orphan-note {
 		margin-left: 3.25rem;
 	}
@@ -494,7 +518,9 @@
 		}
 
 		.mod-meta {
+			/* 换行后原来缩进对不齐：它落在序号列下面而不是与模块名左对齐 */
 			grid-column: 2;
+			margin-top: 0.125rem;
 		}
 
 		.bar,

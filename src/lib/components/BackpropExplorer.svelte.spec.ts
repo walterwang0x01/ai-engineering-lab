@@ -54,3 +54,27 @@ describe('h2 存活时（x1 拖过临界点 2.33）', () => {
 		expect(grads.some((t) => parseFloat(t) !== 0)).toBe(true);
 	});
 });
+
+describe('结论等动手之后再展开', () => {
+	it('未动滑块时只给「先猜」的提问，不剧透结论', () => {
+		const screen = render(BackpropExplorer);
+		const banner = screen.getByTestId('status-banner').element().textContent ?? '';
+		expect(banner).toContain('先猜');
+		expect(banner).not.toContain('已死亡');
+	});
+
+	it('动过滑块之后才给出结论', async () => {
+		const screen = render(BackpropExplorer);
+		await setX1(screen, 3.5);
+		const banner = screen.getByTestId('status-banner').element().textContent ?? '';
+		expect(banner).not.toContain('先猜');
+		expect(banner).toContain('h2 存活');
+	});
+
+	it('滑块有可访问名称与数值播报', () => {
+		const screen = render(BackpropExplorer);
+		const slider = screen.container.querySelector('input[type=range]');
+		expect(slider?.getAttribute('aria-label')).toContain('x1');
+		expect(slider?.getAttribute('aria-valuetext')).toContain('h2');
+	});
+});
