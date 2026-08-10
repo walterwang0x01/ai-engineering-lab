@@ -21,7 +21,16 @@ export interface CurriculumNote extends NoteEntry {
 }
 
 export interface CurriculumSection {
-	/** 章节名。模块根目录下的笔记此字段为空字符串，与 NoteSection 一致 */
+	/**
+	 * 原始目录名（含数字前缀，如 `01-Transformer原理`）。空串表示模块根目录。
+	 *
+	 * 这是**排序键**兼 `{#each}` 的 key：前缀就是笔记作者定的学习顺序。
+	 * 展示用 `section`。两者曾经是同一个字段，于是排序按剥掉前缀的名字进行，
+	 * 学习路径被打乱成字母序——「数学基础」排到第 5 位、
+	 * 「Transformer 原理」排到大模型模块最后。
+	 */
+	dir: string;
+	/** 展示用章节名，已去掉数字前缀。模块根目录下的笔记此字段为空字符串 */
 	section: string;
 	notes: CurriculumNote[];
 	/**

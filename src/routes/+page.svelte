@@ -6,11 +6,13 @@
 	import { LEVELS } from '$lib/levels/registry';
 	import { EMPTY_MANIFEST, buildCurriculum } from '$lib/curriculum/build';
 	import { progress } from '$lib/storage/progress.svelte';
-	import type { NotesManifest } from '$lib/notes/types';
+	import type { NotesGradable, NotesManifest } from '$lib/notes/types';
 
 	let progressReady = $state(false);
 	let manifest = $state<NotesManifest>(EMPTY_MANIFEST);
 	let notesFailed = $state(false);
+	/** slug → Tier A 题数，用于在模块计数里显示「12 道可判定题」 */
+	let gradableCounts = $state<Record<string, number>>({});
 
 	/**
 	 * manifest 在客户端 fetch，不在 load 里读文件系统——
@@ -23,9 +25,18 @@
 		progress.load();
 		progressReady = true;
 		try {
-			const res = await fetch(`${base}/notes/manifest.json`);
-			if (!res.ok) throw new Error(String(res.status));
-			manifest = await res.json();
+			const [manifestRes, gradableRes] = await Promise.all([
+				fetch(`${base}/notes/manifest.json`),
+				fetch(`${base}/notes/gradable.json`)
+			]);
+			if (!manifestRes.ok) throw new Error(String(manifestRes.status));
+			manifest = await manifestRes.json();
+			if (gradableRes.ok) {
+				const data: NotesGradable = await gradableRes.json();
+				gradableCounts = Object.fromEntries(
+					Object.entries(data.items ?? {}).map(([slug, qs]) => [slug, qs.length])
+				);
+			}
 		} catch {
 			notesFailed = true;
 		}
@@ -75,7 +86,7 @@
 			<p class="notice" data-testid="notes-unavailable">笔记目录暂时无法加载，下面只列出关卡。</p>
 		{/if}
 
-		<LearningPath {curriculum} {progressReady} />
+		<LearningPath {curriculum} {gradableCounts} {progressReady} />
 	</section>
 
 	<section class="why">

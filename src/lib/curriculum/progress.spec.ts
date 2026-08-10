@@ -149,7 +149,12 @@ describe('Tier A 题目参与状态裁决', () => {
 			generatedAt: '',
 			count: 1,
 			modules: [
-				{ id: 'm', label: 'M', notes: 1, sections: [{ section: '', notes: [note(PLAIN_NOTE)] }] }
+				{
+					id: 'm',
+					label: 'M',
+					notes: 1,
+					sections: [{ dir: '', section: '', notes: [note(PLAIN_NOTE)] }]
+				}
 			]
 		};
 		const summary = moduleProgress(buildCurriculum(manifest).modules[0], {
@@ -172,7 +177,7 @@ describe('模块汇总', () => {
 				id: 'm',
 				label: '测试模块',
 				notes: 3,
-				sections: [{ section: 's', notes: [...BP_NOTES.map(note), note(PLAIN_NOTE)] }]
+				sections: [{ dir: '01-s', section: 's', notes: [...BP_NOTES.map(note), note(PLAIN_NOTE)] }]
 			}
 		]
 	};

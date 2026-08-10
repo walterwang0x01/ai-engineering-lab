@@ -23,7 +23,15 @@ export interface NoteEntry {
 }
 
 export interface NoteSection {
-	/** 章节名，模块根目录下的笔记（无子目录）此字段为空字符串 */
+	/**
+	 * 原始目录名，含数字前缀（如 `01-Transformer原理`）。空串表示模块根目录。
+	 *
+	 * 这是**排序键**：前缀就是笔记作者定的学习顺序。展示用 `section`。
+	 * 两者曾经合并成一个字段，排序因此按剥掉前缀的名字进行，
+	 * 学习路径的顺序被打乱到几乎失去意义。
+	 */
+	dir: string;
+	/** 展示用章节名，已去掉数字前缀。模块根目录下的笔记为空字符串 */
 	section: string;
 	notes: NoteEntry[];
 }

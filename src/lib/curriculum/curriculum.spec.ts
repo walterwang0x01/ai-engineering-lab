@@ -114,6 +114,7 @@ describe('学习路径构建', () => {
 					notes: 2,
 					sections: [
 						{
+							dir: '05-推理优化',
 							section: '推理优化',
 							notes: [
 								{
@@ -129,6 +130,7 @@ describe('学习路径构建', () => {
 							]
 						},
 						{
+							dir: '99-无关章节',
 							section: '无关章节',
 							notes: [
 								{
@@ -166,6 +168,37 @@ describe('学习路径构建', () => {
 
 describe.skipIf(!notesReady)('与真实 manifest 的一致性', () => {
 	const real = manifest as NotesManifest;
+
+	it('每个模块的章节按目录数字前缀升序 —— 学习顺序不能退化成字母序', () => {
+		for (const mod of real.modules) {
+			const dirs = mod.sections.map((s) => s.dir);
+			const sorted = [...dirs].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+			expect(
+				dirs,
+				`模块 ${mod.id} 的章节顺序不是目录顺序。` +
+					'目录的数字前缀就是作者定的学习顺序，按剥掉前缀的展示名排序会把它打乱' +
+					'（曾把「数学基础」排到第 5 位、「Transformer 原理」排到大模型模块最后）。'
+			).toEqual(sorted);
+		}
+	});
+
+	it('章节同时给出排序键与展示名，展示名不含数字前缀', () => {
+		for (const mod of real.modules) {
+			for (const sec of mod.sections) {
+				if (sec.dir === '') {
+					expect(sec.section).toBe('');
+					continue;
+				}
+				expect(sec.dir, `${mod.id}/${sec.dir} 缺数字前缀`).toMatch(/^\d+-/);
+				expect(sec.section, `${sec.dir} 的展示名不该带数字前缀`).not.toMatch(/^\d+-/);
+			}
+		}
+	});
+
+	it('模块自身也按数字前缀升序', () => {
+		const ids = real.modules.map((m) => m.id);
+		expect(ids).toEqual([...ids].sort((a, b) => a.localeCompare(b, 'zh-CN')));
+	});
 
 	it('映射表引用的每篇笔记都在 manifest 里存在', () => {
 		const known = new Set(

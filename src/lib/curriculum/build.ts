@@ -56,7 +56,7 @@ export function buildCurriculum(
 			totalNotes += notes.length;
 			moduleLevelCount += sectionLevels.length;
 
-			return { section: sec.section, notes, levels: sectionLevels };
+			return { dir: sec.dir, section: sec.section, notes, levels: sectionLevels };
 		});
 
 		return {
