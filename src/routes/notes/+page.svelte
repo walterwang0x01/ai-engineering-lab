@@ -14,9 +14,11 @@
 	import { progress } from '$lib/storage/progress.svelte';
 	import { levelForNote } from '$lib/curriculum/mapping';
 	import { noteProgress } from '$lib/curriculum/progress';
-	import type { NotesManifest } from '$lib/notes/types';
+	import type { NotesGradable, NotesManifest } from '$lib/notes/types';
 
 	let manifest = $state<NotesManifest | null>(null);
+	/** slug → Tier A 题目 id，供统一进度视图判定 */
+	let noteQuestionIds = $state<Record<string, string[]>>({});
 	let loadError = $state(false);
 	let ready = $state(false);
 
@@ -24,9 +26,20 @@
 		notesProgress.load();
 		progress.load();
 		try {
-			const res = await fetch(`${base}/notes/manifest.json`);
-			if (!res.ok) throw new Error(String(res.status));
-			manifest = await res.json();
+			const [manifestRes, gradableRes] = await Promise.all([
+				fetch(`${base}/notes/manifest.json`),
+				fetch(`${base}/notes/gradable.json`)
+			]);
+			if (!manifestRes.ok) throw new Error(String(manifestRes.status));
+			manifest = await manifestRes.json();
+			// Tier A 题目 id 必须传给进度视图：没有配套关卡但有可判定题的篇目，
+			// 只看关卡会被判成「未开始」——题答对了却显示没开始
+			if (gradableRes.ok) {
+				const data: NotesGradable = await gradableRes.json();
+				noteQuestionIds = Object.fromEntries(
+					Object.entries(data.items ?? {}).map(([slug, qs]) => [slug, qs.map((q) => q.id)])
+				);
+			}
 		} catch {
 			loadError = true;
 		} finally {
@@ -56,8 +69,10 @@
 	 * 两套存储仍各自独立，这里只是读时合并。
 	 */
 	function stateOf(slug: string) {
-		return noteProgress({ slug }, { read: notesProgress.read, schedule: progress.scheduleView })
-			.state;
+		return noteProgress(
+			{ slug },
+			{ read: notesProgress.read, schedule: progress.scheduleView, noteQuestionIds }
+		).state;
 	}
 
 	const BADGE: Record<string, { text: string; cls: string } | null> = {

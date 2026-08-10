@@ -83,9 +83,13 @@ SvelteKit 2 + Svelte 5 runes、`adapter-static`、Tailwind 4、Vitest 4
 
 ### 部署
 
-产物是纯静态的。`paths.relative` 默认为 `true`，所以链接和资源全部输出为相对路径——
-产物不做任何修改就能放在 `username.github.io/仓库名/` 这类子路径下，
-不需要配 `paths.base`。
+产物是纯静态的。预渲染页输出相对路径，但 SPA fallback（`404.html`）不能——
+它会被从任意深度返回，所以 SvelteKit 给它发根绝对路径。**因此部署到子路径必须设
+`BASE_PATH`**，否则 fallback 页加载不到任何 JS，所有未预渲染的深层 URL 都白屏，
+而预渲染页看起来完全正常。
+
+`scripts/assert-fallback-base.mjs` 跑在每次构建之后，fallback 的资源前缀与
+`BASE_PATH` 不一致就让构建失败。部署工作流里设的是 `BASE_PATH: /ai-engineering-lab`。
 
 ### 需要知道的约定
 

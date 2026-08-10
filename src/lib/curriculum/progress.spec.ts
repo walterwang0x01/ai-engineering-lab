@@ -94,6 +94,75 @@ describe('单篇笔记的状态裁决', () => {
 	});
 });
 
+describe('Tier A 题目参与状态裁决', () => {
+	/**
+	 * 线上实测抓到的缺陷：入门准备 4 篇有 Tier A 题但**没有配套关卡**，
+	 * 而当时的实现只看关卡，于是「题全答对了，列表里仍显示未开始」。
+	 * 这一组把那个组合钉住。
+	 */
+	const TIER_A = { [PLAIN_NOTE]: ['note:x-q1', 'note:x-q2'] };
+
+	it('无关卡但有 Tier A 题：未作答时是未开始', () => {
+		const p = noteProgress(note(PLAIN_NOTE), {
+			read: new Set(),
+			schedule: {},
+			noteQuestionIds: TIER_A
+		});
+		expect(p.gradable?.total).toBe(2);
+		expect(p.state).toBe('untouched');
+	});
+
+	it('无关卡但有 Tier A 题：答对一道就是在学，不再是未开始', () => {
+		const p = noteProgress(note(PLAIN_NOTE), {
+			read: new Set(),
+			schedule: { 'note:x-q1': { box: 1, dueAt: 0 } },
+			noteQuestionIds: TIER_A
+		});
+		expect(p.state).toBe('in-progress');
+	});
+
+	it('无关卡但有 Tier A 题：全部掌握即已掌握，不需要点已读', () => {
+		const p = noteProgress(note(PLAIN_NOTE), {
+			read: new Set(),
+			schedule: {
+				'note:x-q1': { box: MAX_BOX, dueAt: 0 },
+				'note:x-q2': { box: MAX_BOX, dueAt: 0 }
+			},
+			noteQuestionIds: TIER_A
+		});
+		expect(p.state).toBe('mastered');
+		expect(p.read).toBe(false);
+	});
+
+	it('既有 Tier A 题又有配套关卡时两者合并计算', () => {
+		const level = getLevel('kv-cache');
+		const p = noteProgress(note(KV_NOTE), {
+			read: new Set(),
+			schedule: {},
+			noteQuestionIds: { [KV_NOTE]: ['note:kv-q1'] }
+		});
+		expect(p.gradable?.total).toBe((level?.questions.length ?? 0) + 1);
+	});
+
+	it('模块汇总把笔记自带的题计入总数', () => {
+		const manifest: NotesManifest = {
+			generatedAt: '',
+			count: 1,
+			modules: [
+				{ id: 'm', label: 'M', notes: 1, sections: [{ section: '', notes: [note(PLAIN_NOTE)] }] }
+			]
+		};
+		const summary = moduleProgress(buildCurriculum(manifest).modules[0], {
+			read: new Set(),
+			schedule: { 'note:x-q1': { box: MAX_BOX, dueAt: 0 } },
+			noteQuestionIds: TIER_A
+		});
+		expect(summary.gradableNotes).toBe(1);
+		expect(summary.questions.total).toBe(2);
+		expect(summary.questions.mastered).toBe(1);
+	});
+});
+
 describe('模块汇总', () => {
 	const manifest: NotesManifest = {
 		generatedAt: '',

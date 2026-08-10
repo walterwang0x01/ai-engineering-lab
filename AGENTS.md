@@ -46,7 +46,22 @@ export const trailingSlash = 'never';
 
 站点部署在 `walterwang0x01.github.io/ai-engineering-lab/` 子路径下，硬编码路径会断链。
 
-**不要配 `paths.base`**：SvelteKit 默认 `paths.relative: true`，产物已是相对路径，子路径自动正确。已用 `BASE_PATH` 有无做对比构建验证过，输出完全一致。
+**子路径部署必须设 `BASE_PATH`。** 这条曾经写反过，代价是 168 篇笔记的直连全白屏：
+
+- 预渲染页（`index.html` / `notes.html` / `kv-cache.html`）用相对路径 `./_app/…`，
+  放在任何前缀下都对——所以「不配 base 也行」的结论在这些页面上成立。
+- 但 **SPA fallback（`404.html`）不一样**：它会被 GitHub Pages 从任意深度返回，
+  相对路径在 `/notes/a/b` 这种深度下会解析错，所以 SvelteKit 给它发**根绝对路径**
+  `/_app/…`。`base` 为空时那指向域名根，站点在子路径下 → fallback 页一个 JS 都加载不到
+  → 客户端路由永不启动 → 深层路由白屏。
+
+症状极具误导性：首页、`/notes`、关卡页全部正常，只有未预渲染的深层 URL 坏掉，
+看起来像「路由坏了」，实际是资源前缀错了。而且**本地冒烟测试结构上抓不到**——
+`vite preview` 服务在域名根上，根绝对路径永远解析正确。
+
+门禁是 `scripts/assert-fallback-base.mjs`，跑在每次 `build` 之后，校验
+fallback 的资源前缀与 `BASE_PATH` 一致。CI 额外做一次子路径构建来覆盖这个组合。
+`BASE_PATH` 漏写斜杠会在构建时报错，不会悄悄退化。
 
 ### 3. `QuizCard` 不自我重置，调用方必须用 `{#key}`
 

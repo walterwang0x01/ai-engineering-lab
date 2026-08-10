@@ -44,11 +44,14 @@ jobs:
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
 
-      # 构建产物用相对路径，子路径部署无需额外配置
+      # BASE_PATH 必须设成部署子路径。预渲染页用相对路径不受影响，
+      # 但 SPA fallback（404.html）用的是根绝对路径 —— 不设 base 时它指向域名根，
+      # 深层笔记 URL 会因为加载不到 JS 而白屏。见 scripts/assert-fallback-base.mjs。
       - name: 构建
         run: pnpm run build
         env:
           NOTES_SRC: ${{ github.workspace }}/notes-src/learning-notes/00-ai
+          BASE_PATH: /ai-engineering-lab
 
       - uses: actions/configure-pages@v5
 

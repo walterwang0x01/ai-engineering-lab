@@ -32,6 +32,13 @@ export interface ProgressInputs {
 	read: ReadonlySet<string>;
 	/** 题目的间隔重复记录 */
 	schedule: ScheduleView;
+	/**
+	 * slug → 该篇自带的 Tier A 题目 id（来自 static/notes/gradable.json）。
+	 *
+	 * 必须传：没有配套关卡但有 Tier A 题的笔记（目前的入门准备 4 篇就是这样），
+	 * 只看关卡会把它判成「未开始」——题都答对了却显示没开始，是线上实测抓到的缺陷。
+	 */
+	noteQuestionIds?: Readonly<Record<string, readonly string[]>>;
 }
 
 /**
@@ -56,7 +63,14 @@ export interface NoteProgress {
 	state: 'mastered' | 'in-progress' | 'read' | 'untouched';
 }
 
-/** 判定单篇笔记的状态。可判定信号优先，`read` 只在没有可判定信号时决定结论 */
+/**
+ * 判定单篇笔记的状态。可判定信号优先，`read` 只在没有可判定信号时决定结论。
+ *
+ * 「可判定内容」有两个来源，合起来算：
+ *   - 这篇自带的 Tier A 题（笔记里的选择题）
+ *   - 配套关卡的题库
+ * 两者都没有时才退回「读过 / 没读过」。
+ */
 export function noteProgress(
 	note: Pick<CurriculumNote, 'slug'>,
 	inputs: ProgressInputs
@@ -65,17 +79,19 @@ export function noteProgress(
 	const levelId = levelForNote(note.slug);
 	const level = levelId ? getLevel(levelId) : undefined;
 
-	if (!level) {
+	const ids = [
+		...(inputs.noteQuestionIds?.[note.slug] ?? []),
+		...(level?.questions.map((q) => q.id) ?? [])
+	];
+
+	if (ids.length === 0) {
 		return { slug: note.slug, read, gradable: null, state: read ? 'read' : 'untouched' };
 	}
 
-	const gradable = summarizeMastery(
-		level.questions.map((q) => q.id),
-		inputs.schedule
-	);
+	const gradable = summarizeMastery(ids, inputs.schedule);
 
 	// 掌握度优先：做完题就是 mastered，与有没有点「已读」无关
-	if (gradable.total > 0 && gradable.mastered === gradable.total) {
+	if (gradable.mastered === gradable.total) {
 		return { slug: note.slug, read, gradable, state: 'mastered' };
 	}
 	if (gradable.untouched < gradable.total) {
@@ -111,7 +127,7 @@ export function moduleProgress(
 		questions: { total: 0, mastered: 0 }
 	};
 
-	/** 同一关卡可能是多篇笔记的配套，题目只能计一次 */
+	/** 同一关卡可能是多篇笔记的配套，关卡题只能计一次 */
 	const countedLevels = new Set<string>();
 
 	for (const section of module.sections) {
@@ -124,11 +140,25 @@ export function moduleProgress(
 			summary.gradableNotes += 1;
 			if (p.state === 'mastered') summary.masteredNotes += 1;
 
+			// 笔记自带的 Tier A 题是这一篇独有的，直接计入
+			const own = inputs.noteQuestionIds?.[note.slug] ?? [];
+			if (own.length > 0) {
+				const ownStats = summarizeMastery([...own], inputs.schedule);
+				summary.questions.total += ownStats.total;
+				summary.questions.mastered += ownStats.mastered;
+			}
+
+			// 关卡题按关卡去重，否则一关配两篇笔记会把题数放大一倍
 			const levelId = levelForNote(note.slug);
-			if (levelId && !countedLevels.has(levelId)) {
+			const level = levelId ? getLevel(levelId) : undefined;
+			if (level && levelId && !countedLevels.has(levelId)) {
 				countedLevels.add(levelId);
-				summary.questions.total += p.gradable.total;
-				summary.questions.mastered += p.gradable.mastered;
+				const levelStats = summarizeMastery(
+					level.questions.map((q) => q.id),
+					inputs.schedule
+				);
+				summary.questions.total += levelStats.total;
+				summary.questions.mastered += levelStats.mastered;
 			}
 		}
 	}
