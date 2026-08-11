@@ -1,0 +1,59 @@
+[
+	{
+		"id": "why-ln-not-bn-for-sequences",
+		"prompt": "你在做一个变长文本的 Transformer，batch size 因为显存只能开到 2。按这篇笔记，为什么该选 LayerNorm 而不是 BatchNorm？",
+		"options": [
+			"BatchNorm 沿 batch 维度统计：batch 太小时均值方差是高方差估计，且它隐含「不同句子的同一位置 token 可对齐」这个在 NLP 里通常不成立的假设（padding 还会污染统计量）",
+			"BatchNorm 没有可学习参数，表达能力不如 LayerNorm 的 gamma/beta",
+			"BatchNorm 只能用于全连接层，Transformer 的矩阵乘法不支持它",
+			"LayerNorm 会额外维护 running statistics，因此小 batch 下比 BatchNorm 更稳"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记给了两条并列的理由。小 batch：batch 内样本太少时 batch_mean/batch_var 是对真实分布的高方差估计，噪声极大、训练不稳定。序列任务：BatchNorm 沿 batch 维度统计，等于把「一个句子里第 3 个 token 的某个特征」和「另一个句子里第 3 个 token 的同一特征」放在一起统计，但序列长度通常不同、不同位置的 token 语义上并不对齐，padding 更是引入无意义的统计量。LayerNorm 只用单个样本自身的特征维度求统计量，天然不受 batch size 影响，也不涉及跨样本对齐问题。",
+		"hint": "两个方案的差别在「统计轴」上：一个跨样本，一个只看单个样本自己。",
+		"distractorNotes": {
+			"1": "BatchNorm 同样有可学习的 gamma 和 beta，笔记还特别说明这对参数保证了它至少不会让表达能力变差。",
+			"2": "BatchNorm 对层类型没有这种限制，它在 CNN 里就是标配。问题出在统计轴的假设上，不在算子类型。",
+			"3": "说反了。维护 running statistics 的是 BatchNorm，这也是它训练/推理行为不一致的根源；LayerNorm 不需要 running statistics，训练和推理用同一套计算逻辑。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "pre-ln-gradient-path",
+		"prompt": "Post-LN 写成 LayerNorm(x + SubLayer(x))，Pre-LN 写成 x + SubLayer(LayerNorm(x))。为什么这个位置差异直接决定深层 Transformer 好不好训？",
+		"options": [
+			"Post-LN 让残差直通路径也要过一次 LayerNorm，残差原本提供的那条恒等梯度通路被打破；Pre-LN 的主干 x → x_out 是纯加法，梯度能几乎无衰减传回最前面的层",
+			"Pre-LN 做了两次归一化，所以激活分布被压得更紧，数值范围更小",
+			"Post-LN 的 LayerNorm 参数量更大，深层模型容易过拟合",
+			"Pre-LN 完全消除了对 warmup 的需求，所以能直接用大学习率"
+		],
+		"answerIndex": 0,
+		"explanation": "残差连接的价值在于 ∂y/∂x = 1 + ∂F/∂x 里那个恒等的 1——一条不经过任何变换的梯度高速通道。Post-LN 把 LayerNorm 放在残差相加之后，直通路径也被 LayerNorm 的梯度影响，恒等路径被打破；层数一深，这种效应累积起来容易造成训练初期梯度不稳定，所以 Post-LN 的深层 Transformer 通常需要精心设计的 warmup。Pre-LN 把 LayerNorm 挪进子层内部，主干路径是纯粹的加法，深层训练明显更稳。代价是主干信号数值范围会随层数累积增大，需要额外设计（比如最终输出前再加一次归一化）兜底。",
+		"hint": "盯住那条「不经过任何变换」的残差直通路径，看两种写法里它有没有被动过。",
+		"distractorNotes": {
+			"1": "Pre-LN 并没有多做一次归一化，每个子层仍是一个 LayerNorm，只是位置挪到了子层输入端。而且它的已知代价恰恰相反：主干数值范围会随层数累积增大。",
+			"2": "两种写法的 LayerNorm 参数量相同，差别只在位置。这也不是稳定性问题的来源。",
+			"3": "笔记的表述是「对 warmup 策略的依赖也降低」，并明确补了「但通常仍会用」，不是完全消除。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "rmsnorm-what-is-dropped",
+		"prompt": "RMSNorm 相比 LayerNorm 砍掉了什么？砍掉之后输出会有什么可观测的差别？",
+		"options": [
+			"砍掉了减均值（re-centering）和 beta 偏置项；结果是输出均值不再被强制为 0，只有均方 E[x²] 被缩放到 1",
+			"砍掉了除标准差这一步，只保留减均值，所以输出均值为 0 但尺度不受控",
+			"砍掉了可学习参数 gamma，因此 RMSNorm 完全没有可训练参数",
+			"砍掉了跨样本统计，所以 RMSNorm 不受 batch size 影响，而 LayerNorm 受影响"
+		],
+		"answerIndex": 0,
+		"explanation": "LayerNorm 是 (x - mean)/sqrt(var + eps) 再乘 gamma 加 beta；RMSNorm 只算 rms = sqrt(mean(x²) + eps)，输出 gamma·(x/rms)，通常不带 beta。所以它砍掉的是 re-centering（减均值）和偏置项，只做 re-scaling。笔记的实测印证了这点：LayerNorm 输出每行均值≈0、方差≈1；RMSNorm 输出每行均值仍保留输入偏向正数的趋势（不为 0），但均方被精确缩放到 1。工程动机是少一次统计量计算和一次减法，在层数很深的模型里反复叠加；笔记同时标注：具体速度提升幅度和「去掉 re-centering 不影响效果」的严谨理论解释，不做数值断言。",
+		"hint": "从名字入手：Root Mean Square 里没有出现「均值」这个量。",
+		"distractorNotes": {
+			"1": "留下的和砍掉的说反了。RMSNorm 保留的正是尺度控制（除均方根），砍掉的是减均值。",
+			"2": "gamma 保留了，RMSNorm 仍有一个可学习的缩放参数；被省掉的通常是 beta。",
+			"3": "LayerNorm 本来就不跨样本统计，它和 RMSNorm 一样只用单个样本自身的特征维度，两者都不受 batch size 影响。跨样本统计的是 BatchNorm。"
+		},
+		"reviewed": false
+	}
+]
