@@ -1,0 +1,59 @@
+[
+	{
+		"id": "faithfulness-vs-context-recall",
+		"prompt": "按笔记对 RAGAS 四个指标的定义，某次评估里 faithfulness 很高但 context_recall 很低。最合理的解读是什么？",
+		"options": [
+			"回答老实地只依据检索到的内容，但检索本身漏掉了该召回的关键信息，答案仍然不完整",
+			"回答大量脱离上下文自由编造，同时检索结果里塞了太多无关文档",
+			"检索质量没问题，问题出在生成阶段答非所问",
+			"两个指标衡量的是同一件事，这种组合不可能出现，只能是数据集标注有误"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记标注了各指标的含义：faithfulness 是「回答是否基于上下文」，context_recall 是「上下文召回率」（对照 ground_truth 看该找到的内容有没有被检索到）。faithfulness 高说明生成阶段没有编造，它只对「有没有超出上下文」负责，管不着上下文本身够不够；context_recall 低说明检索这一步就漏了。所以瓶颈在检索侧，而不是生成侧——这也是为什么 RAGAS 要把检索与生成的指标分开算。",
+		"hint": "faithfulness 的参照物是检索到的上下文，context_recall 的参照物是 ground_truth。",
+		"distractorNotes": {
+			"1": "「脱离上下文编造」正是 faithfulness 低的表现，与题设的高 faithfulness 矛盾；而无关文档过多对应的是 context_precision 低，不是 recall 低。",
+			"2": "说反了。低 context_recall 恰恰指向检索侧；生成侧的答非所问由 answer_relevancy 反映。",
+			"3": "两者参照物不同，这种组合是实践中最常见的一种失败形态：忠实地基于一份残缺的上下文作答。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "judge-score-as-completion",
+		"prompt": "笔记第 1 节的评估体系包含任务完成、工具使用、输出质量三块，但 `AgentEvaluator.evaluate_task` 里 `steps_taken`、`tool_calls_correct`、`tool_calls_total` 全填 0，`completed` 直接由 `score >= 0.6` 得出。这个实现测不出什么？",
+		"options": [
+			"Agent 走了错误或冗余的执行路径、调用了不该调的工具，但最终输出看起来对——这种情况会被判为完成",
+			"输出内容与期望输出的语义差异，因为 LLM-as-Judge 只能做字符串精确匹配",
+			"任务的完成与否，因为分数阈值判定完成率在数学上不成立",
+			"输出的安全性，因为 RAGAS 的 faithfulness 指标没有被调用"
+		],
+		"answerIndex": 0,
+		"explanation": "这个评估器只喂给 judge「任务 / 期望输出 / 实际输出」三段文本，中间过程一个字都没进评估。工具调用正确率和步骤效率的字段留在 dataclass 里但恒为 0，于是「完成」被降级成「终态输出像样」。对 Agent 而言过程恰恰是风险所在：绕远路、重复调工具、调用了副作用工具，输出仍然可能通过——这是纯终态评估的固有盲区。",
+		"hint": "对比第 1 节列出的三个维度和这段代码实际采集了哪些字段。",
+		"distractorNotes": {
+			"1": "LLM-as-Judge 的强项正是语义比较，笔记的 prompt 就是让模型按 0–1 分档打分，不做字符串匹配。",
+			"2": "用阈值把连续分数二值化成完成/未完成是常规做法，笔记也确实这么定义 `completed`。问题不在阈值，而在打分只看了输出。",
+			"3": "安全性在笔记里由人工评估的 `criteria` 和安全那篇负责；faithfulness 是 RAG 忠实度指标，与这里的盲区无关。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "regression-assert-shape",
+		"prompt": "笔记的 `RegressionTestSuite.run_all` 用 `all(t in result[\"tools_used\"] for t in expected_tools)` 和 `all(kw in output for kw in expected_keywords)` 判定通过。这套断言的形状带来什么后果？",
+		"options": [
+			"它是「至少包含」语义：Agent 多调了预期之外的工具、或输出里多出错误内容，只要该有的都在就照样算通过",
+			"它是「完全相等」语义：工具调用顺序与期望不一致就会失败，因此无法容忍任何实现调整",
+			"它只检查工具不检查输出，所以内容退化完全无法发现",
+			"它会把测试用例写回磁盘，因此每次运行的基线都会被覆盖，回归无从比较"
+		],
+		"answerIndex": 0,
+		"explanation": "两个判定都是子集/子串包含检查，没有任何「不应出现」的一侧。所以它能拦住「该调的工具没调、该出现的关键词没出现」这类退化，拦不住「多调了一个有副作用的工具」「输出里追加了一段错误内容」。要覆盖后者，回归用例需要显式的负向断言（禁止调用的工具、禁止出现的字符串）。",
+		"hint": "`all(x in y)` 约束的是缺失，不是多余。",
+		"distractorNotes": {
+			"1": "`in` 检查与顺序无关，`expected_tools` 里的元素在 `tools_used` 中出现的先后完全不影响结果。",
+			"2": "输出是检查了的——`keywords_ok` 就是对 `result[\"output\"]` 做关键词包含检查，只是检查方向是单侧的。",
+			"3": "写回磁盘发生在 `add_test_case` 里，是新增用例时持久化基线；`run_all` 只读不写。"
+		},
+		"reviewed": false
+	}
+]

@@ -1,0 +1,39 @@
+[
+	{
+		"id": "entity-auth-isolation",
+		"prompt": "笔记里用同一个 `Action.GITHUB_LIST_REPOS` 分别为 Alice 和 Bob 取工具，两人最终访问到的是各自的 GitHub 仓库。这是靠什么做到的？",
+		"options": [
+			"`get_tools` 时传入不同的 `entity_id`，平台按 entity 维护各自的 OAuth 连接——工具定义相同，绑定的凭证不同",
+			"由 Agent 在调用工具时把用户名写进参数里，服务端按参数区分身份",
+			"要为每个用户注册一套独立的 Action 定义",
+			"要为每个用户部署一个独立的 Composio 实例"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记的认证管理一节里，`initiate_connection(app=..., entity_id=\"user-alice\")` 走 OAuth 授权把连接挂在某个 entity 上，之后 `get_tools(actions=[...], entity_id=\"user-alice\")` 取到的工具就绑定 Alice 的那份凭证。同一个 toolset、同一个 Action，换 entity_id 就换身份——这是多租户 Agent 的关键：凭证由平台按用户持有，模型完全不接触。",
+		"hint": "两次 get_tools 调用之间，唯一不同的参数是哪个？",
+		"distractorNotes": {
+			"1": "认证不走模型可见的工具参数。凭证由平台按 entity_id 持有，LLM 既看不到也不该决定用谁的身份——把身份塞进参数等于给模型越权访问别人账户的机会。",
+			"2": "Action 是工具定义，与用户无关。区分用户的是 entity_id 和它背后的连接，不需要复制 Action。",
+			"3": "多用户隔离就在 entity_id 这一层，笔记里同一个 toolset 实例同时取出了 Alice 和 Bob 的工具，不涉及部署多套。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "meta-tool-discovery",
+		"prompt": "Composio 的「元工具发现」（`find_actions_by_use_case` / `COMPOSIO_SEARCH_TOOLS`）解决的是哪个问题？",
+		"options": [
+			"平台可用工具的总量远超一次能塞给模型的规模，于是改成让 Agent 在运行时按用途检索出少量相关工具",
+			"让 Agent 不用授权就能访问外部服务",
+			"提高单次工具调用的执行速度",
+			"把多个工具的调用结果自动合并成一份报告"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记把元工具发现列为核心价值之一：`find_actions_by_use_case(use_case=\"管理 GitHub 仓库的 issue 和 PR\", limit=5)` 按用途返回最相关的少量 Action，`COMPOSIO_SEARCH_TOOLS` + `COMPOSIO_EXECUTE_TOOL` 则让 Agent 自己先搜工具再执行。平台覆盖的应用和工具数量极大，把全部工具预先塞进一次请求既不现实，也会让模型更难选对——所以把「选工具」从静态枚举改成运行时检索。笔记提到的工具整理（合并重叠工具、统一 `APP_VERB_NOUN` 命名）也是为同一个目标服务：让匹配更准。",
+		"distractorNotes": {
+			"1": "发现工具和授权是两件事。找到工具之后仍然要有 OAuth2 / API Key 连接才能调用。",
+			"2": "元工具影响的是「选哪个工具」，不改变工具本身的执行路径，性能不是它的目标。",
+			"3": "没有这种自动汇总机制。结果如何整合仍然由 Agent 在对话循环里自己做。"
+		},
+		"reviewed": false
+	}
+]

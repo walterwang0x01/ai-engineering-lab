@@ -1,0 +1,58 @@
+[
+	{
+		"id": "mcp-vs-a2a-scope",
+		"prompt": "笔记说 MCP 与 A2A 是互补的「双协议栈」。它们各自解决的是什么问题？",
+		"options": [
+			"MCP 连接 Agent 与工具，A2A 连接 Agent 与 Agent（任务委派、跨组织协作）",
+			"MCP 负责传输加密，A2A 负责消息序列化",
+			"A2A 是 MCP 的新版本，用来替代 MCP",
+			"MCP 用于本地部署的场景，A2A 用于云端部署的场景"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记两处都写明了这个分工：「MCP 处理 Agent→工具连接，A2A 处理 Agent→Agent 委派和跨组织协作」。所以 A2A 的原语是 Agent Card（能力发现）、Message/Task（委派与状态查询 `SendMessage` / `GetTask`）、以及认证方案声明——这些都是「一个 Agent 怎么找到并雇用另一个 Agent」需要的东西，而不是「怎么调一个函数」需要的东西。反过来说，A2A 不负责工具调用的描述与执行，那一层还是 MCP。",
+		"hint": "看两个协议各自定义了什么原语：Agent Card 和 Task 是给谁用的？",
+		"distractorNotes": {
+			"1": "两者都是应用层的交互协议，笔记区分的是「连谁」，不是安全与编码的分层。",
+			"2": "笔记明确写的是互补而非替代——一个系统里通常同时用：对内调工具用 MCP，对外委派任务用 A2A。",
+			"3": "部署位置不是分界。MCP Server 可以是远程的，A2A 的 Agent 也可以在内网；区分点是通信双方的性质（工具还是 Agent）。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "shared-state-decoupling",
+		"prompt": "笔记里 researcher / developer / reviewer 通过 LangGraph 的共享状态协作：前者写 `research_data`，后者读它再写 `code_artifacts`。这种「间接通信」相比点对点直接消息的特点是什么？",
+		"options": [
+			"各 Agent 只跟状态里的字段打交道，不需要知道上下游是谁，交接靠事先约定的状态结构而不是点对点寻址",
+			"共享状态能保证 Agent 并行执行时不会读到写了一半的中间结果",
+			"共享状态不需要预先定义结构，任何 Agent 可以随意写任意字段",
+			"共享状态取代了图的边，Agent 的执行顺序可以由状态自动推导出来"
+		],
+		"answerIndex": 0,
+		"explanation": "developer 的函数只读 `state[\"research_data\"]`，它不知道也不关心这份数据是 researcher 写的还是别的谁写的；researcher 也不需要持有 developer 的引用。耦合点从「Agent 之间」搬到了「Agent 与状态结构之间」——这就是笔记把它归为「间接通信」的原因。代价是这份 `SharedState` 定义成了全体 Agent 的公共契约，改字段会牵动所有读写它的节点。",
+		"distractorNotes": {
+			"1": "笔记这个例子是 researcher→developer→reviewer 的顺序边，共享状态本身不提供并发隔离保证；真要并行读写，时序问题得另行设计。",
+			"2": "恰恰相反——`SharedState` 是 TypedDict，字段和合并方式（如 `messages: Annotated[list, add]` 表示追加而非覆盖）都必须事先声明，这份结构就是 Agent 之间的契约。",
+			"3": "顺序仍由图的边决定（`add_edge` 一条条连出来），状态只负责携带数据。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "voting-is-llm-judgement",
+		"prompt": "`ConflictResolver.resolve_by_voting` 的注释写着「投票法：多数意见胜出」。看它的实现，实际发生的是什么？",
+		"options": [
+			"把所有意见拼进一个提示词交给 LLM，由模型分析后选出它认为最合理的一条并说明理由——代码里没有任何计票逻辑",
+			"统计相同意见出现的次数，多数者胜出，LLM 只负责把结论整理成通顺的话",
+			"让每个 Agent 依次对其他 Agent 的意见投赞成/反对票，再汇总票数",
+			"按各 Agent 的信任权重加权计票，权重高的意见胜出"
+		],
+		"answerIndex": 0,
+		"explanation": "方法体只做了一件事：把 `opinions` 格式化进提示词，要求「请分析各方观点，选择最合理的意见并说明理由」，然后返回模型的回答。没有计数、没有第二轮交互、没有权重。所以它和 `resolve_by_synthesis` 的唯一差别就是提示词——一个要求选出最合理的一条，一个要求融合各方优点；两者都是「再叫一个 LLM 来裁决」。读这类代码时要留意命名与实现的落差：名字承诺的是投票，机制给的是模型判断，可靠性和可解释性完全不同。",
+		"hint": "在方法体里找一下有没有任何计数或比较票数的代码。",
+		"distractorNotes": {
+			"1": "没有计数代码。`opinions` 被直接格式化进提示词，胜出的是模型的判断，跟某个意见出现几次无关。",
+			"2": "没有第二轮交互——方法只调用了一次 LLM，Agent 之间不会互相投票。",
+			"3": "这个类里没有权重或信任度的概念，`opinions` 只是 `{Agent 名: 意见}` 的字典。"
+		},
+		"reviewed": false
+	}
+]

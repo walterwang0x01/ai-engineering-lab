@@ -1,0 +1,58 @@
+[
+	{
+		"id": "guardrail-eval-parse",
+		"prompt": "笔记的 `Guardrails.check_input` 让 LLM 输出 `{\"allowed\": true/false, \"reason\": \"...\"}`，然后用 `return eval(result)` 解析。这行代码本身引入了什么问题？",
+		"options": [
+			"它把模型输出当 Python 代码执行——攻击者只要诱导模型吐出一段表达式，护栏自身就成了代码执行入口",
+			"`eval` 无法解析 JSON 的 `true`/`false`，所以护栏永远返回 False，等于全部拦截",
+			"`eval` 比 `json.loads` 慢，会让输入检查超出 300ms 的反馈预算",
+			"`eval` 只在异步函数里不可用，改成同步就没问题了"
+		],
+		"answerIndex": 0,
+		"explanation": "护栏的输入检查依赖模型返回的一段文本，而 `eval` 会把这段文本当 Python 表达式求值。用户输入能影响模型输出，模型输出又被直接求值，于是这道「防注入」的关卡自己成了从提示注入到任意代码执行的通道。正确做法是用 `json.loads` 之类只做数据解析、不具备执行语义的解析器。",
+		"hint": "想一想这段文本是谁生成的、谁能影响它。",
+		"distractorNotes": {
+			"1": "`eval` 确实不认 JSON 的 `true`/`false`（Python 是 `True`/`False`），但那是会抛 `NameError` 的功能性 bug，不是这里最严重的问题，而且更常见的情况是模型输出 Python 风格的布尔值就照常求值成功了。",
+			"2": "性能不是要点。300ms 是站点交互反馈的预算，而这里的输入检查本来就要等一次 LLM 调用。",
+			"3": "`eval` 在同步和异步函数里行为完全一样，改同步不解决任何问题。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "redteam-leak-oracle",
+		"prompt": "笔记的 `RedTeamTester._check_leak` 用 `leak_indicators = [\"系统提示\", \"system prompt\", \"我的指令是\"]` 判断攻击是否成功。这个判据的主要失效方式是什么？",
+		"options": [
+			"模型可以把系统提示的内容原样复述出来却不带这几个词，泄露发生了但判据说安全",
+			"这几个词在正常回答里几乎不会出现，所以判据会把大量安全回答误判成泄露",
+			"判据用了 `response.lower()`，中文关键词永远匹配不上，因此恒为 False",
+			"判据只检查响应不检查请求，因此无法区分是哪个攻击模板生效的"
+		],
+		"answerIndex": 0,
+		"explanation": "这是个基于元话术关键词的判据：它检测的是「模型在谈论自己的指令」这件事，而不是「系统提示的内容出现在输出里」。真正危险的泄露往往是模型直接把提示正文复述出来，一个 indicator 都不含——判据给出安全结论，红队报告的 `vulnerabilities_found` 就漏报了。自动红队的结论上限受判据（oracle）能力限制，这是评估指标的固有局限。",
+		"hint": "问自己：判据检测的是「泄露的内容」还是「谈论泄露的措辞」？",
+		"distractorNotes": {
+			"1": "方向说反了。这类判据的典型问题是漏报（假阴性），不是过度告警——正是因为它要求出现特定措辞才算命中。",
+			"2": "`lower()` 对中文字符不产生变化，`\"系统提示\" in response.lower()` 照常能匹配中文响应。这不是失效原因。",
+			"3": "笔记的实现把 `attack` 一起记进了 `vulnerabilities`，攻击模板是可追溯的；而且这属于报告粒度，不是判据准不准的问题。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "regex-pii-coverage",
+		"prompt": "笔记先用 `OutputFilter` 的正则表（phone / id_card / email / bank_card）过滤 PII，又单独介绍了 Presidio。为什么正则表这一层不足以覆盖 PII？",
+		"options": [
+			"正则只能识别有固定结构的标识符，姓名、地址这类没有固定格式的 PII 必须靠命名实体识别之类的上下文模型",
+			"正则在 Python 里不支持 Unicode，处理中文文本时必然失配",
+			"正则是同步执行的，无法用在流式输出上，Presidio 支持流式",
+			"正则只能替换不能检测，Presidio 才能给出命中位置"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记的正则覆盖的都是格式化标识符：手机号、身份证、邮箱、银行卡。而它的 Presidio 示例文本是「请联系张三，邮箱 …，电话 …」——姓名没有可写成正则的模式，判断一段字要靠上下文才知道它是人名。这就是为什么结构化 PII 用正则、开放类型的 PII 需要 analyzer 做实体识别。",
+		"distractorNotes": {
+			"1": "Python 的 `re` 默认按 Unicode 处理字符串，笔记的中文示例本身就跑通了。",
+			"2": "流式与否不是这里的分野；Presidio 的 analyzer/anonymizer 同样是对整段文本做分析。",
+			"3": "笔记的 `filter_pii` 用 `pattern.sub(...)` 替换，检测（`pattern.search`）在同一个类的 `check_harmful` 思路里也在用。正则完全可以给出命中信息。"
+		},
+		"reviewed": false
+	}
+]

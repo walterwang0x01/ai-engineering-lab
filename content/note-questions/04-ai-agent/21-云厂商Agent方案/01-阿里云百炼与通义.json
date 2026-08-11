@@ -1,0 +1,21 @@
+[
+	{
+		"id": "openai-compat-boundary",
+		"prompt": "百炼提供 OpenAI 兼容接口（换掉 `base_url` 就能用 OpenAI SDK 调 Qwen）。这个兼容层能覆盖到哪里，哪里就覆盖不到了？",
+		"options": [
+			"对话补全、Function Calling 这些标准能力可以原样复用；平台特有能力（知识库检索、控制台里编排的工作流应用）要走 `extra_body` 或 dashscope 专用 SDK",
+			"全部能力都覆盖，包括知识库和工作流，所以代码可以在两家之间无缝迁移",
+			"只覆盖纯文本对话，Function Calling 必须换成百炼私有格式",
+			"只覆盖鉴权，请求体和响应体都需要自己转换"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记的示例分成两类：对话和 Function Calling 直接用 `OpenAI(base_url=\"…/compatible-mode/v1\")` 按标准写法调用；而知识库检索是塞在 `extra_body` 里的 `knowledge_base` 字段（不属于 OpenAI 协议），控制台创建的工作流应用则要用 `dashscope.Application.call(app_id=…)` 这个专用入口。所以兼容层的边界就是「OpenAI 协议里有的东西」，平台差异化能力天然落在协议之外。",
+		"hint": "对照笔记里三段代码各自用了什么客户端和什么字段。",
+		"distractorNotes": {
+			"1": "知识库靠 `extra_body` 的非标字段传递、工作流应用要用 dashscope SDK，这两处一旦用上，代码就不再是可无缝搬走的 OpenAI 调用了。",
+			"2": "笔记的 Function Calling 示例用的正是 OpenAI SDK 的标准 `tools` / `tool_choice` 写法，没有私有格式。",
+			"3": "兼容模式覆盖的是完整的请求/响应格式，不只是鉴权——否则示例里不可能直接读 `response.choices[0].message`。"
+		},
+		"reviewed": false
+	}
+]

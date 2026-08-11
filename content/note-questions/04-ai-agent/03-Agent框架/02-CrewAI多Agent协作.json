@@ -1,0 +1,39 @@
+[
+	{
+		"id": "task-context-dependency",
+		"prompt": "在笔记的 CrewAI 例子里，writer 拿到 researcher 的研究报告、reviewer 拿到 writer 的文章，靠的是什么？",
+		"options": [
+			"在任务上显式声明它依赖哪个上游任务，上游任务的输出被作为上下文注入",
+			"三个 Agent 共享同一个可读写的全局状态对象，各自往里写结果",
+			"Agent 之间直接互相发消息，由模型自行决定找谁要输入",
+			"Crew 把所有历史消息无差别拼进每个 Agent 的 prompt"
+		],
+		"answerIndex": 0,
+		"explanation": "CrewAI 把协作建模成**任务之间的依赖**，而不是 Agent 之间的自由通信：`writing_task` 用 `context=[research_task]` 声明依赖，`review_task` 用 `context=[writing_task]`，上游产出沿这条声明好的边流向下游。所以「谁能看到什么」是作者在装配期决定的，不是模型在运行时协商出来的。",
+		"hint": "看 `writing_task` 和 `review_task` 各自多出来的那个参数。",
+		"distractorNotes": {
+			"1": "共享可变状态是 LangGraph 那类图框架的做法（所有节点读写同一个 State）。CrewAI 这个例子里数据是按任务依赖定向传递的。",
+			"2": "这是「自主多 Agent 对话」范式的假设。CrewAI 的顺序流程里依赖是声明式的，模型不需要（也无法）自己去找上游要输入。",
+			"3": "无差别拼接会让上下文迅速膨胀且噪声很大。显式声明依赖的意义正是只注入相关产出。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "sequential-vs-hierarchical",
+		"prompt": "CrewAI 的 `Process.sequential` 和 `Process.hierarchical` 的核心差别在哪里？",
+		"options": [
+			"谁来决定任务分配：sequential 由开发者在装配期固定执行顺序，hierarchical 交给一个 Manager Agent（需另配 manager_llm）在运行时分派",
+			"能否使用工具：hierarchical 下 Agent 才能调用工具，sequential 只能纯对话",
+			"是否并行：sequential 串行执行，hierarchical 让所有 Agent 同时执行以提速",
+			"是否持久化：只有 hierarchical 支持从检查点恢复"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记把两者分别注为「任务按顺序执行」和「Manager Agent 分配任务」，并且 hierarchical 要额外指定 `manager_llm`——多出来的这个模型就是做分派决策的那个。差别不在能力清单，而在**调度权归谁**：顺序流程要求你在写代码时就知道正确的步骤顺序；层级流程把这个决策推迟到运行时，代价是多一层 LLM 调用和一个不确定的调度者。",
+		"distractorNotes": {
+			"1": "工具挂在 Agent 上（`tools=[...]`），与流程类型无关，sequential 的 researcher / writer 都带工具。",
+			"2": "hierarchical 的关键词是「层级分派」而不是「并发」；笔记没有把它描述为并行加速手段。",
+			"3": "笔记里的 checkpoint 能力属于 Crew 的执行运行时，不是某一种 process 的专属特性。"
+		},
+		"reviewed": false
+	}
+]

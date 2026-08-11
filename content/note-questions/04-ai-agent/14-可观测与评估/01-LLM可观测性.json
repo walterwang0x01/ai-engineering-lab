@@ -1,0 +1,58 @@
+[
+	{
+		"id": "span-vs-generation",
+		"prompt": "笔记手动构造链路时，检索步骤用 `trace.span(...)`，LLM 调用用 `trace.generation(...)`。为什么要分成两种节点类型？",
+		"options": [
+			"generation 是专门描述模型调用的节点，带 model 和 usage 字段，成本与 token 归因只能挂在它上面",
+			"span 只能记录耗时，不能记录输入输出，所以 LLM 调用必须换成 generation",
+			"一个 trace 里只允许有一个 span，多出来的步骤必须用 generation 承载",
+			"generation 会把结果缓存下来，相同输入的第二次调用不再计费"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记里 `retrieval_span.end(output={\"doc_count\": ...})` 只记录了检索的输入输出，而 `trace.generation(...)` 额外声明了 `model=\"gpt-5.2\"` 并在 `end()` 里传 `usage={\"input\": 150, \"output\": 200}`。平台正是靠 generation 节点上的 model + usage 才能算出 token 用量和成本——把 LLM 调用写成普通 span，链路图还在，但成本和 token 统计就断了。",
+		"hint": "看两个 `end()` 调用分别传了哪些字段。",
+		"distractorNotes": {
+			"1": "span 同样能记录输入输出，笔记的检索 span 就传了 `input` 和 `output`。区别在于 generation 多了模型和用量语义。",
+			"2": "trace 下可以挂任意多个 span，笔记的结构就是「一个 trace + 多个子节点」。节点数量不是选型理由。",
+			"3": "generation 只是观测节点，不承担缓存或计费逻辑，它只是把已发生的用量记录下来。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "instrumentation-layer",
+		"prompt": "笔记里 LangSmith 只要设置 `LANGCHAIN_TRACING_V2=true` 就自动记录调用，Phoenix 则要 `OpenAIInstrumentor().instrument(...)` 给 OpenAI SDK 打桩。这两种接入点的差别带来什么实际后果？",
+		"options": [
+			"打桩在 SDK 层能覆盖任何直接调用 OpenAI 的代码；靠框架开关的自动追踪只覆盖走该框架的那部分链路",
+			"SDK 层打桩必须改业务代码逐个调用点包一层，框架开关不用改代码",
+			"两者接入点不同但覆盖范围一致，差别只在数据存在本地还是云端",
+			"框架开关方式无法记录 token 用量，只有 SDK 打桩能拿到 usage"
+		],
+		"answerIndex": 0,
+		"explanation": "LangSmith 的自动追踪是框架内置的：笔记写「LangChain 自动追踪所有调用」——前提是调用经过 LangChain。Phoenix 用 OpenTelemetry + OpenInference 在 OpenAI SDK 上打桩，笔记写「之后所有 OpenAI 调用自动追踪」，不关心上层是否有框架。所以绕过框架、直接用 SDK 写的那部分代码，前者看不见，后者看得见。",
+		"distractorNotes": {
+			"1": "SDK 层打桩恰恰是全局生效的，笔记里只在启动时注册一次，业务调用点原样不动。",
+			"2": "覆盖范围不一致才是这道题的重点。自托管与云端是另一个维度，笔记里 LangFuse 才是讲自托管的那节。",
+			"3": "两种方式都能拿到 usage——笔记的 LangSmith 那节明确说控制台可查看 Token、延迟、成本。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "eval-as-versioned-experiment",
+		"prompt": "笔记提到把 LLM 评估写成 `@pytest.mark.phoenix` 测试、并通过 Experiments API 在 CI 里拉分数做门禁。为什么必须把每次评估记录成版本化的 Experiment，而不是只让测试断言一个及格线？",
+		"options": [
+			"回归门禁要判断的是「这次比上次差了」，需要历史基线可比；单次跑分只能判断有没有跌破绝对阈值",
+			"pytest 无法对浮点分数做断言，必须把分数交给平台判定",
+			"Experiment 会把评估结果缓存，避免 CI 重复调用模型产生成本",
+			"只有版本化后的评估才允许在本地运行，否则必须连云端"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记描述的用法是「CI/CD 拉取分数做回归门禁」：评估分数天然带噪声、绝对阈值很难定，真正有用的信号是与前一版对比的变化，这就要求每次运行都作为一次可检索的 Experiment 存下来，形成基线。写死一个及格线只能拦住彻底崩坏的改动，拦不住缓慢退化。",
+		"hint": "「回归」这个词本身就要求有一个可比的「上一次」。",
+		"distractorNotes": {
+			"1": "断言浮点分数对 pytest 毫无难度。问题不在断言能力，而在拿什么当比较基准。",
+			"2": "Experiment 是评估结果的记录，不是模型响应缓存，它不减少 CI 的模型调用。",
+			"3": "笔记里 Phoenix 可以 `px.launch_app()` 本地起服务，版本化与是否连云端无关。"
+		},
+		"reviewed": false
+	}
+]

@@ -1,0 +1,21 @@
+[
+	{
+		"id": "action-group-contract",
+		"prompt": "Bedrock Agents 里的 Action Group 用 OpenAPI Schema 声明接口、再指定一个 Lambda 作为 executor；ADK 则直接把 Python 函数注册成工具。这个差别带来的实际约束是什么？",
+		"options": [
+			"全托管服务里的工具必须是可被平台跨进程调用的已部署端点，不能是与 Agent 同进程的本地函数",
+			"OpenAPI Schema 的工具无法接收结构化参数，只能传字符串",
+			"Action Group 的工具不能返回错误，异常必须在 Agent 指令里描述",
+			"Lambda executor 意味着工具调用是异步的，Agent 无法在同一轮里拿到结果"
+		],
+		"answerIndex": 0,
+		"explanation": "ADK 是**开源框架**，Agent 与工具跑在你自己的进程里，所以工具就是一个 Python 函数。Bedrock Agents 是**全托管服务**，Agent 的执行循环在 AWS 侧，它没有你的进程可以调用——于是工具必须表达为两部分：一份平台能读的接口契约（OpenAPI Schema，告诉模型有什么参数）和一个平台能触发的执行体（Lambda ARN）。托管省掉了运维，代价是工具的部署形态被平台规定了。",
+		"hint": "Agent 的执行循环跑在谁的机器上？它有办法调用你笔记本里的那个函数吗？",
+		"distractorNotes": {
+			"1": "示例的 Schema 明确声明了路径参数 `orderId` 及其位置和必填性，结构化参数正是 OpenAPI 擅长表达的东西。",
+			"2": "笔记没有这个限制，工具返回错误与是否用 Schema 声明接口无关。",
+			"3": "Lambda 可以同步调用；示例里 `invoke_agent` 是流式返回最终回答，并不表示工具结果拿不到。"
+		},
+		"reviewed": false
+	}
+]

@@ -1,0 +1,57 @@
+[
+	{
+		"id": "agent-vs-chatbot",
+		"prompt": "笔记用一组对照区分 Chatbot 和 AI Agent。这条分界线落在哪里？",
+		"options": [
+			"Chatbot 收到的是问题、交付的是回答；Agent 收到的是目标，自己走「规划→调用工具→执行→验证→反馈」的循环直到目标达成",
+			"Chatbot 只能单轮对话，Agent 能记住多轮上下文",
+			"Chatbot 用小模型、Agent 用大模型，区别在模型规模",
+			"Chatbot 只能输出文本，Agent 能输出图片和语音"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记的对照是：Chatbot 是「用户提问 → 模型回答」，Agent 是「用户设定目标 → 规划 → 使用工具 → 执行 → 验证 → 反馈」的自主循环。关键差别是谁来决定下一步做什么——Agent 具备感知、决策、执行三块能力，外加记忆系统，因此能在一个目标下自主推进多步，而不是每一步都等人再问一句。",
+		"hint": "对照图里 Agent 那一行多出来的不是「更多轮对话」，是什么？",
+		"distractorNotes": {
+			"1": "多轮对话和上下文记忆是 Chatbot 早就有的能力，笔记的 Chatbot 定义里就写了「单轮/多轮对话」。轮数不是分界。",
+			"2": "同一个模型既可以当 Chatbot 用也可以当 Agent 内核用，差别在外围的工具、循环和记忆，不在模型大小。",
+			"3": "模态是模型能力的另一个维度，纯文本的 Agent 和多模态的 Chatbot 都存在。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "context-vs-prompt-engineering",
+		"prompt": "笔记把 Context Engineering 描述为 Prompt Engineering 的延伸并演变成独立学科。两者关注的问题有什么不同？",
+		"options": [
+			"Prompt Engineering 关注「对模型说什么」，作用范围是单次请求的输入；Context Engineering 关注「提供哪些信息、何时提供、如何组织」，作用范围是代码库、Git 历史、依赖、团队规范、工具定义、对话历史构成的整个信息生态",
+			"Prompt Engineering 面向对话，Context Engineering 面向微调数据的构造",
+			"Context Engineering 就是把提示词写得更长更详细，本质上是同一件事的升级说法",
+			"Prompt Engineering 由人工编写，Context Engineering 指的是让模型自动生成自己的提示词"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记给的核心区别就是这一句：前者关注对模型说什么，后者关注给模型提供什么信息、何时提供、如何组织。范围也从单次请求的输入优化扩展到整个信息生态系统，关键技术包括 Prompt Caching、有状态续传、动态上下文组装——这些都是「组织与调度信息」的问题，而不是「措辞」的问题。",
+		"distractorNotes": {
+			"1": "两者都作用在推理阶段的输入上，不涉及训练数据的构造。",
+			"2": "方向恰好相反：写更长不等于组织得更好，Lost in the Middle 和成本都会惩罚无脑堆料。Context Engineering 要决定的是取舍与顺序。",
+			"3": "自动生成提示词是一种具体技术手段，不是这条区分的内容。人工设计的上下文组装策略同样属于 Context Engineering。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "agent-runtime-hosted-shift",
+		"prompt": "笔记把 2026 年的一个动向记为「Agent 从开发者自建向平台托管演进」。托管运行时接手的是哪一部分工作？",
+		"options": [
+			"Agent 的运行环境、会话管理、事件流和内置工具——开发者只保留 Agent 的定义（指令、工具、约束）",
+			"模型本身的训练与微调，开发者不再需要准备训练数据",
+			"业务数据的存储与合规审计，开发者不再承担数据责任",
+			"提示词的编写，托管平台会自动生成 Agent 的指令"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记描述 Claude Managed Agents 提供的是 Agent 定义、云环境、会话管理、事件流和内置工具这一整套托管方案，开发者的工作收缩到定义 Agent 的指令、工具和约束。也就是说被接手的是运行时（harness）那一层，不是模型层，也不是业务与合规责任。",
+		"distractorNotes": {
+			"1": "训练和微调始终在模型厂商侧，与 Agent 运行时是自建还是托管无关。",
+			"2": "托管运行时不会替开发者承担业务数据的合规责任，这属于另一个话题（Agent 治理与安全）。",
+			"3": "指令仍然由开发者定义——笔记恰恰把「定义 Agent（指令 + 工具 + 约束）」留在了开发者一侧。"
+		},
+		"reviewed": false
+	}
+]

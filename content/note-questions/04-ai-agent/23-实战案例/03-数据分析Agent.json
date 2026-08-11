@@ -1,0 +1,77 @@
+[
+	{
+		"id": "sql-keyword-blacklist-false-positive",
+		"prompt": "笔记的 `SafeSQLExecutor.validate_sql` 先要求 SQL 以 SELECT 开头，再检查大写后的语句里是否出现 `[\"DROP\", \"DELETE\", \"UPDATE\", \"INSERT\", \"ALTER\", \"TRUNCATE\", \"GRANT\"]` 中的任一个。下面哪条完全只读的查询会被它误判为非法？",
+		"options": [
+			"`SELECT id, updated_at FROM orders`",
+			"`SELECT COUNT(*) FROM orders WHERE status = 'paid'`",
+			"`SELECT u.region, SUM(o.amount) FROM orders o JOIN users u ON o.user_id = u.id GROUP BY u.region`",
+			"`SELECT * FROM products ORDER BY price DESC LIMIT 10`"
+		],
+		"answerIndex": 0,
+		"explanation": "校验用的是子串包含（`kw in upper`），不是词法分析。`UPDATED_AT` 里就含有 `UPDATE`，所以一条只读查询会被拦下。这是黑名单式 SQL 校验的固有毛病：既会误伤合法语句，也挡不住花式绕过。真正可靠的边界应该放在数据库侧——用只读账号或只读连接，让权限系统而不是字符串匹配来兜底。",
+		"hint": "把每个选项大写后，逐个拿黑名单里的词做子串匹配试试。",
+		"distractorNotes": {
+			"1": "`SELECT COUNT(*) ... 'paid'` 里没有任何黑名单词的子串，会正常通过。",
+			"2": "多表 JOIN 与聚合都不含黑名单词，笔记里 NL→SQL 生成的示例正是这个形状，能通过校验。",
+			"3": "`ORDER BY price DESC LIMIT 10` 同样不含黑名单词。注意 `DESC` 不是 `DELETE`/`DROP` 的子串。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "silent-row-truncation",
+		"prompt": "`SafeSQLExecutor.execute` 在结果超过 10000 行时执行 `df = df.head(10000)` 然后直接返回。放在这条「查数 → 出图 → 写报告」的流水线里，这个做法的风险是什么？",
+		"options": [
+			"截断没有任何标记，下游的图表和报告会基于不完整数据得出结论，且读者无从知道数据被裁过",
+			"`head(10000)` 会改变列的数据类型，导致后续 `to_json` 序列化失败",
+			"截断发生在数据库侧，会让 SQL 的聚合结果本身出错",
+			"超过 10000 行时 pandas 会抛异常，整条流水线中断"
+		],
+		"answerIndex": 0,
+		"explanation": "行数上限本身是合理的护栏（保护内存和后续 token 消耗），问题在于它是静默的：返回值里没有「被截断」这个信号，`step_visualize` 和 `step_report` 拿到的 DataFrame 与完整结果长得一模一样，最终报告里的「关键发现」可能只覆盖了前 10000 行。要么在返回结构里带上截断标记并写进报告，要么把限制下推成 SQL 的 LIMIT 让它显式可见。",
+		"hint": "顺着 state 往下看：`data` 字段流进了可视化和报告，中间有谁知道数据被裁过？",
+		"distractorNotes": {
+			"1": "`head()` 只是取前 n 行，不改变 dtype，`to_json` 照常工作。",
+			"2": "截断发生在 Python 侧，SQL 已经在数据库里算完了；聚合值本身是对的，只是行被裁掉了。",
+			"3": "代码里是赋值截断而不是抛错，流水线会「成功」跑完——这正是危险的地方。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "linear-graph-no-sql-retry",
+		"prompt": "分析 Agent 的 LangGraph 是一条直线：nl2sql → execute → visualize → report → END，没有任何条件边。跟同系列笔记里带验证回环的 Bug 修复图相比，这个结构的代价是什么？",
+		"options": [
+			"LLM 生成的 SQL 一旦语法出错或被安全校验拒绝，`execute` 直接抛异常终止，没有让模型看着错误信息重写 SQL 的机会",
+			"没有条件边意味着 state 无法在节点间传递，每个节点都要重新查库",
+			"直线图不能用 checkpointer，因此无法支持多轮对话",
+			"直线图会让四个节点并行执行，导致 report 拿不到 chart_path"
+		],
+		"answerIndex": 0,
+		"explanation": "NL→SQL 的输出是概率性的：可能引用不存在的列，也可能碰上 `updated_at` 这类被黑名单误伤的情况。`step_execute` 里 `executor.execute` 抛出的 `ValueError`/数据库错误没有分支去接，整个 run 就结束了。可以修的形式是加一条条件边把错误信息回灌给 nl2sql 重写（自愈），代价是多一次 LLM 调用和潜在的循环上限管理——这正是 Bug 修复图那种 `add_conditional_edges` 的用途。",
+		"distractorNotes": {
+			"1": "state 传递与有无条件边无关，`AnalysisState` 在直线图里一样逐节点累积。",
+			"2": "checkpointer 与图的形状无关，直线图也可以编译时传 checkpointer。",
+			"3": "`add_edge` 定义的是顺序依赖，四个节点是串行执行的，不会并行。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "ducklake-fits-agent",
+		"prompt": "笔记认为 DuckLake + DuckDB 这套组合特别契合「Agent 自主调查」的场景。按笔记给的理由，最关键的一条是什么？",
+		"options": [
+			"lakehouse 能在秒级拉起（Postgres 元数据 + S3 Parquet + 一个 DuckDB 进程），而且元数据本身可以用 SQL 查——Agent 一次工具调用就能开始探索",
+			"DuckDB 的查询速度比 Spark 快，所以能处理 PB 级数据",
+			"DuckLake 用 Agent 专用的二进制协议替代了 SQL，减少了模型生成查询的出错率",
+			"DuckLake 不需要元数据库，因此避免了多 Agent 并发写入时的事务冲突"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记的对照很直白：传统 lakehouse 要 Spark cluster + Iceberg REST Catalog + 对象存储，启动是分钟到小时级——「Agent 等不起」；DuckLake 路线是秒级。加上元数据走 SQL（`SELECT * FROM ducklake_snapshot` 就能看表的历史，不必解析散落的 metadata.json），Agent 用它已经会的那套语言就能自己摸清数据集。",
+		"hint": "Agent 的调查是即席的、一次工具调用一轮，它最不能忍受的是什么？",
+		"distractorNotes": {
+			"1": "笔记的对照表把 DuckLake 的适用规模写成 GB ~ 中 TB，PB 级那一栏给的是 ClickHouse 路线。",
+			"2": "恰恰相反，DuckLake 的卖点之一是元数据也用 SQL 访问，没有引入新协议。",
+			"3": "说反了：DuckLake 正是靠 Postgres 元数据库的 ACID 来保证多个 Agent 并行写入时的事务隔离，从而不需要外部 catalog。"
+		},
+		"reviewed": false
+	}
+]

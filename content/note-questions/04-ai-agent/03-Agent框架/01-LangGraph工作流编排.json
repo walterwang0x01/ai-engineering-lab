@@ -1,0 +1,58 @@
+[
+	{
+		"id": "graph-vs-chain-cycle",
+		"prompt": "笔记里的 ReAct 图把 `agent` 用条件边连到 `tools`，再用普通边把 `tools` 连回 `agent`。相对「链式」（线性管道）的编排，这种图结构带来的关键能力是什么？",
+		"options": [
+			"控制流可以回到已经执行过的节点，形成「调模型 → 调工具 → 再调模型」的循环，直到路由函数返回 END",
+			"每个节点可以并行执行，不需要等前一个节点完成",
+			"节点之间不再需要共享状态，各节点独立持有自己的数据",
+			"模型可以在运行时动态创建新的节点类型"
+		],
+		"answerIndex": 0,
+		"explanation": "链式管道的拓扑是单向的：走完最后一环就结束。图允许边指回上游，笔记里的 `add_conditional_edges(\"agent\", should_continue, {\"tools\": \"tools\", END: END})` 加上 `add_edge(\"tools\", \"agent\")` 就构成一个环——工具执行完回到模型，模型再判断要不要继续调工具，`should_continue` 返回 END 才退出。Agent 的「多步决策」本质就是这个循环，这是图这个抽象换来的东西。",
+		"hint": "看 `should_continue` 的两个返回值，以及 `tools` 那条边指向哪里。",
+		"distractorNotes": {
+			"1": "并行不是图相对链的本质差别，笔记这张图恰恰是严格串行的：agent 和 tools 交替执行。",
+			"2": "正好相反。图的节点全都读写同一个 `AgentState`（`messages` 用 `Annotated[list, add]` 累加），共享状态是节点之间传递信息的唯一通道。",
+			"3": "图的拓扑是编译期确定的（`graph.compile()`），模型只能在既有分支里选路由，不能凭空造节点。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "checkpoint-cost",
+		"prompt": "LangGraph 运行时在每一步都写 checkpoint。按笔记的说法，这个设计换来了什么、又在长时运行 Agent 上付出什么代价？",
+		"options": [
+			"换来可观测性、人机交互和故障恢复；代价是运行数小时以上的会话存储爆炸、恢复延迟随会话线性增长",
+			"换来更低的 Token 消耗；代价是无法支持人工审批中断",
+			"换来更高的推理准确率；代价是必须使用 PostgreSQL 而不能用内存后端",
+			"换来节点的并行执行能力；代价是状态不能跨 thread 复用"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记明确写了两面：每步 checkpoint「以支持可观测性、人机交互和故障恢复」；但「对于运行数小时甚至数天的 Agent，全量 checkpoint 导致存储爆炸和恢复延迟线性增长」。持久化不是免费的可观测性，它把状态历史的体积变成了运行时成本——Delta Channels 就是为了压这个代价才出现的。",
+		"distractorNotes": {
+			"1": "checkpoint 与 Token 消耗无关；而人机交互恰恰是靠 checkpoint 才能实现的（中断后要能从持久化状态恢复），不是被它牺牲掉的。",
+			"2": "checkpoint 不改变模型的推理质量。后端可选内存（`MemorySaver`，开发用）或 PostgreSQL（`PostgresSaver`，生产用），并非强制数据库。",
+			"3": "并行执行不是 checkpoint 带来的；而状态本来就是按 `thread_id` 组织并跨调用恢复的，正是 checkpoint 让跨轮次复用成为可能。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "delta-channel-snapshot",
+		"prompt": "Delta Channels 只保存每一步的增量，但仍然「每 K 步写一次完整快照」。这个完整快照是为了解决什么问题？",
+		"options": [
+			"把恢复延迟限制在常数级别——否则恢复时要从头重放越来越长的增量序列",
+			"防止增量数据在写入时损坏，快照用于校验一致性",
+			"让存储增长从 O(N) 降到 O(log N)",
+			"提供人工可读的状态导出，便于工程师在 LangSmith 里查看"
+		],
+		"answerIndex": 0,
+		"explanation": "纯增量存储能压住体积，但恢复要靠重放：会话越长，需要重放的增量越多，恢复延迟又变回线性。笔记的说法是「只存储每步的增量（delta），每 K 步写一次完整快照，将恢复延迟限制在常数级别」——最多只需从最近一次快照重放 K 步以内的增量。存储与恢复延迟之间的这个折中，是所有增量式持久化（含数据库 WAL、备份系统）的同一套权衡。",
+		"hint": "如果一次快照都不写，恢复一个跑了两百轮的会话要做什么？",
+		"distractorNotes": {
+			"1": "快照的作用是限制重放长度，不是校验数据完整性；笔记没有把它描述为一致性校验手段。",
+			"2": "笔记给的是存储增长从 O(N²) 降到 O(N)，而且这个改进来自「只存增量」，不是来自周期性快照。",
+			"3": "快照是运行时的恢复起点，不是给人看的导出格式。可观测性由 trace / LangSmith 那条链路负责。"
+		},
+		"reviewed": false
+	}
+]

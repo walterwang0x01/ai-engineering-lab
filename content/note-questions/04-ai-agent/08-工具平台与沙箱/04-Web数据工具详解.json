@@ -1,0 +1,21 @@
+[
+	{
+		"id": "crawl-vs-search-for-rag",
+		"prompt": "要把一个文档站做成 RAG 知识库，笔记的选型指南给的是「文档站点爬取 → Firecrawl Crawl」，而把 Tavily 放在「搜索补充知识」。这个分工的理由是什么？",
+		"options": [
+			"建库需要顺着站内链接系统性遍历目标站点并产出干净正文，而搜索 API 是按 query 返回若干相关结果，覆盖范围由查询决定，不保证把整站抓全",
+			"搜索 API 拿不到页面正文，只能拿到标题和链接",
+			"只有爬取工具能处理 JavaScript 渲染的页面，搜索 API 会漏掉动态内容",
+			"搜索 API 返回的结果不能向量化，必须先转成 Markdown 才行"
+		],
+		"answerIndex": 0,
+		"explanation": "两类工具的覆盖方式不同：爬取是「给一个入口，按链接结构和 `includePaths` / `maxDepth` 把这一片抓完」，覆盖由站点结构决定；搜索是「给一个问题，返回最相关的 N 条」，覆盖由 query 决定。知识库要的是前者——没被任何查询命中的页面也得进库。笔记第 11 节的管道正是这样组合的：先 `crawl_url` 抓文档站打底，再用 Tavily 搜索补充站外信息，两份文本合并后统一切块入库。",
+		"hint": "问自己：没被任何查询命中的那些页面，怎么进知识库？",
+		"distractorNotes": {
+			"1": "搜索 API 可以带回正文——Tavily 有 `include_raw_content` 和 `extract`，笔记的管道就直接用了 `raw_content` 入库。差别不在能不能拿正文，而在覆盖方式。",
+			"2": "JS 渲染不是这条分界线：笔记里 Firecrawl 和 Jina Reader 都会执行 JS，而搜索 API 返回的是搜索引擎已经索引好的结果，两者的差别在覆盖策略而非渲染能力。",
+			"3": "没有这个限制。笔记的管道把爬取结果和搜索结果的文本放进同一个列表，用同一个 splitter 切块、同一个 embedding 向量化。"
+		},
+		"reviewed": false
+	}
+]

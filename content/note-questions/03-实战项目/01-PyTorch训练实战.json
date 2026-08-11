@@ -1,0 +1,76 @@
+[
+	{
+		"id": "grad-accumulation",
+		"prompt": "PyTorch 的梯度是累加而不是覆盖的，笔记说这个设计正是「梯度累积」能成立的原因。用梯度累积模拟大 batch 时，除了把 optimizer.step() 和 zero_grad() 挪到每 accum_steps 次才执行，还必须做什么？",
+		"options": [
+			"把每个小批次的损失除以 accum_steps，否则累加出的梯度相当于被放大了 accum_steps 倍",
+			"每个小批次的 backward() 都加上 retain_graph=True，否则计算图会被提前释放",
+			"把 batch_size 同时乘以 accum_steps，否则等效批量对不上",
+			"关掉训练集的 shuffle，保证同一组累积的样本来自同一类别"
+		],
+		"answerIndex": 0,
+		"explanation": "梯度累积的目标是「等效于用大 batch 训练」。若每个小批次的损失都按原样 backward，accum_steps 步累加出的梯度是大 batch 平均梯度的 accum_steps 倍，更新幅度会被整体放大。笔记的写法是 loss = criterion(model(bx), by) / accum_steps，先把损失除掉，再让梯度累加，最后只在第 accum_steps 步 step + zero_grad。",
+		"hint": "想清楚累积 accum_steps 次之后，梯度的量级相对于「一次大 batch」变成了多少倍。",
+		"distractorNotes": {
+			"1": "retain_graph 是同一张计算图要被 backward 多次时才需要。梯度累积里每个小批次各有自己的前向和计算图，图释放掉没有影响，累加发生在参数的 .grad 上。",
+			"2": "方向反了。梯度累积存在的理由就是显存装不下大 batch，只能用小批次凑出等效批量；把 batch_size 乘上去正好回到 OOM。",
+			"3": "笔记明确写训练集必须 shuffle=True：数据按标签排序会让梯度方向剧烈摇摆。刻意让一组累积样本同类，等于人为制造有偏的批次。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "forgot-eval-mode",
+		"prompt": "评估前忘了调用 model.eval()（模型里有 Dropout 和 BatchNorm），最典型的现象是什么？",
+		"options": [
+			"同一个输入跑两次得到不同结果，评估指标偏低而且不稳定",
+			"反向图仍会被构建，显存占用上升，但评估指标不受影响",
+			"优化器会用验证集的梯度更新模型参数，造成数据泄漏",
+			"损失立刻变成 nan"
+		],
+		"answerIndex": 0,
+		"explanation": "train() 模式下 Dropout 仍在随机丢弃神经元，所以同一输入两次前向的结果不同——笔记的实测里 train() 模式下两次输出最大差异 2.195314，eval() 模式下是 0.000000。少了一部分神经元参与，指标还会系统性偏低。这也是「评估结果每次不同」这个报错的标准原因。",
+		"hint": "eval() 切换的是哪两类层的行为？其中哪一类带随机性。",
+		"distractorNotes": {
+			"1": "这是漏掉 torch.no_grad() 的后果，不是漏掉 eval()。笔记特意强调两者要一起用但管的事不同：eval() 管层的行为，no_grad() 管是否建计算图。",
+			"2": "评估里没有 backward 和 optimizer.step()，可训练参数不会被更新。要注意的是 BatchNorm 的 running stats 属于 buffer 而非参数，在 train() 模式下确实会被验证数据污染——那是统计量被带偏，不是参数被训练。",
+			"3": "nan 的来源是学习率过大、梯度爆炸或 log(0)，跟训练/评估模式开关没有关系。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "checkpoint-optimizer-state",
+		"prompt": "checkpoint 里只存了 model.state_dict()。笔记说这样「恢复后训练不能真正续上」，根本原因是什么？",
+		"options": [
+			"Adam 这类优化器内部维护的一阶、二阶动量估计丢了，恢复后前几步的更新会失准",
+			"模型权重在保存时会被降精度，需要优化器状态才能还原原始 dtype",
+			"没有优化器状态就无法把张量搬回原来的设备",
+			"缺少优化器状态时 load_state_dict 会直接抛异常，根本载不进去"
+		],
+		"answerIndex": 0,
+		"explanation": "Adam / AdamW 内部为每个参数维护一阶和二阶动量估计。只恢复权重、不恢复这些状态，等于让优化器重新「热身」，恢复后的前几步更新方向和步长都会失准。所以笔记的 checkpoint 至少要存三样：模型权重、优化器状态、epoch（外加 best_val_loss 便于判断是否最优）。",
+		"distractorNotes": {
+			"1": "state_dict 保存的是张量原样，不会自动降精度，也和优化器状态无关。",
+			"2": "设备由 torch.load 的 map_location 以及 .to(device) 决定，跟优化器状态无关。",
+			"3": "恰恰相反：model.load_state_dict 只看模型自己的键，缺优化器状态不会报错。危险就在于它静默地「成功」了——你以为续上了，实际动量已经清零。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "last-vs-best-checkpoint",
+		"prompt": "笔记要求 last.pt（每轮覆盖）和 best.pt（验证集最优时才写）两个都保存。只留一个的代价分别是什么？",
+		"options": [
+			"只留 last 可能拿到过拟合之后的权重；只留 best 则训练中断后没法从断点继续",
+			"只留 last 会丢失优化器状态；只留 best 会丢失 epoch 计数",
+			"只留 last 无法做早停判断；只留 best 无法计算验证损失",
+			"两者只是命名习惯，写入内容完全相同，留一个就够"
+		],
+		"answerIndex": 0,
+		"explanation": "两个文件的差别在写入时机。last 每轮覆盖，拿到的是最新一轮——训练后期可能已经过拟合，不适合部署。best 只在验证损失变好时写，但它未必是最后一轮，从它恢复会丢掉之后已经跑过的轮次，不能当断点续训用。所以部署取 best，续训取 last，两个都要存。",
+		"distractorNotes": {
+			"1": "两个文件存的字段是同一套（epoch、model_state、optimizer_state、best_val_loss），区别只在什么时候写，不在写了什么。",
+			"2": "早停的依据是验证损失连续多少轮没有改善（笔记里 patience=4），是内存里的计数，跟保存哪个 checkpoint 无关；验证损失也由 evaluate() 每轮现算。",
+			"3": "写入时机不同，内容因此必然不同：last 是最新一轮的状态，best 是验证损失最低那一轮的状态。"
+		},
+		"reviewed": false
+	}
+]

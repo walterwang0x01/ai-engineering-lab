@@ -1,0 +1,58 @@
+[
+	{
+		"id": "acp-acronym-collision",
+		"prompt": "本目录里出现了两个都叫 ACP 的协议。它们各自解决什么问题？",
+		"options": [
+			"一个是 Agent Commerce Protocol，标准化 Agent 代理用户完成结账；另一个是 Agent Communication Protocol，做 Agent 之间的轻量异步消息传递——同名不同物，用途完全不重叠",
+			"是同一个协议的两个版本，商务场景那个是通信协议加了支付扩展后的新版",
+			"一个是协议规范，一个是该规范的参考实现，两者配套使用",
+			"两者都是支付协议，区别只在支持的支付方式不同"
+		],
+		"answerIndex": 0,
+		"explanation": "缩写撞车，是这个生态里非常容易踩的坑。本篇的 ACP 指 Agent Commerce Protocol（OpenAI + Stripe，Apache 2.0 开源），核心是四个 RESTful 结账端点 Create / Update / Complete / Cancel，商家保持客户关系、Agent 不接触支付凭证，驱动 ChatGPT 的 Instant Checkout。而《ACP 与协议生态》里的 ACP 指 Agent Communication Protocol（IBM），是 Agent 之间基于 HTTP REST 的轻量异步消息传递协议。看到 ACP 必须先确认上下文是「结账」还是「Agent 间通信」。",
+		"hint": "把缩写展开成全称，两个 C 分别代表什么？",
+		"distractorNotes": {
+			"1": "不是版本关系。支付领域里作为「A2A 的支付扩展」的是 Google 的 AP2，不是这两个 ACP 中的任何一个。",
+			"2": "两者都是协议规范，且出自不同组织、解决不同层的问题，不构成规范与实现的配套关系。",
+			"3": "IBM 的 ACP 与支付无关，它传的是任务和多模态消息。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "agentic-token-vs-card-token",
+		"prompt": "Mastercard Agent Pay 的 Agentic Token 与传统的卡令牌（device/merchant token）相比，多出来的是什么？",
+		"options": [
+			"它绑定到具体的 Agent，并可设置消费限额与有效期、可随时撤销、交易可追溯到那个 Agent；传统令牌绑定的是设备或商家",
+			"它让 Agent 直接持有真实卡号，从而省掉一次网络跳转",
+			"它把授权从银行侧搬到 Agent 侧，Agent 自己决定额度",
+			"它是链上资产，撤销与限额由智能合约执行"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记直接对比了两者：普通令牌绑定设备或商家，Agent 令牌绑定 Agent + 限额 + 可撤销。流程是用户在银行 App 授权某个 Agent，银行生成绑定 Agent ID 与消费限额的 Agentic Token，支付时 Mastercard 网络校验「Agent ID 匹配？限额内？有效期内？」。这正好回答了 Agent 支付最要紧的问题——出问题时能否定位到是哪个 Agent 花的钱，以及能否立刻停掉它。",
+		"distractorNotes": {
+			"1": "恰好相反：令牌化的目的就是让 Agent 与商家都不接触真实卡号，笔记明确写了「Agent 不接触真实卡号」。",
+			"2": "授权仍在银行侧——用户在银行 App 里授权，银行签发带限额的令牌。让 Agent 自定额度等于取消了这套风控。",
+			"3": "Agentic Token 走 Mastercard 网络校验，不是链上资产。链上支付是 x402 的路线。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "x402-irreversible-auto-pay",
+		"prompt": "有人打算用 x402 让 Agent 自动为一项大额服务付费。按笔记的对比，这个选择最本质的风险是什么？",
+		"options": [
+			"x402 的定位是无人工确认的自动微支付，且链上交易不可逆——判断一旦出错，既没有用户确认这道闸，也没有取消或撤销的路径",
+			"x402 依赖中心化支付处理商，处理商可能拒绝大额交易",
+			"402 不是标准 HTTP 状态码，网关和代理会把这类响应丢弃",
+			"x402 无法证明支付确实发生，服务方只能凭信任放行"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记的对比表里，x402 的「用户确认」一栏是 ❌ 自动支付，「金额范围」是微支付为主；安全考量一节又把它归入「自动授权」，并在可撤销性里专门标注「x402：链上交易不可逆（需注意）」。对照其他三个：ACP 必须用户点击确认且可取消未完成的结账，Mastercard 靠银行预授权限额且可随时撤销 Token，AP2 支持退款流程。所以 x402 的适用场景是 Agent 间 API 调用计费这类小额高频交易，把它用在大额上是拿掉了所有事后补救手段。",
+		"hint": "对比表里有两栏专门写这件事：「用户确认」和「金额范围」。",
+		"distractorNotes": {
+			"1": "说反了。x402 的特点正是去中心化、无中心化支付处理商，基于稳定币直接链上转账。",
+			"2": "402 Payment Required 本来就是 HTTP 标准状态码，x402 的设计基础就是复用它。",
+			"3": "x402 有支付证明机制：付款后带 `X-Payment-Proof`（交易哈希）重新请求，服务方据此校验。"
+		},
+		"reviewed": false
+	}
+]

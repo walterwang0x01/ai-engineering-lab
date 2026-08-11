@@ -1,0 +1,39 @@
+[
+	{
+		"id": "coze-saas-vs-selfhost",
+		"prompt": "某团队的数据合规要求所有对话数据不能出内网，但他们想用 Coze 的生态。按笔记的对比，现实的取舍是什么？",
+		"options": [
+			"改用开源的 Coze Studio 自托管，但拿不到 SaaS 版 Coze 2.5 的 Agent World / 云端设备能力",
+			"Coze SaaS 支持私有化部署，只要买企业版就能满足合规要求",
+			"Coze 生态完全无法自托管，只能换到 FastGPT 或 Dify",
+			"用 Coze SaaS 但关闭知识库功能，这样对话数据就不会离开内网"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记的两张对比表说清了这条边界：Coze（SaaS）私有部署一栏是 ❌，而 Coze Studio 是 Apache 2.0 的开源自托管版本，支持 chatflow、工作流、Agent。但开源版在 Agent World、云端 PC / 手机这些 v2.5 的 SaaS 能力上是 ❌。所以「留在 Coze 生态 + 自托管」是可行的，代价是放弃 SaaS 独有的那部分能力。",
+		"hint": "Coze 在笔记里不是一个东西，是两个：SaaS 的 Coze 和开源的 Coze Studio。",
+		"distractorNotes": {
+			"1": "笔记的对比表里 Coze（SaaS）的「私有部署」明确是 ❌。想自托管要走 Coze Studio 这条开源线。",
+			"2": "Coze Studio 就是官方开源的自托管版本（Apache 2.0），所以并不需要离开 Coze 生态。",
+			"3": "对话本身就要发到 SaaS 侧的模型和运行时，关掉知识库并不能让数据留在内网。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "fastgpt-openai-compat",
+		"prompt": "笔记调用 FastGPT 时用的是 OpenAI 官方 SDK，只改了 `base_url`，并把应用 ID 填进了 `model` 字段。这种「OpenAI 兼容接口」的主要收益和代价分别是什么？",
+		"options": [
+			"收益是现有 OpenAI 客户端几乎零改造即可接入；代价是要把平台自己的概念（应用 ID）硬塞进 `model` 这种语义不匹配的字段",
+			"收益是 FastGPT 会自动使用 OpenAI 的模型；代价是必须持有 OpenAI 的 API Key",
+			"收益是检索到的知识库片段会以结构化字段单独返回；代价是不支持流式输出",
+			"收益是可以绕开 FastGPT 的鉴权；代价是无法做会话隔离"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记里 `base_url` 指向本地 FastGPT、`api_key` 是 FastGPT 自己的 key、`model` 填的是 `fastgpt-app-id`——这就是兼容层的典型形态：协议照抄 OpenAI，于是任何写过 OpenAI 调用的代码换个 base_url 就能跑。代价是概念错位：FastGPT 的「应用」（含它自己的知识库、工作流配置）没有对应字段，只能借用 `model` 这个位置来承载。",
+		"distractorNotes": {
+			"1": "笔记里的 `api_key` 是 `fastgpt-xxx`，用的是 FastGPT 自己的 key；后端接哪个模型由 FastGPT 的配置（如 `CHAT_API_KEY`）决定，不是调用方带 OpenAI Key。",
+			"2": "笔记的示例同时给了 `stream=False` 和 `stream=True` 两种用法，流式是支持的；而知识库检索是「自动检索」后融进回答，并不是独立字段。",
+			"3": "兼容接口仍然要带 API Key 鉴权，谈不上绕过；示例走的就是正常鉴权路径。"
+		},
+		"reviewed": false
+	}
+]

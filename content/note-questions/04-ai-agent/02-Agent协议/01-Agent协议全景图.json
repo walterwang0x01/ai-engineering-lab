@@ -1,0 +1,39 @@
+[
+	{
+		"id": "mcp-not-for-agent-to-agent",
+		"prompt": "团队要让「订单 Agent」把子任务交给「物流 Agent」并跟踪进度。有人提议：把物流 Agent 包装成一个 MCP Server，订单 Agent 当 MCP Client 去调它。按这篇笔记的协议分类，这个做法的核心问题是什么？",
+		"options": [
+			"MCP 是纵向的「Agent ↔ 工具」协议，把协作降级成一次性的无状态工具调用，丢掉了横向协议（A2A/ACP/ANP）提供的任务状态推进与 Agent 发现",
+			"MCP 只能走 stdio 本地进程通信，跨机器的 Agent 之间根本连不上",
+			"MCP 只能读数据不能触发动作，所以无法让物流 Agent 真的执行任务",
+			"顺序错了：Agent 之间通信前必须先接入 AG-UI，把交互事件标准化"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记把 Agent 生态协议按方向分三类：纵向 MCP 负责 Agent ↔ 工具/数据，横向 A2A/ACP/ANP 负责 Agent ↔ Agent，上层 AG-UI/A2UI 负责 Agent ↔ 用户界面。把对端 Agent 当工具接进来在管道上跑得通，但它表达的是「调一个函数拿返回值」，而 Agent 协作需要的是横向协议那一层的东西——任务状态的推进（A2A 的任务生命周期）和运行时的能力发现（Agent Card）。这就是笔记说 MCP 与 A2A「互补，不竞争」的含义：它们解决的是两个不同方向的问题。",
+		"hint": "先问「这个需求是纵向的还是横向的」，再看协议属于哪一类。",
+		"distractorNotes": {
+			"1": "MCP 的传输层不止 stdio，笔记列出 stdio 与 Streamable HTTP 两种，远程连接是支持的。它不适合这个场景的原因是方向和状态模型，不是连不上。",
+			"2": "MCP 的三大原语里 Tools 就是「模型可调用的函数」，能触发动作。问题不在能不能动作，而在这类调用没有任务状态可跟踪。",
+			"3": "AG-UI 属于 Agent ↔ 用户界面那一层，和 Agent 之间怎么通信是两个正交的方向，不存在先后依赖。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "which-layer-agent-ui",
+		"prompt": "按笔记的三类划分（工具连接 / Agent 间通信 / Agent-UI），下面哪个需求属于 Agent-UI 这一层？",
+		"options": [
+			"把 Agent 的流式文本、工具调用开始与结束、状态变更统一成一套事件，让前端能标准化地渲染出来",
+			"让 Agent 读取本地文件系统和查询 PostgreSQL",
+			"让 Agent A 把一个子任务派给 Agent B，并在完成前持续跟踪它的状态",
+			"给 Agent 一个去中心化身份，使它能在开放网络里被别的 Agent 发现和验证"
+		],
+		"answerIndex": 0,
+		"explanation": "AG-UI 解决的正是「Agent 输出如何展示给用户」：笔记的示例把一次运行拆成 TEXT_DELTA、TOOL_CALL_START、TOOL_CALL_END、STATE_UPDATE 等事件流，前端按事件类型渲染。同层的 A2UI 更进一步，让 Agent 直接生成 UI 组件而不只是返回文本。另外三项分别落在 MCP（工具/数据）、A2A（Agent 间有状态协作）、ANP（DID 身份 + 开放网络发现）。",
+		"distractorNotes": {
+			"1": "这是 MCP 的典型场景——纵向连接工具与数据源，笔记的官方 Server 清单里就有 filesystem 和 postgres。",
+			"2": "这是横向的 Agent 间协作，对应 A2A 的任务管理，不是 Agent 与界面之间的事。",
+			"3": "DID 身份与跨网络 Agent 发现是 ANP 的定位，属于 Agent 间通信那一类。"
+		},
+		"reviewed": false
+	}
+]

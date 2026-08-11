@@ -1,0 +1,59 @@
+[
+	{
+		"id": "advisor-role",
+		"prompt": "Spring AI 的 Advisor 在整个 AI 调用链里扮演什么角色？",
+		"options": [
+			"AI 调用的中间件：在请求发出前和响应返回后包裹调用，用来挂日志、记忆、护栏等横切逻辑",
+			"模型适配层：负责把 OpenAI / Claude / Ollama 的不同 HTTP 协议翻译成统一格式",
+			"提示词模板引擎：把用户输入渲染成最终发给模型的 prompt 字符串",
+			"工具注册表：收集 @Tool 注解的方法并生成 JSON Schema 交给模型"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记把 Advisor 直接类比成 Spring MVC 的 Interceptor——`aroundCall(request, chain)` 先处理请求、调用 `chain.nextAroundCall(request)` 继续链路、再处理响应，还有 `getOrder()` 控制顺序。这正是中间件形状。内置的 `MessageChatMemoryAdvisor`（会话记忆）、`SafeGuardAdvisor`（护栏）、`QuestionAnswerAdvisor`（RAG 检索注入）都是靠这个位置把横切能力插进调用链的，业务代码本身不用改。",
+		"hint": "看 aroundCall 的签名：它拿到 request、能调用 chain 继续、还能加工返回的 response。这是哪种熟悉的模式？",
+		"distractorNotes": {
+			"1": "模型适配是 ChatModel / 各家 starter 的职责，Advisor 工作在比它更上层的 ChatClient 调用链上，与具体模型无关。",
+			"2": "提示词渲染由 prompt()/user() 这套 fluent API 和模板完成。Advisor 可以顺手改请求，但它的定位是拦截整条调用，不是模板引擎。",
+			"3": "工具收集由 @Tool/@ToolParam 注解与 defaultTools() 注册完成，GA 版本里工具执行循环被抽成了 ToolCallingAdvisor——那是「用 Advisor 位置实现的一个功能」，不等于 Advisor 本身就是工具注册表。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "memory-conversation-id",
+		"prompt": "Spring AI 后来把 Chat Memory Advisor 的 conversation ID 从「有隐式默认值」改成「必须显式传入」。这个改动要防的是什么问题？",
+		"options": [
+			"多个用户/会话共用同一个默认 ID，导致彼此的对话记忆串到一起",
+			"没有 ID 时记忆无法持久化，进程重启后历史会全部丢失",
+			"缺少 ID 会让 Advisor 的执行顺序不确定，记忆可能在护栏之前生效",
+			"默认 ID 会让每一轮请求都被当成新会话，模型永远看不到历史"
+		],
+		"answerIndex": 0,
+		"explanation": "记忆是按 conversation ID 分桶存取的。存在隐式默认值时，任何忘记传 ID 的调用都会落到同一个桶里——在单用户 demo 上完全正常，一上多用户生产就变成 A 的对话出现在 B 的上下文里，是典型的静默串号。把 ID 改成必填，就是用编译期/构造期的强制要求，换掉一个只在并发真实用户下才暴露的运行时缺陷。",
+		"hint": "想一想「默认值」在多用户并发时意味着所有人共享了什么。",
+		"distractorNotes": {
+			"1": "持久化取决于 ChatMemory 的实现（内存还是外部存储），跟有没有传 ID 是两件事。有默认 ID 时记忆照样能存，只是全存到了同一个桶里。",
+			"2": "Advisor 顺序由 getOrder()/注册顺序决定，与 conversation ID 无关。",
+			"3": "方向正好相反：默认 ID 的后果是不同会话被合并成同一段历史，而不是每轮都被当成新会话。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "composable-tool-calling",
+		"prompt": "Spring AI 把工具执行循环从各个 ChatModel 内部抽出来，做成独立的 ToolCallingAdvisor，最直接的收益是什么？",
+		"options": [
+			"工具循环变成调用链上的一个可替换环节，可以在「模型请求工具 → 真正执行」之间插入审批网关等自定义步骤",
+			"工具的 JSON Schema 可以省略，模型能直接根据 Java 方法签名推断参数",
+			"工具调用从此不必把结果写回对话历史，节省上下文 token",
+			"工具执行改为在模型侧完成，应用不再需要实现工具函数体"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记描述的循环是：收集工具（@Tool 方法 / Function 实现 / ToolCallback bean）→ 把完整对话历史发给 LLM → 通过 ToolCallingManager 执行模型请求的工具 → 结果追加进历史 → 再进入循环。这套逻辑原先埋在每个 ChatModel 里，各家实现各写一遍，外部无法介入；抽成 Advisor 后它成了调用链上一个显式、可配置的环节，笔记明确点出这为需要 human-in-the-loop 审批网关的场景提供了介入点，`.call()` 和 `.stream()` 都支持。",
+		"hint": "「工具执行藏在模型实现内部」时，谁都插不进去的那一步是哪一步？",
+		"distractorNotes": {
+			"1": "Schema 仍然要生成并发给模型——@Tool/@ToolParam 的描述就是为此存在的。重构改的是执行循环的位置，不是模型如何得知工具形状。",
+			"2": "结果必须追加回对话历史，否则模型下一轮无从知道工具返回了什么。这是循环的组成部分，不是被省掉的开销。",
+			"3": "模型永远只输出「想调用哪个工具、参数是什么」，真正执行始终在应用侧（这里是 ToolCallingManager）。抽出 Advisor 只是把执行位置从模型实现内部搬到调用链上。"
+		},
+		"reviewed": false
+	}
+]

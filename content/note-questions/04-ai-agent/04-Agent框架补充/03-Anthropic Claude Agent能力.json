@@ -1,0 +1,39 @@
+[
+	{
+		"id": "tool-loop-ownership",
+		"prompt": "看笔记里 `claude_agent()` 的实现：模型返回 tool_use，应用执行工具后把结果追加回消息序列再发一次请求，直到 stop_reason 表示本轮结束。这个结构说明「Agent 循环」由谁承担？",
+		"options": [
+			"模型只输出「要调用哪个工具、参数是什么」的意图，实际执行与循环推进都由应用层负责，每一轮都是一次新的无状态请求",
+			"模型在服务端持有会话并自行执行工具，应用只需发一次请求等最终答案",
+			"工具由模型服务端沙箱执行，应用只负责把结果渲染给用户",
+			"循环由 SDK 内部管理，`max_turns` 是传给服务端的参数"
+		],
+		"answerIndex": 0,
+		"explanation": "整个 for 循环、工具的真实执行（`execute_tool`）、把结果写回 `messages` 都发生在你的代码里；模型每次看到的只是「到目前为止的完整消息序列」。这也是笔记第 9 节末尾对 Computer Use 那句提醒的同一件事：「应用层必须实现 screenshot/click/type 执行循环」。理解这一点决定了很多工程后果——重试、超时、权限校验、审计都只能做在应用侧，而上下文会随轮数不断变长。",
+		"hint": "`execute_tool` 这个函数跑在谁的机器上？",
+		"distractorNotes": {
+			"1": "代码里显式循环了最多 max_turns 次并每轮重新 `messages.create`，模型侧不保存会话，也不会替你执行本地函数。",
+			"2": "工具的实现是你的 Python 函数，服务端不可能执行它——它连这个函数的代码都看不到，只看到 name / description / input_schema。",
+			"3": "`max_turns` 是这段本地函数的参数，控制的是本地 for 循环的次数，不是 API 参数。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "thinking-budget-control",
+		"prompt": "关于 Extended Thinking 与笔记 2026-05 指南提到的 adaptive thinking，下面哪个说法符合原文？",
+		"options": [
+			"Extended Thinking 由调用方用显式的思考预算限定推理深度；adaptive thinking 则把「想多深」交给模型自己决定",
+			"两者都由调用方显式设定预算，区别只在返回格式",
+			"adaptive thinking 取消了思考过程，直接输出答案以省 Token",
+			"Extended Thinking 的思考内容不可见，只能通过日志推断"
+		],
+		"answerIndex": 0,
+		"explanation": "示例里 `thinking={\"type\": \"enabled\", \"budget_tokens\": 10000}`——预算是调用方给的上限，推理深度因此是一个可预算、可控成本的旋钮。笔记的生产实践则记录了另一种做法：Opus 4.7+ 用 adaptive thinking，由「模型自决推理深度」，4.6 族仍用 extended thinking。控制权从调用方移到模型，换来的是简单任务不必浪费预算，代价是单次调用的成本可预测性变差。",
+		"distractorNotes": {
+			"1": "笔记明确把 adaptive thinking 描述为「模型自决推理深度」，与显式预算是两种控制方式，差别不在返回格式。",
+			"2": "adaptive 指的是深度自适应，不是不思考；笔记没有说它取消推理。",
+			"3": "示例遍历 response.content 时专门处理了 `block.type == \"thinking\"` 并打印思考过程，说明它是作为独立内容块返回的。"
+		},
+		"reviewed": false
+	}
+]

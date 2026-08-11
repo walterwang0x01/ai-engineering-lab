@@ -1,0 +1,57 @@
+[
+	{
+		"id": "context-trim-direction",
+		"prompt": "`ConversationManager.get_messages` 是怎么裁剪历史的？",
+		"options": [
+			"system prompt 固定保留，其余消息从最新往旧累加，一旦再加就超过 `max_tokens` 就停下，更早的消息本次不再进入请求",
+			"从最旧往新累加，装满为止，所以保留下来的是对话开头那几轮",
+			"给每条消息按重要性打分，保留分数高的那些",
+			"超限时自动调用 LLM 把历史摘要化后再发送"
+		],
+		"answerIndex": 0,
+		"explanation": "方法遍历 `reversed(self.messages)`（从最新一条开始），累加 token 直到超限就 `break`，选中的消息用 `insert(0, ...)` 还原成原始顺序，最后拼在 system prompt 后面。所以它的取舍是「近期优先、system 必留」。有个连带效果值得注意：`break` 一旦触发就整体停止，所以某条特别长的消息会把比它更早的全部挡在门外，即使那些消息很短、预算其实还装得下。",
+		"hint": "看循环遍历的方向，以及 `insert(0, ...)` 是在做什么。",
+		"distractorNotes": {
+			"1": "遍历的起点是最新一条。保留开头是 `ContextOptimizer.truncate_middle` 的策略，不是这个方法的。",
+			"2": "这个实现里没有任何重要性评分，只有 token 预算加时间顺序。",
+			"3": "摘要是 `ContextOptimizer.compress_history` 和 `ConversationCompressor` 的职责，`get_messages` 只做截断，不调用模型。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "truncate-middle-assumption",
+		"prompt": "`truncate_middle` 保留开头（system + 最早 2 条）和最近 5 条，把中间换成一句「[...中间对话已省略...]」。这个策略成立的前提假设是什么？",
+		"options": [
+			"任务设定在开头、当前进展在结尾，中间的过程性往来对下一步决策价值最低——如果关键约束恰好是在对话中段给出的，这个假设就不成立",
+			"中间的消息一定是重复内容，删掉不会丢任何信息",
+			"模型对处于中间位置的内容天生无法有效利用，留着也没用",
+			"插入了省略提示之后，模型可以自己把被删掉的内容推断回来"
+		],
+		"answerIndex": 0,
+		"explanation": "这是一个赌注而不是保证：开头通常是 system prompt 和任务描述（决定「要做什么」），结尾是最近的进展（决定「下一步做什么」），中间多为可复述的过程。所以它在多数对话里划得来，但典型的翻车场景是用户在第 8 轮补了一句「预算不能超过 X」——那条约束会被当成中间过程删掉，而模型此后完全不知道它存在。真正需要保住的信息应该提取出来放进 system 或摘要，而不是指望它落在被保留的窗口里。",
+		"distractorNotes": {
+			"1": "不是「一定重复」，而是「赌它不重要」。中段给出的一次性约束被截掉后就真的没了。",
+			"2": "位置不改变模型的理解能力。这里的取舍是 token 预算下保留哪一部分，不是模型看不懂中间。",
+			"3": "省略提示只是告诉模型「这里有内容被删了」，被删的内容并没有传过去，模型无从推断——它的作用是避免模型误以为对话本来就是连续的。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "checkpointer-persistence-purpose",
+		"prompt": "笔记在生产环境把 LangGraph 的 checkpointer 换成 `PostgresSaver`，并用 `thread_id` 区分会话。这解决的是什么问题？",
+		"options": [
+			"会话状态需要跨进程和重启存活，任何一个实例都能按 `thread_id` 取回同一个会话继续对话",
+			"PostgreSQL 的向量检索比内存快，能提升记忆召回质量",
+			"换成数据库之后能承载的上下文 token 上限会变大",
+			"`thread_id` 的作用是把同一个会话拆开并发处理以提速"
+		],
+		"answerIndex": 0,
+		"explanation": "checkpointer 存的是图的执行状态；存在内存里意味着进程重启或换实例就丢，多副本部署时用户的下一个请求打到另一台就接不上。换成 `PostgresSaver` 后状态外置，`thread_id` 成为会话的唯一标识——`invoke` 带上它就自动恢复上下文，`get_state` 也能读回历史。这和同一篇里 `SessionManager` 用 `session_id` 隔离会话是同一个思路，区别只是状态存在哪里。",
+		"distractorNotes": {
+			"1": "checkpointer 存的是状态快照，不是向量索引；记忆召回是 `VectorMemory` / 知识库那一层的事。",
+			"2": "上下文窗口是模型的限制，跟状态存在哪儿无关——历史再多，也还要靠截断或摘要塞进窗口。",
+			"3": "`thread_id` 是会话标识，用于隔离和恢复不同会话，与并发加速无关。"
+		},
+		"reviewed": false
+	}
+]

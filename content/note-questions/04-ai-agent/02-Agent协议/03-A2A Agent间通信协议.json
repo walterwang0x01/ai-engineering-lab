@@ -1,0 +1,39 @@
+[
+	{
+		"id": "stateful-task-lifecycle",
+		"prompt": "A2A 的任务生命周期里有一个 `input-required` 状态（submitted → working → input-required → working → completed）。MCP 的工具调用没有对应的东西。这个差异说明了什么？",
+		"options": [
+			"A2A 的任务是有状态、可多轮推进的长流程，中途可以停下来要更多信息再继续；MCP 的工具调用是一次请求一次响应的无状态调用",
+			"A2A 的传输层是异步的，MCP 是同步的，所以 MCP 无法表达中间状态",
+			"A2A 强制要求人工介入每一步，MCP 完全自动，这是两者的设计分歧",
+			"`input-required` 是给用户界面用的，属于 AG-UI 那一层的状态，与 A2A 的协作模型无关"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记的对比表把「状态管理」列为 MCP 与 A2A 的关键差异：MCP 是无状态工具调用，A2A 是有状态任务生命周期。`input-required` 正是这种有状态设计的体现——远程 Agent 可以中途返回「我还需要信息」，客户端 Agent 再 POST 一次补充，任务继续往下推进，最终返回 artifacts。这也是为什么把对端 Agent 包装成 MCP Server 会丢东西：无状态调用没有地方安放「任务还没结束但需要输入」这种中间态。",
+		"hint": "看这个状态出现在流程图的哪个位置——它之后又回到了 working。",
+		"distractorNotes": {
+			"1": "同步/异步是传输层特征，不是这里的分界。MCP 也有流式传输；缺的是任务状态这个概念，而不是异步能力。",
+			"2": "`input-required` 是「需要更多信息」，补充方可以是另一个 Agent，并不等于强制人工介入每一步。",
+			"3": "它是 A2A 任务生命周期里明确列出的状态，发生在客户端 Agent 与远程 Agent 之间，与前端展示层无关。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "agent-card-discovery",
+		"prompt": "A2A 要求 Agent 在 `/.well-known/agent.json` 暴露 Agent Card。这个机制解决的是什么问题？",
+		"options": [
+			"运行时发现：对端只要知道 URL 就能读到它的 skills、能力（流式/推送）和支持的认证方式，不必预先在本地为每个对端写配置",
+			"给对端提供调用凭证：Agent Card 里放着 API Key，对端取走后即可直接调用",
+			"负载均衡：网关读 Agent Card 决定把请求分发到哪个副本",
+			"声明这个 Agent 底层用的是哪个模型，便于对端估算调用成本"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记的对比表把「发现机制」列为 MCP 与 A2A 的一项差异：MCP 靠配置文件或 Registry，A2A 靠放在 `/.well-known/` 下的 Agent Card（并支持 Signed Agent Cards 做加密身份验证）。Card 的内容正是对端做决策所需的自描述信息——name/description、每个 skill 的 id 与 inputSchema、capabilities（streaming、pushNotifications）、以及 authentication.schemes。所以它是一个约定位置的能力自描述端点，让协作方在运行时发现彼此，而不是靠人肉配置对齐。",
+		"distractorNotes": {
+			"1": "危险的误解。Agent Card 是公开可读的自描述文档，里面写的是「支持哪些认证方案」（如 oauth2、apiKey），绝不是凭证本身；把密钥放进去等于公开泄露。",
+			"2": "Agent Card 描述的是能力与认证方式，不含路由或副本信息，也不是给网关调度用的。",
+			"3": "Card 里没有底层模型这一项，笔记列出的字段是能力、技能与认证。A2A 的设计前提正是「不需要了解对端内部实现」。"
+		},
+		"reviewed": false
+	}
+]

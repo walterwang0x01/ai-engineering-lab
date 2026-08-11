@@ -1,0 +1,78 @@
+[
+	{
+		"id": "three-integration-modes",
+		"prompt": "笔记把企业办公 Agent 的集成方式分成三种模式：CLI/Skills、MCP Server、平台内嵌 Agent。按它给的适用场景，一个「让 Cursor / Claude Code 这类 IDE Agent 去读写 Notion 工作区」的需求应该落在哪一种，理由是什么？",
+		"options": [
+			"MCP Server 模式——它是把平台能力暴露给外部 Agent 运行时的协议层，IDE Agent 天生就是 MCP 客户端",
+			"平台内嵌 Agent 模式——因为只有平台自己的 Agent 才有权访问工作区数据",
+			"CLI/Skills 模式——因为 IDE Agent 只能通过终端命令与外部系统交互",
+			"三种都不适用，IDE Agent 操作 SaaS 必须自己写 OAuth 对接"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记的模式表把 MCP Server 模式的适用场景直接写成「IDE Agent（Cursor/Claude Code）」，第 6 节的决策树也有一条「IDE Agent 需要操作 SaaS → MCP Server（Notion/Slack/GitHub 官方 MCP）」。三种模式的分界是「谁是 Agent 运行时」：平台内嵌是平台自己跑 Agent，CLI/Skills 是终端 Agent 调命令，MCP 是外部 Agent 运行时通过协议接入平台。",
+		"hint": "先问一句：这三种模式里，Agent 本体分别跑在哪儿？",
+		"distractorNotes": {
+			"1": "平台内嵌（Copilot Studio、Rovo、飞书智能伙伴）的适用场景是企业全员和低代码，它并不垄断数据访问——Notion 官方就提供了给外部 Agent 用的 MCP Server。",
+			"2": "CLI/Skills 面向开发者工具链和终端 Agent；IDE Agent 也能调命令，但笔记为这个场景指的是 MCP，因为它带 schema 和 OAuth，不用自己解析命令输出。",
+			"3": "Notion 官方托管 MCP 支持 OAuth 认证、无需自建，正是为了免掉逐一手写对接。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "cli-three-layer-tradeoff",
+		"prompt": "lark-cli 同时提供三层调用：快捷命令（如 `calendar +agenda`）、与平台端点一一对应的 API 命令、以及可以打任意端点的通用 `lark-cli api GET /open-apis/...`。为什么要保留三层，而不是只留最上面或最下面一层？",
+		"options": [
+			"这是易用性与覆盖面的权衡：快捷命令最省事但只覆盖高频场景，通用调用覆盖面最广但要求调用方自己知道端点和参数结构",
+			"三层分别对应三种认证方式，用户身份、机器人身份和匿名访问各走一层",
+			"三层是历史遗留，新版本会逐步废弃快捷命令只保留通用调用",
+			"因为快捷命令走本地缓存、API 命令走服务端、通用调用走 WebSocket，性能各不相同"
+		],
+		"answerIndex": 0,
+		"explanation": "越上层越贴近意图（一条 `+agenda` 就拿到今天的议程），但能表达的事情有限；越下层越通用（任意开放平台端点都能打），代价是调用方必须自己组装路径与参数。对 Agent 来说这是个有用的结构：常见任务走窄接口，出错空间小；长尾需求还有兜底通道，不至于因为没封装就完全做不了。",
+		"hint": "想想每一层各自要求调用方知道多少东西、又能做到多少事。",
+		"distractorNotes": {
+			"1": "身份切换是独立的 `--as user` / `--as bot` 参数，三层都能用，跟分层无关。",
+			"2": "笔记没有任何废弃计划的说法；三层是并存的设计。",
+			"3": "三层最终都是调用开放平台 HTTP 接口，不存在这种传输差异。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "error-class-retry-policy",
+		"prompt": "`call_lark_cli` 的重试逻辑按错误类型分流：`token expired` 先重新登录再重试、`rate limit` 指数退避后重试、其他错误直接 `raise`。为什么不对所有错误一律重试？",
+		"options": [
+			"重试只对「重试后条件可能改变」的错误有意义；参数错误、权限不足这类确定性失败重试多少次都一样，还会拖长故障时间、并可能重复触发已经生效的副作用",
+			"因为 subprocess 的返回码在重试后会失效，只能读第一次的结果",
+			"因为一律重试会破坏 `--format json` 的输出解析",
+			"因为 Agent 场景下所有错误都不可恢复，重试本身就没有价值"
+		],
+		"answerIndex": 0,
+		"explanation": "这段代码把错误分成三类：可恢复且需要动作（token 过期 → 刷新凭证）、可恢复且只需等待（限流 → 指数退避）、不可恢复（其他 → 立刻抛出）。判据是「重试时环境会不会不一样」。对不可恢复错误重试会把一次快速失败拖成几十秒的挂起；更麻烦的是发消息、建工单这类带副作用的操作，如果失败发生在副作用已生效之后，盲目重试就会重复执行。",
+		"hint": "对每一类错误问同一个问题：等一会儿再来一次，结果会变吗？",
+		"distractorNotes": {
+			"1": "每次 `subprocess.run` 都是独立进程，返回码不会因重试而失效。",
+			"2": "`--format json` 每次调用都照常输出，与重试次数无关。",
+			"3": "反了：正因为有可恢复错误（token 过期、限流），重试才有价值——关键是区分对待。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "least-privilege-agent-identity",
+		"prompt": "笔记的安全实践建议：授权时用 `--domain calendar,task` 这样按业务域授权、而不是 `--recommend` 一把授权，并为 Agent 单独建 Bot / Service Account 而不是复用员工身份。这两条合起来主要控制的是什么？",
+		"options": [
+			"爆炸半径与可归因性：凭证一旦泄露或 Agent 行为出错，损失被限制在授予的业务域内，且审计日志能把操作明确归到 Agent 而不是某个员工",
+			"调用性能：scope 越少认证握手越快，专用账号能跳过权限检查",
+			"成本：按域授权只对用到的业务域计费，专用账号享有更高的接口配额",
+			"合规格式：平台要求 Agent 必须使用独立账号，否则 API 会拒绝请求"
+		],
+		"answerIndex": 0,
+		"explanation": "最小权限限制的是「万一出事能坏到什么程度」——授了日历和任务，就算被 Prompt 注入也读不到邮件和人事数据。身份隔离解决的是另一半：如果 Agent 借用员工身份，平台审计日志里的操作看起来就是那个员工做的，事后既分不清责任也无法单独吊销 Agent 的权限。同一节的操作审计、dry-run 预览、敏感操作 HITL 都是围绕这两点展开的。",
+		"hint": "把「凭证泄露了」和「查审计日志」这两个场景各推演一遍。",
+		"distractorNotes": {
+			"1": "权限检查的开销可以忽略，专用账号也一样要过完整鉴权，不会跳过任何检查。",
+			"2": "笔记没有把授权范围与计费或配额挂钩，动机是安全而非成本。",
+			"3": "复用员工身份技术上是可行的（lark-cli 就支持 `--as user`），这是建议而不是平台强制。"
+		},
+		"reviewed": false
+	}
+]
