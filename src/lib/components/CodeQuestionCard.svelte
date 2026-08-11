@@ -62,16 +62,104 @@
 		let disposed = false;
 		void (async () => {
 			try {
-				const [{ EditorView, basicSetup }, { python }, { oneDark }] = await Promise.all([
+				const [
+					{ EditorView, basicSetup },
+					{ python },
+					{ HighlightStyle, syntaxHighlighting },
+					{ tags }
+				] = await Promise.all([
 					import('codemirror'),
 					import('@codemirror/lang-python'),
-					import('@codemirror/theme-one-dark')
+					import('@codemirror/language'),
+					import('@lezer/highlight')
 				]);
 				if (disposed || !editorHost) return;
 
+				/*
+				 * 编辑器配色全部走 CSS 变量，用的就是笔记代码块那五档 token。
+				 *
+				 * 原来这里固定挂 `oneDark`，于是浅色主题下页面是白的、答题编辑器是一块深色。
+				 * 但修法不是「按 prefers-color-scheme 切两个主题」——那需要一个 matchMedia
+				 * 监听器，还要在 OS 换主题时重建编辑器实例（连带丢掉用户已经输入的代码）。
+				 *
+				 * 引用 CSS 变量则**主题切换是免费的**：变量在两套主题里已经各自定义好，
+				 * 浏览器换主题时自动重解析，编辑器一行代码都不用管。附带好处是编辑器里的
+				 * 关键字/字符串/注释与笔记里同一段代码颜色一致，不是两套配色。
+				 */
+				const highlight = HighlightStyle.define([
+					{
+						tag: [
+							tags.keyword,
+							tags.controlKeyword,
+							tags.moduleKeyword,
+							tags.operatorKeyword,
+							tags.definitionKeyword,
+							tags.bool,
+							tags.null
+						],
+						color: 'var(--color-code-keyword)'
+					},
+					{
+						tag: [tags.string, tags.special(tags.string), tags.regexp],
+						color: 'var(--color-code-string)'
+					},
+					{ tag: [tags.number, tags.integer, tags.float], color: 'var(--color-code-number)' },
+					{
+						tag: [
+							tags.function(tags.variableName),
+							tags.function(tags.propertyName),
+							tags.className,
+							tags.typeName,
+							tags.standard(tags.variableName)
+						],
+						color: 'var(--color-code-fn)'
+					},
+					{
+						tag: [tags.comment, tags.lineComment, tags.blockComment],
+						color: 'var(--color-code-comment)'
+					}
+				]);
+
+				/*
+				 * 编辑器外壳。刻意不传 `{ dark: true/false }`：那个标记是静态的，而本站的
+				 * 主题由 CSS 决定、运行时会变，传任何一个值都会在另一套主题下说谎。
+				 * 它影响的是内置控件（选区、提示浮层）的默认色，所以下面把那几处显式写出来。
+				 */
+				const chrome = EditorView.theme({
+					'&': {
+						backgroundColor: 'var(--color-surface-sunken)',
+						color: 'var(--color-text)',
+						fontSize: '0.8125rem'
+					},
+					'.cm-content': { fontFamily: 'var(--font-mono)' },
+					'.cm-gutters': {
+						backgroundColor: 'var(--color-surface-sunken)',
+						color: 'var(--color-text-faint)',
+						border: 'none'
+					},
+					'.cm-activeLine': { backgroundColor: 'var(--color-surface-inset)' },
+					'.cm-activeLineGutter': {
+						backgroundColor: 'var(--color-surface-inset)',
+						color: 'var(--color-text-muted)'
+					},
+					'.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--color-accent)' },
+					'&.cm-focused': { outline: '2px solid var(--color-accent)', outlineOffset: '2px' },
+					'.cm-selectionBackground, &.cm-focused .cm-selectionBackground, .cm-content ::selection':
+						{ backgroundColor: 'var(--color-accent-dim)' },
+					'.cm-tooltip': {
+						backgroundColor: 'var(--color-surface-overlay)',
+						border: '1px solid var(--color-border-strong)',
+						color: 'var(--color-text)'
+					},
+					'.cm-tooltip-autocomplete ul li[aria-selected]': {
+						backgroundColor: 'var(--color-accent)',
+						color: 'var(--color-on-accent)'
+					}
+				});
+
 				const view = new EditorView({
 					doc: question.starterCode,
-					extensions: [basicSetup, python(), oneDark],
+					extensions: [basicSetup, python(), syntaxHighlighting(highlight), chrome],
 					parent: editorHost
 				});
 				editorView = view as unknown as typeof editorView;
