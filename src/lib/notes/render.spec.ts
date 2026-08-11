@@ -108,3 +108,42 @@ describe('不传 slug 时保持纯渲染行为', () => {
 		expect(html).not.toContain('link-unavailable');
 	});
 });
+
+describe('语法高亮只在作者声明了语言时发生', () => {
+	/**
+	 * 笔记里 3511 个围栏块没有语言标记，只有约 800 个有。没标记的那批绝大多数是
+	 * 伪代码、数学推导、终端输出、目录树 —— `hljs.highlightAuto()` 会自信地猜错：
+	 * 反向传播那篇的伪代码曾被整段染成「字符串绿」、`for` 被当成关键字。
+	 *
+	 * 在站内引入 hljs 配色之前，误判是不可见的（所有 span 都是正文色），
+	 * 上色之后它就变成了错误信息。这一条守着「不猜」这个决定。
+	 */
+	it('没有语言标记的块不产生任何 hljs span', () => {
+		const html = renderMarkdown(
+			['```', 'for l = 1 to L:', '    z = W·a + b   ← 缓存 z', '```'].join('\n')
+		).html;
+		expect(html).toContain('<pre><code class="hljs">');
+		expect(html).not.toMatch(/class="hljs-/);
+	});
+
+	it('声明了语言就正常高亮', () => {
+		const html = renderMarkdown(
+			['```python', 'def f(x):', '    return "s"', '```'].join('\n')
+		).html;
+		expect(html).toContain('language-python');
+		expect(html).toMatch(/class="hljs-keyword"/);
+		expect(html).toMatch(/class="hljs-string"/);
+	});
+
+	it('未注册的语言按纯文本处理，不回退到自动检测', () => {
+		// yaml / java 都没注册。回退到 highlightAuto 就等于又开始猜
+		const html = renderMarkdown(['```yaml', 'key: value', '```'].join('\n')).html;
+		expect(html).not.toMatch(/class="hljs-/);
+	});
+
+	it('转义仍然生效，未高亮的块不会注入标记', () => {
+		const html = renderMarkdown(['```', '<script>alert(1)</script>', '```'].join('\n')).html;
+		expect(html).not.toContain('<script>');
+		expect(html).toContain('&lt;script&gt;');
+	});
+});

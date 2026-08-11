@@ -245,6 +245,21 @@ Pyodide 执行 Python 是同步阻塞的，Worker 内部收不到消息，
 
 抽取出任何结构问题**让构建失败**，不静默跳过——否则作者以为题上线了，实际被丢掉了。
 
+过审用 `npm run notes:review`：按笔记分组、标出答案、把每个干扰项和它的解释并排显示。
+它**刻意不提供 `--approve` 开关**——加了就等于把「有人真的读过这道题」这条门禁交回给自动化，
+而那正是它存在的全部理由。
+
+### 17.1 语法高亮只在作者声明了语言时发生
+
+`render.ts` 遇到没有语言标记的围栏块**不做自动检测**，直接按纯文本输出。
+
+笔记里 3511 个围栏块没有语言标记，只有约 800 个有。没标记的那批绝大多数是伪代码、
+数学推导、终端输出、目录树，`hljs.highlightAuto()` 在它们身上会自信地猜错——
+反向传播那篇的伪代码曾被整段染成「字符串绿」、`for` 被当成关键字。
+
+站内长期没有任何 hljs 主题，所以误判一直不可见（所有 span 都渲染成正文色）。
+一旦上色，误判就从无害变成了错误信息。`render.spec.ts` 有四条守着这个决定。
+
 ### 18. 达标型沙盒的仪表与选项组用共享组件
 
 `ConstraintGauge.svelte`、`OptionChips.svelte`、`lib/sandbox/constraints.ts`。
@@ -334,6 +349,7 @@ src/lib/curriculum/    学习路径层。关卡与 168 篇笔记的唯一交汇�
 
 src/lib/design/       设计系统的门禁（无运行时代码）
   palette.spec.ts      颜色收敛 + 两套主题的对比度与完整性校验（见第 20 条）
+                       文字对全部 6 个承载面层、语法高亮 5 档、禁用态、favicon 取值
 
 src/lib/sandbox/       达标型沙盒的共享纯逻辑
   constraints.ts       barPct / allSatisfied / SolvedLatch
@@ -367,7 +383,8 @@ content/note-questions/  本仓库维护的 Tier A 题库，路径镜像笔记 s
 scripts/
   sync-notes.mjs         构建期同步笔记 + 抽取 Tier A 题目
   lib/extract-quiz.mjs   Tier A 抽取与校验。被构建脚本和单测共用
-  generate-og.mjs        OG 图生成（手动跑，不进构建）
+  generate-og.mjs        OG 图生成（手动跑，不进构建）。配色从 layout.css 解析，不要再手抄
+  review-questions.mjs   把待过审的 Tier A 题打印成可读清单（npm run notes:review）
 
 src/routes/            页面
   +layout.svelte       全站外壳。★ 导航在这里，不要让页面各自写

@@ -19,7 +19,8 @@
 		"og": "node scripts/generate-og.mjs",
 		"pyodide:sync": "node scripts/sync-pyodide.mjs",
 		"notes:sync": "node scripts/sync-notes.mjs",
-		"assets:sync": "npm run pyodide:sync && npm run notes:sync"
+		"assets:sync": "npm run pyodide:sync && npm run notes:sync",
+		"notes:review": "node scripts/review-questions.mjs"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",

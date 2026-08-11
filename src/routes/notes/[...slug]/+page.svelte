@@ -501,6 +501,49 @@
 		font-family: var(--font-mono);
 	}
 
+	/*
+	 * 语法高亮。
+	 *
+	 * `render.ts` 一直在输出 hljs 类名，但站内从未引入过任何 hljs 主题 ——
+	 * 167/168 篇笔记的代码块因此全部以正文色单色渲染。这里不引入 highlight.js
+	 * 自带的 CSS 主题，因为那些主题每个都带一整套硬编码取值，会同时违反
+	 * 「颜色只写在 layout.css」和「两套主题成对维护」两条约束。
+	 *
+	 * 产物里实际出现 17 个类，按频次归并到 5 档（括号内是出现次数）：
+	 *
+	 *   string   (9538)                                    → --color-code-string
+	 *   keyword  (6865) + literal (476)                    → --color-code-keyword
+	 *   number   (5546)                                    → --color-code-number
+	 *   built_in (3851) + title (2162) + type + function   → --color-code-fn
+	 *   comment  (3009)                                    → --color-code-comment
+	 *
+	 * 余下的 subst / variable / params / punctuation / attr / property / meta / regexp
+	 * 刻意不上色，继承正文色：每个 token 都染色等于没有重点。
+	 */
+	.note-body :global(.hljs-string) {
+		color: var(--color-code-string);
+	}
+
+	.note-body :global(.hljs-keyword),
+	.note-body :global(.hljs-literal) {
+		color: var(--color-code-keyword);
+	}
+
+	.note-body :global(.hljs-number) {
+		color: var(--color-code-number);
+	}
+
+	.note-body :global(.hljs-built_in),
+	.note-body :global(.hljs-title),
+	.note-body :global(.hljs-type),
+	.note-body :global(.hljs-function) {
+		color: var(--color-code-fn);
+	}
+
+	.note-body :global(.hljs-comment) {
+		color: var(--color-code-comment);
+	}
+
 	.note-body :global(:not(pre) > code) {
 		background: var(--color-surface-sunken);
 		padding: 0.125rem 0.375rem;
