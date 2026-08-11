@@ -379,7 +379,7 @@
 		padding: 0 0.75rem;
 		min-width: 14rem;
 		background: var(--color-surface-sunken);
-		border: 1px solid var(--color-border-subtle);
+		border: 1px solid var(--color-border-strong);
 		border-radius: 9px;
 		color: inherit;
 	}

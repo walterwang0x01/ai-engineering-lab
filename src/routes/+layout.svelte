@@ -65,6 +65,37 @@
 		gap: 1rem;
 	}
 
+	/*
+	 * 窄屏收起字标，只留吉祥物。
+	 *
+	 * 375–420px 下三个导航项原本全部折行，而 CJK 没有断词提示，浏览器在任意字间
+	 * 断开——「学习路径」竖成「学习路/径」，可点区域被压到 26–35px 宽。
+	 * 375px 是 iPhone SE / 13 mini 一档的常见宽度，主导航又是全站唯一的换页方式。
+	 *
+	 * 算一下就知道字标是主因：375px 里字标 155px + 三个链接 162px + 间距 32px
+	 * + 内边距 40px = 389px，已经超了，跟吉祥物那 36px 无关。
+	 *
+	 * 所以收起的是字标而不是吉祥物——紧凑的品牌标记本来就是徽标存在的理由，
+	 * 而 28px 的吉祥物让「AI Engineering Lab」这个身份在窄屏上不至于完全消失。
+	 * 收起后剩 262px，三个链接都能单行放下。
+	 */
+	@media (max-width: 480px) {
+		.brand span {
+			/* 视觉隐藏但读屏仍能读到站名 */
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
+	}
+
+	/* 导航项永不逐字折断：宁可整体挤，也不要竖排单字 */
+	.nav-links a {
+		white-space: nowrap;
+	}
+
 	.nav-links a {
 		font-size: 0.875rem;
 		color: var(--color-text-soft);

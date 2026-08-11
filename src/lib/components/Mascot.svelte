@@ -54,7 +54,14 @@
 	aria-hidden={label ? undefined : 'true'}
 	focusable="false"
 >
-	<!-- 树突：上游信号从左侧汇入基线起点。死亡时一并变淡，因为它们不再有下游影响 -->
+	<!--
+		树突：上游信号从左侧汇入基线起点。
+
+		层级靠**线宽**表达（3 对主干的 7），不用 opacity。
+		opacity 会把元素往背景色拉：深色底=往黑拉（浅色笔画仍可见），
+		浅色底=往白拉（笔画直接消失）。原先 0.5/0.28 的树突在白底上只有
+		2.11:1 / 1.61:1，图形读起来像没画完，缺得不像风格化而像 bug。
+	-->
 	<g class="dendrites" stroke="currentColor" stroke-width="3" stroke-linecap="round">
 		<path d="M4 64 L15 77" />
 		<path d="M2 80 L14 80" />
@@ -113,14 +120,10 @@
 		flex-shrink: 0;
 	}
 
-	.dendrites {
-		opacity: 0.5;
-	}
-
-	.dead .dendrites {
-		opacity: 0.28;
-	}
-
+	/*
+	 * 光晕是唯一还用 opacity 的地方，且只在存活态出现：它是「叠加的辉光」，
+	 * 半透明正是它想表达的东西，而且它不承载任何必须被读出的信息。
+	 */
 	.halo {
 		opacity: 0.22;
 	}

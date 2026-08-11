@@ -661,7 +661,10 @@
 	}
 
 	.btn:disabled {
-		opacity: 0.45;
+		/* 显式取值而不是 opacity，理由见 layout.css 的 --color-disabled-surface */
+		background: var(--color-disabled-surface);
+		color: var(--color-disabled-text);
+		border-color: transparent;
 		cursor: not-allowed;
 	}
 

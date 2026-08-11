@@ -118,6 +118,15 @@
 	const uniformEntropy = $derived(Math.log2(computed.n));
 
 	/**
+	 * 格子里数字改用深色前景的亮度阈值。
+	 *
+	 * 色阶从 L=0.32 走到 L=0.74，单一近白前景在亮端只有 1.87:1——可读性与数值
+	 * **反相关**，越是要重点看的高权重格子越读不清。两个前景（纯白 / 近黑）在
+	 * 这个切换点上最差 4.53:1，全色阶达标；换成别的阈值会让切换点附近掉到 4.5 以下。
+	 */
+	const HEAT_FG_FLIP = 0.543;
+
+	/**
 	 * 格子强度 → 0..1 的插值参数。
 	 *
 	 * 实际颜色由 CSS 在 `--color-heat-lo` 与 `--color-heat-hi` 之间用
@@ -189,6 +198,7 @@
 						type="button"
 						class="cell"
 						class:masked={causal && j > i}
+						class:on-bright={cellIntensity(w) >= HEAT_FG_FLIP}
 						style="--t: {cellIntensity(w)}"
 						onmouseenter={() => (hovered = { i, j })}
 						onmouseleave={() => (hovered = null)}
@@ -428,8 +438,13 @@
 		gap: 2px;
 		width: min(100%, 26rem);
 		aspect-ratio: 1;
-		background: var(--color-surface-sunken);
-		padding: 3px;
+		/*
+		 * 画布刻意是深色（两套主题相同）。热力图是数据可视化，色阶方向必须固定；
+		 * 画布同时给了矩阵一个真实的外边界——没有它，矩阵的上/右边界由数据形状
+		 * 而不是容器决定，读者数不清列到哪结束，也就对不上「行=查询、列=键」。
+		 */
+		background: var(--color-heat-canvas);
+		padding: 4px;
 		border-radius: 8px;
 	}
 
@@ -441,7 +456,7 @@
 		display: grid;
 		place-items: center;
 		font-family: var(--font-mono);
-		font-size: clamp(0.5rem, 1.4vw, 0.6875rem);
+		font-size: clamp(0.625rem, 1.4vw, 0.6875rem);
 		color: var(--color-on-heat);
 		transition: outline-color 120ms ease;
 		outline: 1px solid transparent;
@@ -454,6 +469,11 @@
 		);
 	}
 
+	/* 色阶亮端的格子必须换深色前景，理由见 HEAT_FG_FLIP */
+	.cell.on-bright {
+		color: var(--color-on-heat-dark);
+	}
+
 	.cell:hover,
 	.cell:focus-visible {
 		outline-color: var(--color-on-heat-outline);
@@ -462,10 +482,10 @@
 	.cell.masked {
 		background: repeating-linear-gradient(
 			45deg,
-			var(--color-surface-inset),
-			var(--color-surface-inset) 3px,
-			var(--color-surface-overlay) 3px,
-			var(--color-surface-overlay) 6px
+			var(--color-heat-mask-a),
+			var(--color-heat-mask-a) 3px,
+			var(--color-heat-mask-b) 3px,
+			var(--color-heat-mask-b) 6px
 		) !important;
 	}
 
