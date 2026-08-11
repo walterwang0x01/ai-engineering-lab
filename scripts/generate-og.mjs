@@ -11,23 +11,70 @@
  *   node scripts/generate-og.mjs
  */
 
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 
 const OUT_DIR = 'static/og';
+const THEME_FILE = 'src/routes/layout.css';
 
-/** 与站点 layout.css 中的 @theme 保持一致 */
-const TOKENS = {
-	surface: '#12141a',
-	raised: '#1a1d24',
-	sunken: '#0e1015',
-	border: '#3a3f4b',
-	accent: '#22d3ee',
-	ok: '#34d399',
-	bad: '#fb7185',
-	text: '#e8eaed',
-	muted: '#9aa0aa'
-};
+/**
+ * 从 `layout.css` 的 `@theme` 里读取真实 token 值，而不是手抄一份。
+ *
+ * 这里原来是一份硬编码的十六进制副本，注释写着「与站点 layout.css 保持一致」——
+ * 而它抄的是 token 收敛之前的深色取值，那些值在站里早已不存在。
+ * 结果分享出去的预览图与实际页面是两套配色，且没有任何东西会报警。
+ *
+ * 不需要 oklch → sRGB 转换：这些图是 Chromium 渲染的，它原生支持 oklch()。
+ * 所以直接把 token 的字面值塞进模板，配色不可能再漂移。
+ *
+ * 取 `@theme`（浅色）而不是深色覆盖块：浅色是站点默认主题，
+ * 预览图应当与访客真正看到的页面一致。
+ */
+async function readThemeTokens() {
+	const css = await readFile(THEME_FILE, 'utf8');
+	const start = css.indexOf('@theme {');
+	if (start < 0) throw new Error(`${THEME_FILE} 里找不到 @theme 块`);
+	const block = css.slice(start, css.indexOf('\n}', start));
+
+	const pick = (name) => {
+		const m = new RegExp(`--color-${name}:\\s*([^;]+);`).exec(block);
+		if (!m) throw new Error(`@theme 里找不到 --color-${name}`);
+		return m[1].trim();
+	};
+
+	return {
+		surface: pick('surface'),
+		raised: pick('surface-raised'),
+		sunken: pick('surface-sunken'),
+		border: pick('border-subtle'),
+		accent: pick('accent'),
+		ok: pick('ok'),
+		bad: pick('bad'),
+		text: pick('text-strong'),
+		body: pick('text-soft'),
+		muted: pick('text-muted')
+	};
+}
+
+/** @type {Awaited<ReturnType<typeof readThemeTokens>>} */
+let TOKENS;
+
+/**
+ * 站点吉祥物，压缩到 OG 尺寸下还认得出的部分：折线的拐点、上扬、抬起的头。
+ * 与 `Mascot.svelte` 和 favicon 是同一个形状，但这里不能引用组件——
+ * OG 图是独立文档，拿不到 Svelte 运行时。改吉祥物时这三处要一起改。
+ */
+function mascotSvg(color) {
+	return `<svg viewBox="0 0 104 96" width="52" height="48" aria-hidden="true">
+		<g stroke="${color}" stroke-width="3" stroke-linecap="round">
+			<path d="M4 64 L15 77"/><path d="M2 80 L14 80"/><path d="M4 94 L15 83"/>
+		</g>
+		<path d="M12 80 L44 80 L78 30" fill="none" stroke="${color}"
+			stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+		<circle cx="82" cy="26" r="19" fill="${color}" opacity=".22"/>
+		<circle cx="82" cy="26" r="14" fill="${color}"/>
+	</svg>`;
+}
 
 const FONT_STACK =
 	"-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif";
@@ -53,7 +100,8 @@ function template(spec) {
 	const lines = spec.lines
 		.map(
 			(l) =>
-				`<div style="font:400 27px ${FONT_STACK}; color:${TOKENS.text}; line-height:1.6; opacity:.9; white-space:nowrap;">${l}</div>`
+				// 不用 opacity 压淡：浅色底下 opacity 是往白拉，正文会一起变淡
+				`<div style="font:400 27px ${FONT_STACK}; color:${TOKENS.body}; line-height:1.6; white-space:nowrap;">${l}</div>`
 		)
 		.join('');
 
@@ -67,7 +115,7 @@ function template(spec) {
 	<div style="position:absolute; right:-100px; bottom:-160px; width:640px; height:640px;
 		background-image:linear-gradient(${TOKENS.border} 1px, transparent 1px),
 			linear-gradient(90deg, ${TOKENS.border} 1px, transparent 1px);
-		background-size:48px 48px; opacity:.16; transform:rotate(-8deg);"></div>
+		background-size:48px 48px; opacity:.5; transform:rotate(-8deg);"></div>
 
 	<div style="position:relative; height:100%; padding:70px 84px; box-sizing:border-box;
 		display:flex; flex-direction:column; justify-content:space-between;">
@@ -76,8 +124,11 @@ function template(spec) {
 			<!-- URL 放右上角与 eyebrow 同行：底部若与 stats 挤在一行会超出可用宽度 -->
 			<div style="display:flex; align-items:baseline; justify-content:space-between;
 				gap:32px; margin-bottom:28px; white-space:nowrap;">
-				<div style="font:500 20px ${MONO_STACK}; color:${TOKENS.accent};
-					letter-spacing:.16em; text-transform:uppercase;">${spec.eyebrow}</div>
+				<div style="display:flex; align-items:center; gap:14px;">
+					${mascotSvg(TOKENS.accent)}
+					<div style="font:500 20px ${MONO_STACK}; color:${TOKENS.accent};
+						letter-spacing:.16em; text-transform:uppercase;">${spec.eyebrow}</div>
+				</div>
 				<div style="font:400 19px ${MONO_STACK}; color:${TOKENS.muted};">
 					walterwang0x01.github.io/ai-engineering-lab
 				</div>
@@ -192,6 +243,8 @@ const PAGES = [
 	}
 ];
 
+// TOKENS 必须在 template() 被调用之前就绪 —— 模板读的是这个模块级变量
+TOKENS = await readThemeTokens();
 await mkdir(OUT_DIR, { recursive: true });
 
 const browser = await chromium.launch();

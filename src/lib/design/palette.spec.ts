@@ -342,6 +342,56 @@ describe.each(THEMES)('$name', ({ tokens }) => {
 	});
 });
 
+/**
+ * oklch → `#rrggbb`。
+ *
+ * 只为一件事存在：校验那些**拿不到 CSS token、只能手抄取值**的独立文档。
+ * 目前只有 favicon（`static/favicon.svg`）。
+ *
+ * 手抄副本会漂移，而且是静默漂移：`scripts/generate-og.mjs` 里那份注释写着
+ * 「与 layout.css 保持一致」的硬编码色板，在 token 收敛后过期了整整一轮，
+ * 分享出去的预览图与实际页面是两套配色，没有任何东西报警。
+ * OG 脚本已改成直接解析 layout.css，favicon 改不了（SVG 里没法 var()），所以钉在这里。
+ */
+function oklchToHex(value: string): string {
+	const { L, C, H } = parse(value);
+	const h = (H * Math.PI) / 180;
+	const a = C * Math.cos(h);
+	const b = C * Math.sin(h);
+
+	const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+	const mm = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+	const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
+
+	const enc = (v: number) => {
+		const c = Math.min(1, Math.max(0, v));
+		const srgb = c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055;
+		return Math.round(srgb * 255)
+			.toString(16)
+			.padStart(2, '0');
+	};
+
+	return (
+		'#' +
+		enc(4.0767416621 * l - 3.3077115913 * mm + 0.2309699292 * s) +
+		enc(-1.2684380046 * l + 2.6097574011 * mm - 0.3413193965 * s) +
+		enc(-0.0041960863 * l - 0.7034186147 * mm + 1.707614701 * s)
+	);
+}
+
+describe('拿不到 token 的独立文档不许漂移', () => {
+	it('favicon 的底色等于 @theme 的 --color-accent', () => {
+		const svg = readFileSync('static/favicon.svg', 'utf8');
+		const fill = /<rect[^>]*fill="(#[0-9a-fA-F]{6})"/.exec(svg)?.[1]?.toLowerCase();
+		const expected = oklchToHex(LIGHT_TOKENS.get('color-accent')!);
+		expect(
+			fill,
+			`favicon 底色是 ${fill}，而 --color-accent 现在是 ${expected}。` +
+				'favicon 是独立文档、只能手抄取值，所以改 accent 时必须同步改它'
+		).toBe(expected);
+	});
+});
+
 describe('换算与浏览器实测一致', () => {
 	/**
 	 * 这一条守的是换算本身。深色主题这三个值在浏览器 canvas 里实测分别是
