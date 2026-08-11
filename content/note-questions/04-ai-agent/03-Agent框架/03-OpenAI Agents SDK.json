@@ -1,0 +1,57 @@
+[
+	{
+		"id": "handoff-who-routes",
+		"prompt": "笔记里的客服例子把 triage agent 的 `handoffs` 指向账单专员和技术支持，并在 instructions 里写清转接规则。这种 Handoff 编排里，「转给谁」这个决定是谁做的？",
+		"options": [
+			"由 triage agent 的模型读 instructions 后自行判断，框架只负责把控制权交出去",
+			"由框架按用户输入做关键词匹配，规则写在 instructions 里供框架解析",
+			"由开发者在运行前用条件语句硬编码路由",
+			"由每个专业 Agent 主动竞标，得分最高的接管"
+		],
+		"answerIndex": 0,
+		"explanation": "`handoffs=[billing_agent, tech_agent]` 声明的是**可交接的候选集**，选哪一个是模型的决策——转接规则是写在自然语言 instructions 里给模型看的，不是给解析器看的。这也是这个抽象的代价：路由质量取决于模型对指令的遵循程度，行为不像代码分支那样可预测；相应的好处是新增一个专业 Agent 只要加进候选集并改一句指令。",
+		"hint": "instructions 里的转接规则是写给谁看的？",
+		"distractorNotes": {
+			"1": "instructions 是给模型的自然语言提示，SDK 不做关键词匹配。若真是框架匹配，就不会把规则写成一段散文。",
+			"2": "硬编码路由是不使用 Handoff 时的写法。Handoff 存在的意义正是把分派交给模型，代价是可预测性下降。",
+			"3": "笔记里没有竞标 / 投票机制。这是「自治多 Agent 市场」范式的想象，不是 Handoff 的模型。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "guardrail-tripwire",
+		"prompt": "关于笔记中的 Guardrail 设计，下面哪个说法符合它的机制？",
+		"options": [
+			"护栏是主 Agent 之外的独立判定环节，检查结果里的 tripwire 一旦触发就阻断该次输入/输出",
+			"护栏是追加到主 Agent instructions 里的一段安全提示，靠模型自我约束",
+			"护栏只能检查输入，输出侧的安全由模型自身对齐保证",
+			"护栏必须用正则等确定性规则实现，不允许在护栏内部调用模型"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记的 `input_guardrails` / `output_guardrails` 是挂在 Agent 上的独立检查函数，返回 `GuardrailFunctionOutput(..., tripwire_triggered=...)`；tripwire 是一个显式的阻断信号，不依赖主模型「愿不愿意」遵守。这就是把安全从「提示词里的请求」变成「流程上的闸门」——判定权移出了被约束的那个模型。",
+		"distractorNotes": {
+			"1": "写进 instructions 的安全要求可以被越狱或忽略，属于「请求模型自律」。护栏刻意不走这条路，它在 Agent 外部做判定并有阻断权。",
+			"2": "笔记同时给了输入护栏和输出护栏（后者示例是检测 PII），输出侧恰恰是需要独立检查的地方。",
+			"3": "恰好相反：示例里的输入护栏内部跑了一个 `safety_checker` Agent。护栏可以是模型判定，也可以是确定性检测（如 `detect_pii`）。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "harness-compute-split",
+		"prompt": "2026 年 4 月的更新把 SDK 拆成 Harness 与 Sandbox 两层，笔记称之为「Harness 与 Compute 分离」。这个划分的意图是什么？",
+		"options": [
+			"编排与控制（指令、工具注册、审批、追踪、交接、恢复记账）留在 Harness，真正有副作用的执行放进隔离环境，防止意外行为",
+			"把模型推理放进沙箱，从而支持非 OpenAI 模型",
+			"用沙箱缓存工具调用结果，降低 Token 消耗",
+			"把追踪数据与业务数据物理隔离，满足数据合规"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记列的 Harness 职责全是编排/控制面的东西（instructions、tools、approvals、tracing、handoffs、resume bookkeeping），Sandbox 则是「隔离的计算环境」，负责文件操作、命令执行、代码编辑这类 Codex 风格的行为。分离的价值在于：需要被约束的是**执行**（会改文件、跑命令），而控制面本身不产生副作用；审批和恢复这些能力因此可以在执行之外统一实施。",
+		"distractorNotes": {
+			"1": "沙箱隔离的是代码/命令执行，不是模型推理；笔记同时把「需要模型无关性」列在这个 SDK 的不适合场景里。",
+			"2": "沙箱的定位是安全执行，不是缓存层，笔记没有把它与 Token 成本关联。",
+			"3": "tracing 明确属于 Harness 这一层，不是被沙箱隔出去的东西。"
+		},
+		"reviewed": false
+	}
+]

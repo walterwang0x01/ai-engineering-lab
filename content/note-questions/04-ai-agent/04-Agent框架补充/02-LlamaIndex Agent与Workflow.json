@@ -1,0 +1,58 @@
+[
+	{
+		"id": "event-driven-routing",
+		"prompt": "LlamaIndex Workflow 与「图（StateGraph）」编排的差别在于它是事件驱动的。在这套模型里，「下一步执行哪个 step」是由什么决定的？",
+		"options": [
+			"由上一个 step 返回的事件类型决定——哪个 step 声明接收这个事件类型，它就被触发，没有显式画出的边",
+			"由开发者调用 add_edge 逐条声明的边决定",
+			"由 LLM 在运行时读取所有 step 的文档字符串后挑选",
+			"按 step 在类里定义的先后顺序依次执行"
+		],
+		"answerIndex": 0,
+		"explanation": "`research` 返回 `ResearchComplete`，而 `write` 的参数签名是 `ev: ResearchComplete`——衔接靠的是**事件类型匹配**，拓扑隐含在类型签名里。它带来的好处是分支和循环写起来很自然（`review` 的返回类型是 `DraftComplete | StopEvent`：返回前者就再转一圈，返回后者就结束）；代价是全局流程没有一处可以一眼看全的声明，改一个事件类型可能静默改变整张图的走法。",
+		"hint": "看 `research` 的返回类型和 `write` 的参数类型是不是同一个东西。",
+		"distractorNotes": {
+			"1": "显式声明边是 LangGraph / GraphFlow 那类图框架的做法，笔记的对比表也把 LlamaIndex 的编排模型单独标为「事件驱动 Workflow」。",
+			"2": "step 的调度是框架按事件类型做的确定性分发，不消耗模型调用；模型只在 step 内部被使用。",
+			"3": "定义顺序无关。`review` 能返回 `DraftComplete` 把流程送回自己这一轮，说明执行顺序不是源码顺序。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "agentic-rag-tool-description",
+		"prompt": "Agentic RAG 的做法是把 api_docs 与 tutorials 两个索引各包装成一个带 name 和 description 的查询工具，交给 Agent。这个设计把检索问题转化成了什么，随之出现的主要失效点是什么？",
+		"options": [
+			"转化成工具选择问题；模型只能依据 description 判断该查哪个库，description 写不清就会查错知识库或漏查",
+			"转化成向量相似度问题；失效点是 embedding 模型选得不好",
+			"转化成排序问题；失效点是两个索引的分数不可比",
+			"转化成缓存问题；失效点是知识库更新后缓存不失效"
+		],
+		"answerIndex": 0,
+		"explanation": "包装成工具之后，「去哪儿查」不再由检索器打分决定，而是由模型读工具的 name/description 决定——所以 description 从注释变成了**功能性契约**（示例里明确写了「包含接口定义和参数说明」与「包含使用示例和最佳实践」）。笔记里那个问题需要先查 API 定义再查教程示例，靠的正是这两段描述把职责划清；描述含糊或彼此重叠时，Agent 的路由就开始出错，而这类错误在检索指标上不容易看出来。",
+		"hint": "模型在决定调用哪个工具时，手上只有关于这个工具的什么信息？",
+		"distractorNotes": {
+			"1": "embedding 质量影响的是单个索引内部的召回，而这里被换掉的环节是「选哪个索引」，那一步没有向量参与。",
+			"2": "两个索引的分数根本不参与比较——Agent 是分别调用工具，不是把候选合并排序。",
+			"3": "笔记的这个设计与缓存无关，示例里没有引入缓存层。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "fanin-bookkeeping",
+		"prompt": "多 Agent Workflow 示例里，`synthesizer` 每收到一个 `AgentResult` 就把 `pending` 减一，等到 0 才合成最终结果。为什么需要这套手工记账？",
+		"options": [
+			"因为每个事件都会独立触发一次 step，框架不会自动替你等齐所有并行分支——「收齐了吗」必须由共享上下文里的状态自己判断",
+			"因为并行的 worker 可能返回顺序不定，计数用于把结果排回正确顺序",
+			"因为事件可能重复投递，计数用于去重",
+			"因为上下文有大小限制，计数用于控制写入次数"
+		],
+		"answerIndex": 0,
+		"explanation": "事件驱动的分发是逐事件的：两个 `AgentResult` 会让 `synthesizer` 跑两次，前一次必须返回 `None` 表示「还没完」。所以 fan-in 的汇合条件是应用层状态（`pending`），不是框架语义——这也是笔记的工程建议里提到 2.22.x 的 `list[E]` fan-out/fan-in 和多事件参数 step 的原因：把这段容易写错的记账收进框架，「避免手写事件队列」。",
+		"distractorNotes": {
+			"1": "结果顺序是靠 `results` 列表里的 agent 名字区分的，计数只用来判断是否收齐，不负责排序。",
+			"2": "笔记没有提重复投递问题；计数从 2 递减到 0 的语义是「还差几个」，不是去重。",
+			"3": "上下文写入次数不是这里的约束，`pending` 每次都会被读写，恰恰增加了写入。"
+		},
+		"reviewed": false
+	}
+]

@@ -1,0 +1,58 @@
+[
+	{
+		"id": "tool-vs-resource",
+		"prompt": "MCP 的三大原语里，Tools 和 Resources 的分工是什么？",
+		"options": [
+			"Tools 暴露的是模型可以调用的函数（执行动作、带参数），Resources 暴露的是模型可以读取的数据（按 URI 寻址）",
+			"Tools 用于写操作，Resources 用于读操作，两者都必须由模型显式带参数调用",
+			"Tools 是 Server 端定义的，Resources 是 Host 端定义的，二者在不同进程里",
+			"Tools 返回结构化 JSON，Resources 只能返回纯文本，这是唯一区别"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记给的三大原语是：Tools（模型可调用的函数，如 search_database(query, limit)）、Resources（模型可读取的数据，用 URI 模板寻址，如 file://{path}、config://app）、Prompts（预定义的交互模板）。区分点是「可调用的动作」与「可读取的内容」，而不是返回值类型或定义位置。",
+		"hint": "看示例里的装饰器：一个挂在函数上带参数，一个挂在 URI 模板上。",
+		"distractorNotes": {
+			"1": "读写只是常见用法而非定义。Resources 的寻址方式是 URI 模板，笔记的 read_file 走 file://{path}，它不是「带参数调用的函数」这种形态。",
+			"2": "Tools 和 Resources 都由 MCP Server 声明。Host（IDE/应用）负责承载 Client 去连接 Server，不定义原语。",
+			"3": "返回类型不是分界线——笔记里 search_database 返回 list[dict]，get_app_config 返回 JSON 字符串。分界是「调用动作」还是「读取数据」。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "host-client-server",
+		"prompt": "在 MCP 的 Host / Client / Server 三层结构里，把 GitHub API、数据库、文件系统暴露出来的是哪一侧？",
+		"options": [
+			"MCP Server 一侧；Host 是承载模型的 IDE 或应用（Claude Desktop、Cursor、Kiro、自定义应用）",
+			"MCP Host 一侧；Server 是模型推理服务，负责生成调用请求",
+			"MCP Client 一侧；它同时负责协议编解码和工具实现",
+			"三者都可以，MCP 不区分职责，只规定消息格式"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记的架构图是 Host（IDE/App：Claude Desktop、Cursor/Kiro、自定义应用）→ Client（协议层）→ Server（工具/数据：GitHub API、数据库、文件系统）。工具和数据永远在 Server 一侧，Client 只做协议层，Host 是用户实际在用的那个应用。理解这个方向很实际：写一个 MCP Server 就是「把你的能力挂出去」，配置 mcp.json 则是在 Host 侧声明要连哪些 Server。",
+		"distractorNotes": {
+			"1": "方向反了。Host 是 IDE 或应用这一端，工具在 Server 端；模型推理本身不是 MCP 的角色。",
+			"2": "Client 是纯协议层，不实现工具。把工具实现塞进 Client 就等于绕过了协议要解决的解耦问题。",
+			"3": "MCP 明确区分了三个角色，笔记称它是「AI 应用的 USB-C 接口」——接口标准的价值正来自两端职责固定。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "stdio-command-injection-root-cause",
+		"prompt": "2026 年 4 月 OX Security 披露的 MCP 命令注入问题，按笔记的记录，根因和处置态度是怎样的？",
+		"options": [
+			"根因是 MCP 用 STDIO 做本地传输时允许执行任意 OS 命令，于是能影响 MCP 配置的输入（包括通过 prompt injection 改配置）就等价于拿到命令执行；Anthropic 认为这是「预期行为」，拒绝修补",
+			"根因是某个 SDK 版本的实现 bug，升级到修复版本即可解决",
+			"根因是旧的 SSE 传输缺少签名校验，改用 Streamable HTTP 后问题自动消失",
+			"根因是认证还停留在 OAuth 2.0 而未强制 PKCE，升级到 OAuth 2.1 即可关闭这条攻击面"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记记录的根因是协议层面的：MCP 使用 STDIO 作为本地传输时允许执行任意 OS 命令，披露的四类攻击路径包括未认证命令注入、绕过加固的注入、通过 prompt injection 修改 MCP 配置的注入、通过网络请求的未认证注入。关键在于 Anthropic 的回应是认为这是「预期行为」并拒绝修补——所以这不是一条等补丁的漏洞，而是需要在使用侧兜底：把外部 MCP 配置输入视为不可信数据、沙箱运行、阻止公网 IP 访问、只用官方目录的 Server、监控工具调用行为。",
+		"hint": "问自己：这是「等上游修」的问题，还是「必须自己在部署侧兜底」的问题？",
+		"distractorNotes": {
+			"1": "这是最危险的误解——笔记明确写了 Anthropic 认为这是预期行为、拒绝修补。等版本升级来解决，等于把风险留在原地。",
+			"2": "SSE 的废弃和这条注入路径无关。命令执行发生在本地 STDIO 传输启动子进程那一侧，换远程传输方式不会消除本地执行能力。",
+			"3": "OAuth 2.1 强制 PKCE + HTTPS 是认证层的改进，处理的是授权问题；披露的路径里包含「未认证命令注入」，认证升级挡不住配置本身被写成恶意命令。"
+		},
+		"reviewed": false
+	}
+]

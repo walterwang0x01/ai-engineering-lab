@@ -1,0 +1,21 @@
+[
+	{
+		"id": "harness-common-structure",
+		"prompt": "这篇列举的几种 Harness 实现形态各不相同：LangGraph 里是 execute → validate →（失败）fix → validate 的条件边，agent-harness 是代码里注册对象，claude-code-harness 是 YAML 文件。抽掉表层差异，它们共有的结构是哪三件？",
+		"options": [
+			"可声明的约束、可执行的验证器、以及一个带迭代上限的「验证—修复」回环",
+			"向量知识库、模型微调配置、以及推理参数模板",
+			"提示词模板、多模型投票机制、以及人工审核队列",
+			"任务拆解器、成本预算器、以及日志聚合服务"
+		],
+		"answerIndex": 0,
+		"explanation": "三种形态是同一骨架的不同语法：约束（分层依赖、命名规范这类必须满足的规则）、验证器（pytest / ruff / mypy 这类能返回可机读结果的命令）、以及把验证失败重新喂回 Agent 的回环，且回环带上限（LangGraph 用条件边加轮次控制，另两者分别叫 max_iterations 和 --max-retries）。识别出这个骨架比记住某个项目的 API 更有用，因为具体项目会变。",
+		"hint": "对照一下：约束靠什么表达、失败靠什么发现、发现之后走向哪里。",
+		"distractorNotes": {
+			"1": "把 Harness 误当成模型侧的工程。Harness 全部作用在模型之外——它不训练也不改权重，只改变 Agent 工作的环境和它能拿到的反馈。",
+			"2": "多模型投票和人工审核队列都不是这些实现的组成部分。人在 Harness 里出现的位置是「循环撞到上限后接手」和「审 PR」，不是每一步都排队等人。",
+			"3": "任务依赖描述（如 tasks.yaml 的 depends_on）只是其中一种便利功能，成本预算和日志聚合则来自可观测性话题，都不是这三种实现共有的最小骨架。"
+		},
+		"reviewed": false
+	}
+]

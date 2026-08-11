@@ -1,0 +1,58 @@
+[
+	{
+		"id": "supervisor-vs-swarm-controlflow",
+		"prompt": "Supervisor 模式和 Swarm 模式在控制流上的根本区别是什么？",
+		"options": [
+			"Supervisor 里子 Agent 干完就回到主管、由主管决定下一步；Swarm 没有中心调度，Agent 之间用 Handoff 直接把任务交给下一个",
+			"Supervisor 只能串行执行，Swarm 一定是并行执行",
+			"Supervisor 的子 Agent 不能带工具，Swarm 的可以",
+			"Swarm 里每次交接都要先回到分诊 Agent，由它重新分配"
+		],
+		"answerIndex": 0,
+		"explanation": "看图的边就清楚了：Supervisor 的例子里 `add_edge(\"researcher\", \"supervisor\")`、`add_edge(\"coder\", \"supervisor\")`，每个子 Agent 执行完都回到主管，由主管的条件边决定下一跳或 FINISH——所有路由决策集中在一个节点。Swarm 被笔记描述为「Agent 之间通过 Handoff 自主交接，无中心调度」：triage_agent 判断类型后直接把控制权交给 billing_agent，不再回头。这个差别决定了各自的代价：路由集中 → 主管是瓶颈；路由分散 → 难以调试（没有一处能看到完整决策链）。",
+		"hint": "画一下 researcher 执行完之后，控制权去了哪里。",
+		"distractorNotes": {
+			"1": "并发度不是这两个模式的分界。笔记给 Supervisor 的缺点是「主管是瓶颈」，给 Swarm 的是「难以调试」，说的都是调度结构。",
+			"2": "两种模式的子 Agent 都可以带工具，笔记里 billing_agent、tech_agent 都挂了 tools，Supervisor 的子 Agent 也可以。",
+			"3": "那就变回中心调度了。Swarm 的 handoff 是当前 Agent 自主决定交给谁，triage 只是入口，不是必经的中转站。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "network-message-explosion",
+		"prompt": "选型表给 Network 模式的缺点是「消息爆炸」。按笔记的 `AgentNetwork` 实现，这个问题的来源是什么？",
+		"options": [
+			"任意 Agent 都能互发消息、还能向所有 Agent 广播，通信路径随 Agent 数量快速膨胀，而且没有一个收敛决策的中心节点",
+			"消息都存在内存 list 里，超出内存就会崩",
+			"Network 模式必须引入消息中间件，运维复杂度上来了",
+			"LLM 上下文窗口有限，装不下所有 Agent 的系统提示"
+		],
+		"answerIndex": 0,
+		"explanation": "`AgentNetwork` 提供 `send_message`（任意 A → 任意 B）和 `broadcast`（一个 Agent → 所有其他 Agent）。这意味着通信拓扑是全连接的：可能的通路数随 Agent 数量呈组合式增长，一次广播就会触发 N-1 次处理，而每个回应又可能引发新的消息。Supervisor/Hierarchical 靠「必须回到主管」强制收敛，Network 把这个约束去掉了，换来最大灵活性（适合头脑风暴、复杂协作），代价就是消息量和终止条件都难控。",
+		"distractorNotes": {
+			"1": "`message_bus` 用什么存不是关键，换成数据库或队列也一样爆。问题在通信关系本身是 N 对 N。",
+			"2": "笔记的 Network 例子只是一个进程内的 Python 类，并不要求中间件。Dapr Agents 那类分布式运行时是可选的生产化基础设施，不是问题的成因。",
+			"3": "上下文窗口是单个 Agent 内部的约束，跟「谁能给谁发消息」这个拓扑问题不是一回事。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "pattern-for-dynamic-routing",
+		"prompt": "一个客服系统要按用户问题类型转接到账单、技术等专家，并且希望转接由 Agent 自己判断、不经过中心调度。按笔记的选型表，该选哪个模式、代价是什么？",
+		"options": [
+			"Swarm——灵活自主，代价是难以调试",
+			"Supervisor——简单可控，代价是层级延迟",
+			"Hierarchical——可扩展，代价是主管成为瓶颈",
+			"Network——最灵活，代价是难以调试"
+		],
+		"answerIndex": 0,
+		"explanation": "选型表把 Swarm 的适用场景直接写成「客服、动态路由」，优点是灵活自主，缺点是难以调试。它匹配这个需求的原因是 Handoff 由当前 Agent 自主发起，不需要每步回到主管；代价是决策链分散在各个 Agent 里，出问题时要还原「为什么转到了这个专家」比 Supervisor 难得多。",
+		"hint": "题干里「由 Agent 自己判断、不经过中心调度」直接对应表格里的哪一行？",
+		"distractorNotes": {
+			"1": "优缺点串了：Supervisor 的缺点笔记写的是「主管是瓶颈」，「层级延迟」属于 Hierarchical。而且 Supervisor 的路由由中心主管决定，不满足「Agent 自主转接」。",
+			"2": "同样串了：Hierarchical 的缺点是「层级延迟」，「主管是瓶颈」是 Supervisor 的。多层主管适合大型多职能团队，客服路由用不上这个复杂度。",
+			"3": "Network 的缺点笔记写的是「消息爆炸」，「难以调试」是 Swarm 的。客服路由是一对一转接，不需要人人互通。"
+		},
+		"reviewed": false
+	}
+]

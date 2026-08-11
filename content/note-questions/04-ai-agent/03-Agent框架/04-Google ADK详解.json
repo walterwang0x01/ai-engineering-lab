@@ -1,0 +1,39 @@
+[
+	{
+		"id": "workflow-agent-vs-llm-agent",
+		"prompt": "ADK 把 SequentialAgent / ParallelAgent / LoopAgent 与 LlmAgent 并列为「Agent」。它们之间最本质的区别是什么？",
+		"options": [
+			"控制流由谁决定：LlmAgent 的下一步由模型决定，而那三类是框架给定的确定性编排器，只按固定结构调度子 Agent",
+			"能否调用工具：只有 LlmAgent 能挂工具，其余三类不能包含带工具的子 Agent",
+			"能否访问会话状态：编排类 Agent 各自持有私有状态，LlmAgent 共享全局状态",
+			"部署方式：编排类 Agent 只能本地运行，LlmAgent 才能部署到 Vertex AI Agent Engine"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记标注 LlmAgent 是「由 LLM 驱动」，而 SequentialAgent「按顺序执行子 Agent」、ParallelAgent「并行执行子 Agent」、LoopAgent「循环执行直到满足条件」——后三者的拓扑是你写死的，模型无权改变执行顺序。所以「不确定性」被限制在 LlmAgent 内部：想要可预测的流水线就用编排器包住，想要模型自己决定就用 LlmAgent。这也是代价所在——确定性编排换来的可预测性，是以放弃运行时自适应为前提的。",
+		"hint": "问自己：谁决定「下一步执行哪个」——写代码的人，还是模型？",
+		"distractorNotes": {
+			"1": "编排类 Agent 的子 Agent 通常正是带工具的 LlmAgent（例如 pipeline 里的 researcher 挂了 google_search）。工具能力不是这个划分的分界线。",
+			"2": "反了：笔记里子 Agent 之间正是通过 output_key 写入 session state、下游在指令里引用，靠的是共享会话状态。",
+			"3": "部署示例部署的就是组合好的 `pipeline`（一个 SequentialAgent），编排类 Agent 并没有被排除在生产部署之外。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "output-key-state-passing",
+		"prompt": "在 ADK 的 SequentialAgent 流水线里，planner 的产出怎样进入 executor 的指令？",
+		"options": [
+			"planner 用 output_key 把结果写入 session state 的具名键，executor 在自己的 instruction 里用占位符引用这个键",
+			"框架把 planner 的完整输出直接拼在 executor 的用户消息末尾",
+			"executor 通过工具调用回头去询问 planner",
+			"两个 Agent 必须共用同一个 session_id，框架据此把上一个 Agent 的全部对话历史复制过来"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记的写法是 planner 声明 `output_key=\"plan\"`（结果存入 session state），executor 的 instruction 写 `根据 {plan} 执行每个步骤`。数据交接是**具名的、由作者指定注入位置的**，而不是把上游输出整段倒给下游。好处是下游 prompt 里只出现需要的那部分，上下文不随流水线变长而无节制膨胀；代价是键名成了组件之间的隐式契约，改名会静默破坏引用。",
+		"distractorNotes": {
+			"1": "自动拼接会让上下文随流水线长度膨胀，也无法控制内容出现在指令的哪个位置。示例里的 `{plan}` 说明注入点是作者指定的。",
+			"2": "planner 不是被调用的工具，它在流水线里已经执行完毕；交接靠状态，不靠回头询问。",
+			"3": "会话状态确实是共享的，但传递的是 output_key 指定的那个值，不是把全部历史复制一遍。"
+		},
+		"reviewed": false
+	}
+]

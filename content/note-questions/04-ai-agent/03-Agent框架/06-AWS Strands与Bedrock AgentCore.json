@@ -1,0 +1,39 @@
+[
+	{
+		"id": "model-driven-scope",
+		"prompt": "Strands 宣称「模型驱动」——开发者不编排工作流，由模型自主决定调用哪些工具、以什么顺序执行。但 v1.0 的多 Agent 编排却要你显式写出 `edges=[(\"researcher\", \"writer\"), (\"writer\", \"reviewer\")]`。这两件事怎么统一？",
+		"options": [
+			"自主决策被限定在单个 Agent 内部的工具选择上；Agent 之间的拓扑仍由开发者显式声明",
+			"GraphOrchestrator 的边只是性能提示，模型可以无视它自行改变顺序",
+			"写了 edges 之后单个 Agent 内部的工具调用也变成固定顺序",
+			"edges 只用于失败重试路径，正常执行时顺序由模型决定"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记里「模型自主规划」讲的是单 Agent：给它 `query_database` 和 `send_notification`，何时查、要不要通知由模型判断。到了多 Agent，`GraphOrchestrator` 接收的是一份显式的边集合——谁的输出流向谁是作者定的。这个分界很有代表性：把不确定性留在一个 Agent 内部还可以靠工具的幂等性与护栏控住，让 Agent 之间也自由路由，故障域和调试难度会立刻放大。",
+		"hint": "分别看第 3 节（单 Agent）和第 4 节（多 Agent）里，「顺序」是谁定的。",
+		"distractorNotes": {
+			"1": "`edges` 是编排器的拓扑定义，不是可选提示；编排器就是按它调度的。",
+			"2": "编排器管的是 Agent 之间的流转，不会改变某个 Agent 内部由模型选工具这一机制。",
+			"3": "笔记没有把 edges 描述为重试路径，它给出的正是正常执行的流向（researcher → writer → reviewer）。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "sdk-vs-agentcore-split",
+		"prompt": "Strands Agents SDK 与 Bedrock AgentCore 在这套方案里各自负责什么？",
+		"options": [
+			"SDK 负责 Agent 的定义与决策逻辑（工具、系统提示、编排），AgentCore 提供生产运行时要素：托管记忆、工具访问、身份与护栏、可观测性",
+			"SDK 用于本地开发调试，AgentCore 是同一套代码的付费版，功能完全等价",
+			"AgentCore 负责模型推理，SDK 只是它的客户端封装",
+			"SDK 负责单 Agent，AgentCore 负责多 Agent 编排"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记把 AgentCore 定位为「托管运行时，用于部署和运行生产级 Agent」，图里列的四块是 Managed Memory、Tool Access、Identity & Guardrails、Observability（CloudWatch）；部署示例也正是把一个 SDK 定义好的 agent 连同 `memory_config` / `guardrails` / `identity` 一起交给运行时。即：**Agent 是什么**由 SDK 表达，**跑在生产上需要的那些横切能力**由运行时提供。",
+		"distractorNotes": {
+			"1": "两者不是同一层的免费版与付费版：记忆、身份、护栏、可观测性这些是运行时新增的能力，不是 SDK 已有功能的复制。",
+			"2": "模型推理由 Bedrock 上的模型完成，AgentCore 是运行 Agent 的运行时，不是推理服务本身。",
+			"3": "多 Agent 编排在 SDK 里就有（`GraphOrchestrator`），不是 AgentCore 才提供的。"
+		},
+		"reviewed": false
+	}
+]

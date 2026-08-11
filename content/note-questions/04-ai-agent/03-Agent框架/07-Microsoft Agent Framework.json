@@ -1,0 +1,39 @@
+[
+	{
+		"id": "groupchat-vs-graphflow",
+		"prompt": "Agent Framework 把多 Agent 协作收敛为 `AgentGroupChat` 和 `GraphFlow` 两类抽象。按笔记的定位，它们的分工是什么？",
+		"options": [
+			"AgentGroupChat 是 AutoGen 风格的群聊，适合开放式协作；GraphFlow 是声明式工作流图，适合结构化生产场景",
+			"AgentGroupChat 用于两个 Agent，GraphFlow 用于三个以上",
+			"AgentGroupChat 只能同步执行，GraphFlow 才支持异步与流式",
+			"AgentGroupChat 面向 Python，GraphFlow 面向 .NET"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记原话是：`AgentGroupChat` 保留 AutoGen 风格的「群聊」模式，适合开放式协作；`GraphFlow` 是声明式工作流图，适合结构化生产场景（思路与 LangGraph 对齐）。这不是两个功能等级，而是两种**控制流归属**：群聊里谁下一步发言、什么时候停，是在运行时协商出来的（所以要配 `max_rounds` 与 `termination_condition` 兜底）；GraphFlow 的节点与边是写死的，可预测、可复现。",
+		"hint": "看这两种写法里，「下一步谁干」分别写在哪儿。",
+		"distractorNotes": {
+			"1": "笔记没有按 Agent 数量划分，示例的群聊里就有 planner / coder / tester 三个。",
+			"2": "两者在示例里都是 `await` 调用，异步不是区分点。",
+			"3": "两种编排在 Python 与 .NET 上都是框架的一等公民，语言不是分界线。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "provider-decoupling",
+		"prompt": "1.0 GA 宣称「一行换 provider，其余代码不变」。这个性质来自什么设计选择？",
+		"options": [
+			"把模型客户端做成注入给 Agent 的独立对象，Agent 只依赖这个抽象，不依赖某家厂商的 API",
+			"框架在内部把所有请求都翻译成 OpenAI 的接口格式再转发",
+			"框架自带一个网关服务，运行时按价格自动选择最便宜的 provider",
+			"所有 provider 的差异都靠 instructions 里的兼容性提示词消化"
+		],
+		"answerIndex": 0,
+		"explanation": "示例里 Agent 收到的是一个 `chat_client`（`OpenAIChatClient` 或 `AnthropicChatClient` 等），换厂商只换这一个对象的构造。这是标准的依赖倒置：Agent 逻辑写在「聊天客户端」这个抽象上。笔记也用它对比 OpenAI Agents SDK 的「与 OpenAI 模型最深绑定」——反过来说，可移植性的代价是各家模型的独有能力要么被抽象掉，要么得绕过这层抽象才能用到。",
+		"distractorNotes": {
+			"1": "笔记没有说框架统一转译成 OpenAI 格式；provider 是各自实现的客户端，而不是一层协议翻译。",
+			"2": "自动按价格路由是网关产品的功能，笔记里没有这个机制，provider 是开发者显式指定的。",
+			"3": "提示词无法消除 API 层面的差异（认证、请求结构、工具调用格式），这些正是客户端实现要处理的部分。"
+		},
+		"reviewed": false
+	}
+]

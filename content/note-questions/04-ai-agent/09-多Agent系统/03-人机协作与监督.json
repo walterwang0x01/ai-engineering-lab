@@ -1,0 +1,58 @@
+[
+	{
+		"id": "trust-threshold-comparison",
+		"prompt": "按笔记的 `TrustManager`（`customer-service-bot` 的信任等级设为 `MEDIUM`，阈值表里 `read_data=LOW`、`write_data=MEDIUM`、`delete_data=HIGH`），这个 bot 执行 `write_data` 会怎样？",
+		"options": [
+			"不需要审批——判定条件是 `agent_level < required_level`，MEDIUM 不小于 MEDIUM",
+			"需要审批，因为等级相等时保守起见要人工确认",
+			"需要审批，因为写操作在笔记的模型里一律要人工确认",
+			"直接报错——Agent 等级必须严格高于操作阈值才允许执行"
+		],
+		"answerIndex": 0,
+		"explanation": "`needs_approval` 的判定是严格小于：`return agent_level < required_level`。MEDIUM 对 MEDIUM 不成立，所以放行；`delete_data` 要求 HIGH，MEDIUM < HIGH 成立，所以要审批——这正是笔记末尾两行输出（False / True）的来历。这个实现里还有两个「默认从严」的细节值得记住：没登记过的 Agent 默认 `TrustLevel.NONE`，阈值表里没列出的操作默认按 `HIGH` 要求。",
+		"hint": "注意比较符号是 `<` 还是 `<=`。",
+		"distractorNotes": {
+			"1": "边界方向记反了。相等即放行是这段代码的实际行为，这类「等号算不算」的细节恰好是权限判断最容易出错的地方。",
+			"2": "「读自动、写审批」是 `TrustLevel.LOW` 那一档的描述；到 MEDIUM 档，常规操作已经自动，只有敏感操作才审批。",
+			"3": "没有报错路径，`needs_approval` 只返回 True/False。等级不足的后果是走审批流程，不是拒绝执行。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "progressive-autonomy-asymmetry",
+		"prompt": "`ProgressiveAutonomy` 里成功一次让计数 +1，失败一次却把成功计数扣掉 5。这个不对称是为了什么？",
+		"options": [
+			"让信任缓慢积累、迅速回撤——少数几次失误就足以把 Agent 打回更严格的审批档，而不会被大量历史成功稀释掉",
+			"为了防止成功计数无限增长导致溢出",
+			"因为笔记测算出一次失败的代价正好等于五次成功的收益",
+			"为了让 Agent 一旦失败就必须由人工手动恢复等级"
+		],
+		"answerIndex": 0,
+		"explanation": "升级靠累计成功次数跨过 `thresholds`，而失败直接从这个累计里扣 5（并用 `max(0, ...)` 兜住下界）。效果是信任的上升是线性慢速的、下降是跳跃式的：Agent 刚跨过某档门槛时最脆弱，一次失误就掉回去。这个方向选择符合风险的不对称性——自动放权带来的收益是省人力，代价却可能是一次不可逆的误操作，所以宁可少放权。注意 5 是一个策略参数，笔记没有给出它的推导依据。",
+		"distractorNotes": {
+			"1": "计数是普通整数，没有溢出问题。这里唯一的数值保护是 `max(0, ...)` 不让计数变成负数。",
+			"2": "笔记没有给出任何收益/损失的量化依据，5 只是一个示意性取值，不要当成测算结果。",
+			"3": "不需要人工——扣分之后继续累积成功就会自动回升，`get_trust_level` 每次都按当前计数重新算。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "interrupt-needs-checkpointer",
+		"prompt": "笔记的 `human_review` 节点用 `interrupt` 暂停，之后用 `Command(resume=\"approve\")` 继续，并且两次调用带的是同一个 `thread_id`。为什么 `compile` 时必须传 checkpointer？",
+		"options": [
+			"`interrupt` 是把当前状态存下来后中断本次执行，恢复时靠 checkpointer 按 `thread_id` 取回那份状态——没有它就没有可续的断点",
+			"checkpointer 只是用来记日志方便排查，`thread_id` 是给日志分组的",
+			"因为 `interrupt` 会让进程原地阻塞等待输入，checkpointer 负责维持这个阻塞",
+			"因为人工审批的结果要落库，checkpointer 就是存审批记录的那张表"
+		],
+		"answerIndex": 0,
+		"explanation": "人工审批的等待是不确定的——可能几分钟，也可能第二天由另一个请求带回结果。所以 `interrupt` 不是原地阻塞，而是「存档 + 退出」：状态快照写进 checkpointer，本次 `invoke` 返回；之后带着同一个 `thread_id` 再 `invoke(Command(resume=...))`，运行时才能找回快照，从 review 节点之后继续走。缺 checkpointer 或换了 thread_id，都等于丢失断点。笔记的例子用的是 `MemorySaver`（进程内），生产环境要换成能跨重启存活的实现。",
+		"hint": "想一下审批在下一天才回来会发生什么。",
+		"distractorNotes": {
+			"1": "不只是日志。恢复执行本身就依赖那份持久化状态，缺了它，第二次 `invoke` 无从知道该从哪个节点、带着什么状态继续。",
+			"2": "`interrupt` 中断的是这次执行并返回，不会把进程钉在那里等输入——正因为等待被搬到进程之外，状态才必须存下来。",
+			"3": "checkpointer 存的是图的执行状态快照，不是审批业务表；审批意见是通过 `Command(resume=...)` 传进来的。"
+		},
+		"reviewed": false
+	}
+]

@@ -1,0 +1,58 @@
+[
+	{
+		"id": "eval-fail-open",
+		"prompt": "`content_pipeline_with_eval` 里质量门禁的异常处理是：`except json.JSONDecodeError: return article`。这个选择意味着什么？",
+		"options": [
+			"评估结果解析不出来时门禁静默失效，文章照样被当成通过品返回——质量闸门在最需要它的时候变成了直通",
+			"解析失败会让循环立刻进入下一轮，等于额外多跑一次完整创作流程",
+			"解析失败时函数返回空字符串，调用方能立刻发现异常",
+			"`json.JSONDecodeError` 只会在文章超过 3000 字符时触发，与评估无关"
+		],
+		"answerIndex": 0,
+		"explanation": "这是典型的 fail-open：出错时放行。评估 Agent 的输出是自由文本，很容易多带一句解释或包一层 ``` 围栏，一旦解析失败，`return article` 直接跳出循环，调用方拿到的文章和「评分 ≥ 8 通过」的文章长得一模一样，没有任何标记。质量门禁应该 fail-closed——解析失败就重试解析、或者标成待人工复核，而不是当作通过。",
+		"hint": "对比一下解析成功且评分 ≥ 8 的返回值，和解析失败的返回值，调用方能区分吗？",
+		"distractorNotes": {
+			"1": "`return` 是直接退出函数，不是 `continue`；不会进入下一轮。",
+			"2": "返回的是 `article` 本身，不是空字符串，所以调用方看不出任何异常。",
+			"3": "`article[:3000]` 只是截断喂给评估 Agent 的正文；解析失败的原因是模型输出不是纯 JSON。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "rerun-whole-crew-cost",
+		"prompt": "笔记第 8 节的流程图画的是「分数 < 8 → 返回作者重写」，但第 6 节的代码在每一轮循环里重新 `kickoff` 了包含 `researcher` 的整个 crew（research → writing → editing）。这个实现与图的差异带来什么代价？",
+		"options": [
+			"每次不达标都会把选题调研整个重跑一遍，重复搜索与 token 开销最大的一段，而调研结果通常并不是低分的原因",
+			"重跑整个 crew 会让 `context=[research_task]` 声明失效，作者拿不到调研结果",
+			"重跑会累积 state，第三轮的文章会把前两轮的正文拼接在一起",
+			"重跑整个 crew 会绕过 `editor` 的事实核查，因为工具只能被调用一次"
+		],
+		"answerIndex": 0,
+		"explanation": "循环体里每一轮都新建 crew 并从 `research_task` 开始，于是 Tavily 搜索、竞品分析这些最贵的步骤被反复执行，而评估反馈（`issues` / `suggestions`）其实并没有回灌给作者——分数低通常是写作问题，重做调研既不便宜也不对症。更省的形态是把评估意见作为上下文只重跑写作与编辑，像流程图画的那样。注意 `max_iterations=3` 的上限是这段代码做对的地方：它保证了最坏情况下的成本封顶。",
+		"hint": "数一数每次不达标会重新触发哪些 Task，其中哪个最贵。",
+		"distractorNotes": {
+			"1": "`context=[research_task]` 是 Task 之间的声明式依赖，重建 crew 后依然成立，作者照样拿得到调研输出。",
+			"2": "每轮 `kickoff` 的产出赋值给同一个 `article` 变量，是覆盖而不是拼接。",
+			"3": "`editor` 每轮都会带着 `check_facts` 工具正常执行，工具没有调用次数限制。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "seo-to-aeo",
+		"prompt": "笔记把「从 SEO 到 AEO（Answer Engine Optimization）」列为 2026 年的核心趋势。按笔记的表述，AEO 针对的是什么变化？",
+		"options": [
+			"消费者越来越多通过 AI Agent 发现和评估产品，所以内容要同时对搜索引擎和 AI Agent 可发现",
+			"搜索引擎已被 AI 取代，传统 SEO 的关键词与元数据工作不再需要做",
+			"AEO 指的是把文章直接投喂给模型做微调，让模型记住品牌",
+			"AEO 是一种衡量内容质量的评分标准，用来替代人工编辑审查"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记引 BCG 的判断是「AI Agent 正在改变消费者发现和评估产品的方式，品牌需要同时优化搜索引擎和 AI Agent 的可发现性」——注意是「同时」，AEO 是新增的一条渠道，不是替代。这也解释了同一节为什么把结构化数据列进 SEO Agent 的职责：让机器读者能准确提取事实，比讨好人类点击更重要。",
+		"distractorNotes": {
+			"1": "笔记的原话是「同时优化」，SEO 并没有被废弃；同一节的 SEO Agent 仍然负责标题、元描述、内链。",
+			"2": "AEO 讲的是内容在回答引擎里的可发现性，跟微调模型是两件事，笔记没有这个说法。",
+			"3": "内容质量评估在笔记里是独立的评估 Agent（评分 < 8 重写），与 AEO 无关。"
+		},
+		"reviewed": false
+	}
+]

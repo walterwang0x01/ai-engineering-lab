@@ -1,0 +1,39 @@
+[
+	{
+		"id": "browser-profile-tradeoff",
+		"prompt": "OpenClaw 的浏览器同时提供 Managed（默认 `openclaw` profile）和 Attached（`user` profile）两种模式，这两者的取舍是什么？",
+		"options": [
+			"Managed 用独立用户数据目录换取干净、隔离的会话；Attached 附着已登录的 Chrome，换取现成登录态（Gmail/GitHub/内网仪表盘），代价是不再与用户的真实浏览器数据隔离",
+			"Managed 只能跑无头模式，Attached 只能跑有头模式，功能能力完全一致",
+			"Managed 走 CDP，Attached 不走 CDP 而是靠截图坐标点击",
+			"Attached 是给远程/容器部署用的，Managed 是给本机用的"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记的模式表写得很直接：Managed 用隔离的用户数据目录得到干净会话，适合大多数自动化；Attached 的价值就是附着已经登录的 Chrome，从而直接拿到 Gmail、GitHub、内网仪表盘这些登录态——代价是它操作的正是用户真实浏览器的数据。选哪个取决于任务需不需要已登录身份。",
+		"hint": "两种模式各自的「适用场景」一栏，一个写的是干净会话，另一个写的是什么？",
+		"distractorNotes": {
+			"1": "headless 只是 profile 的一项配置（示例里 `openclaw` 配了 `headless: true`），不是两种模式的分界；分界是数据目录隔离还是附着真实浏览器。",
+			"2": "两者都通过 Gateway 内嵌的 CDP 控制服务驱动，Attached 的配置项就是指向已开启 remote debugging 的 Chrome 的 `cdpUrl`。",
+			"3": "远程/容器场景对应的是第三种模式 Remote CDP（自定义 profile，Gateway 代理到 node host），不是 Attached。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "manual-action-escalation",
+		"prompt": "`browser-automation` skill 规定：遇到登录、2FA、captcha 时上报为 manual action，而不是让 Agent 自己试。这个约定背后的判断是什么？",
+		"options": [
+			"这些环节依赖 Agent 手里没有的信息（凭据、动态验证码），盲猜不可能成功，只会消耗步数并把会话推进到不确定状态",
+			"这些环节技术上无法自动化，任何工具都做不到",
+			"这是法律要求，自动登录在所有场景下都被禁止",
+			"因为 Agent 的视觉能力不足以看清验证码图片，换更强的模型就可以取消这条约定"
+		],
+		"answerIndex": 0,
+		"explanation": "skill 的操作循环是 snapshot → act → resnapshot，并且只对 stale ref 做一次恢复；登录、2FA、captcha 属于 Agent 不掌握必要信息的环节（密码、手机上的动态码），继续「盲猜」既不会成功，也让后续快照失去可预期的基线。所以设计上把它升级成需要人介入的 manual action，交回给持有这些信息的人。",
+		"distractorNotes": {
+			"1": "并非做不到——同一份笔记里 Skyvern 就以能处理 CAPTCHA 作为卖点。这里的约定是「不该盲猜」，不是「不可能」。",
+			"2": "笔记没有把它归为法律约束，而是 skill 的操作约定；对比表里 Attached profile 复用已登录 Chrome 恰恰是被推荐的正当做法。",
+			"3": "2FA 的动态码根本不在屏幕上，模型再强也看不到；这不是视觉能力问题，而是信息不在 Agent 手里。"
+		},
+		"reviewed": false
+	}
+]

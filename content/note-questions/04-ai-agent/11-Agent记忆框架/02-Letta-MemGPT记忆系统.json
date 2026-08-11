@@ -1,0 +1,58 @@
+[
+	{
+		"id": "why-tiered-memory",
+		"prompt": "Letta 把记忆分成核心记忆（Core，在上下文窗口内）、回忆记忆（Recall，近期对话索引）、归档记忆（Archival，向量库），并类比操作系统的寄存器/缓存/内存/磁盘。这个分层要解决的根本约束是什么？",
+		"options": [
+			"上下文窗口容量固定，必须决定哪些信息常驻其中、哪些放到外部按需取回",
+			"向量数据库的写入延迟高，需要先在内存里缓冲再批量落盘",
+			"不同类型的记忆需要不同的 embedding 模型，无法用同一个索引",
+			"多个 Agent 要共享记忆，分层是为了隔离各自的读写权限"
+		],
+		"answerIndex": 0,
+		"explanation": "OS 内存层级的类比点就在这里：寄存器/缓存快但小，磁盘大但慢，于是需要一套策略决定什么放在近处。Letta 的对应问题是上下文窗口——它是有限且昂贵的「快存」，所以只有用户信息、Agent 人设这类每轮都要用的内容常驻核心记忆，其余下沉到 Recall 与 Archival，靠 `recall_memory_search` / `archival_memory_search` 按需捞回来。",
+		"hint": "在这个类比里，「寄存器和缓存」对应的是 Agent 的哪一部分资源？它的稀缺性来自哪里？",
+		"distractorNotes": {
+			"1": "分层的动因是读取侧的容量限制，不是写入侧的吞吐。归档记忆是「大而慢」的那一层，不是写缓冲。",
+			"2": "笔记的配置里整个 Agent 只指定一个 embedding 模型，分层跟 embedding 选择无关。",
+			"3": "多 Agent 协作在笔记里是通过共享归档记忆/记忆块实现的，是分层之上的用法，不是分层的理由。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "self-edit-replace-vs-append",
+		"prompt": "笔记里用户说「我换了新工作，现在在字节跳动做 AI 基础设施」，Agent 调用的是 `core_memory_replace` 而不是 `core_memory_append`。这个选择解决的是哪个具体问题？",
+		"options": [
+			"事实发生了变更，旧值必须被覆盖，否则新旧矛盾的事实会同时留在上下文里",
+			"核心记忆是只读的，追加操作在 Core Memory 上不被支持",
+			"append 会触发一次归档写入，成本比 replace 高",
+			"replace 能把这条记忆同步到 Recall 与 Archival 两层，append 不能"
+		],
+		"answerIndex": 0,
+		"explanation": "「职业：软件工程师」这条旧记忆不是被补充，而是失效了。如果只追加，核心记忆里会同时出现两份互相冲突的职业信息，而它们每轮都进上下文——模型没有依据判断哪个是当前状态。这也点出自编辑记忆的代价：更新时机和改写内容都由 Agent 自己判断，判断错就直接把记忆写坏了。",
+		"distractorNotes": {
+			"1": "核心记忆是可写的，`core_memory_append` 正是笔记列出的系统调用之一；这里不用它是语义原因，不是能力限制。",
+			"2": "两个调用都只作用于核心记忆块，笔记没有把它们描述成成本不同的操作。",
+			"3": "笔记里三层记忆各有独立的读写调用，`core_memory_replace` 只改核心记忆块，不做跨层同步。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "runtime-vs-embedded-layer",
+		"prompt": "笔记对比 Letta 与 Mem0 时，把 Letta 的集成方式写成「独立运行时」、Mem0 写成「嵌入现有框架」。这个差别对接入方式的实际含义是什么？",
+		"options": [
+			"Letta 持有 Agent 的状态与执行循环，应用要通过它的服务端接口驱动 Agent；Mem0 只是被应用调用的一个记忆组件",
+			"Letta 只能部署在本地服务器，Mem0 只能用云服务，两者的部署模式互斥",
+			"Letta 不支持自定义工具，工具调用必须交给外层框架，Mem0 则可以自带工具",
+			"Letta 的记忆不能持久化到数据库，重启后需要靠 Mem0 补齐"
+		],
+		"answerIndex": 0,
+		"explanation": "笔记里 Letta 的定位是「有状态 Agent 运行时」：要先起 `letta server`，再用客户端 `client.agents.create(...)` / `client.agents.messages.create(...)` 让服务端的 Agent 跑起来，记忆读写是它内部自主完成的。Mem0 的定位是「通用记忆层」——`memory.search()` / `memory.add()` 由你的应用代码在自己的循环里调用。所以选型代价很实在：用 Letta 要接受它的运行时和状态模型，用 Mem0 则要自己承担何时读写记忆的编排。",
+		"hint": "看两篇代码的调用方向：谁在调谁？谁掌握着对话循环？",
+		"distractorNotes": {
+			"1": "两者都同时提供自托管和云服务，部署形态并不互斥；差别在于谁持有 Agent 状态。",
+			"2": "笔记专门有一节演示 `client.tools.create(...)` 给 Letta Agent 注册自定义工具，工具调用是它运行时的一部分。",
+			"3": "「状态持久化」正是 Letta 运行时明确列出的能力，跨会话持久化 Agent 是它的卖点之一。"
+		},
+		"reviewed": false
+	}
+]

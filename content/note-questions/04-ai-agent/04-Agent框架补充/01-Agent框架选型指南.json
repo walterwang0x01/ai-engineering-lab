@@ -1,0 +1,57 @@
+[
+	{
+		"id": "crewai-prototype-langgraph-prod",
+		"prompt": "笔记记录了 2026-07 的行业共识「CrewAI 原型 → LangGraph 生产」，并给出了技术原因。按原文，两者的 Token 开销差距主要来自哪里？",
+		"options": [
+			"LangGraph 用确定性 Python 路由，而 CrewAI 的任务委派常常触发额外的 LLM 调用",
+			"CrewAI 默认启用长期记忆，把全部历史塞进每次请求",
+			"LangGraph 会自动压缩上下文，CrewAI 不做压缩",
+			"CrewAI 只能用更贵的模型，LangGraph 可以用开源模型"
+		],
+		"answerIndex": 0,
+		"explanation": "原文的说法是：CrewAI 的 token 开销可达 LangGraph 的 3×，原因是「LangGraph 用确定性 Python 路由，CrewAI 委派常触发额外 LLM 调用」。这正是两种抽象的代价差：角色委派把「下一步交给谁」交给模型判断，每次判断都是一次推理；图编排把这个决定写成 Python 条件函数，零 Token。所以原文的配套建议是——CrewAI 做 PoC（2–4 小时可跑通，角色隐喻直观），生产再迁到 LangGraph。",
+		"hint": "「谁来做路由决策」这件事，在两个框架里分别由什么执行？",
+		"distractorNotes": {
+			"1": "记忆开关不是原文给出的原因，且 CrewAI 的 memory 需要显式启用。",
+			"2": "原文没有把上下文压缩列为两者的差异点。",
+			"3": "两个框架在原文的对比矩阵里模型锁定都是「无」，模型价格不是差距来源。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "prototype-to-production-move",
+		"prompt": "按笔记的迁移路径，团队从 OpenAI Agents SDK 或 CrewAI 迁到 LangGraph，通常是为了补上什么？",
+		"options": [
+			"更精细的流程控制与持久化能力",
+			"更低的学习曲线与更少的样板代码",
+			"对 OpenAI 之外模型的支持",
+			"多 Agent 协作能力（前两者都不具备）"
+		],
+		"answerIndex": 0,
+		"explanation": "原文的迁移路径写得很直接：「OpenAI SDK → LangGraph（增加控制和持久化）」「CrewAI → LangGraph（需要更精细的流程控制）」。方向是从「快速跑通」换到「可控可恢复」——LangGraph 的学习曲线在对比矩阵里是最高的那一档（★★★），这正是换来控制力所付的代价，而不是它顺带的优点。",
+		"distractorNotes": {
+			"1": "反了：LangGraph 的学习曲线在原文矩阵里高于 CrewAI 和 OpenAI SDK，迁过去是变复杂，不是变简单。",
+			"2": "CrewAI 在原文矩阵里的模型锁定是「无」，它本来就不限于 OpenAI；只有 OpenAI SDK 一行标了锁定。",
+			"3": "原文矩阵里 CrewAI 的多 Agent 是「✅ 核心」、OpenAI SDK 也标了 ✅（Handoff）。多 Agent 不是迁移动因。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "multicloud-choice",
+		"prompt": "决策树的「云原生部署」分支把 AWS 指向 Strands + AgentCore、GCP 指向 ADK + Vertex、Azure 指向 Microsoft Agent Framework，而「多云」单独指向 LangGraph 并注明「云无关」。这个安排说明了什么？",
+		"options": [
+			"云厂商方案的价值来自与自家托管运行时与模型生态的深度绑定，这份绑定在跨云场景里就变成了迁移成本",
+			"云厂商的框架在技术上更差，只是被各自平台强推",
+			"LangGraph 无法部署到 AWS / GCP / Azure，所以只适合自建机房",
+			"多云部署必然要求全托管服务，LangGraph 正是全托管的"
+		],
+		"answerIndex": 0,
+		"explanation": "同一种能力在单云里是优势、在多云里是负担：Strands 配 Bedrock AgentCore、ADK 配 Vertex AI Agent Engine，深度集成换来的是省掉运行时建设；一旦要求跨云，这些集成点就成了要重写的部分，所以原文给多云开了单独一条分支，理由标注为「云无关」。",
+		"distractorNotes": {
+			"1": "原文在对比矩阵里给云厂商框架的生产就绪度是 ★★★★，并没有贬低它们的技术；分支划分依据是生态归属而非质量。",
+			"2": "「云无关」的意思正是它哪儿都能跑（原文还列了 LangGraph Cloud 作为托管选项），不是只能自建。",
+			"3": "LangGraph 在原文里是开源框架，托管形态是可选的 LangGraph Cloud；多云也并不要求必须用全托管服务。"
+		},
+		"reviewed": false
+	}
+]

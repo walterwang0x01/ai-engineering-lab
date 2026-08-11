@@ -1,0 +1,59 @@
+[
+	{
+		"id": "approval-inside-tool",
+		"prompt": "笔记把运维工具切成两类：`kubectl_command` 用白名单只放行 get/describe/logs/top，而 `scale_deployment` / `restart_deployment` 在函数体的第一行就调用 `interrupt()` 等人工审批。为什么把审批写进工具内部，而不是在提示词里要求 Agent「执行危险操作前先征求同意」？",
+		"options": [
+			"提示词是请求，代码是强制——审批写在工具里，模型无论怎么被绕过或误判，动作都不可能在人点头之前落地",
+			"因为 LangGraph 不允许在图节点里调用 `interrupt()`，只能写在工具函数里",
+			"因为写在提示词里会占用上下文预算，影响诊断准确率",
+			"因为工具内部的审批可以复用同一个 thread_id，提示词方案需要为每次审批新建会话"
+		],
+		"answerIndex": 0,
+		"explanation": "这是不可绕过性的差别。提示词约束依赖模型每次都遵守，而模型会被越狱、会误判紧急程度、也会在长上下文里淡忘规则；而 `interrupt()` 在 `subprocess.run` 之前把整条执行挂起，除了拿到 `\"approved\"` 没有第二条通往 `kubectl scale` 的路径。同理，只读操作走白名单工具、写操作单独成工具，是把「能力边界」编码进了工具集，而不是托付给模型的自觉。",
+		"hint": "问自己：如果模型这一次没有遵守提示词，会发生什么？如果审批在代码里，又会发生什么？",
+		"distractorNotes": {
+			"1": "`interrupt()` 在节点里和在工具里都能用——同系列的客服笔记就是在节点里调用它的。",
+			"2": "这几句提示词的 token 成本微不足道，也不是安全设计的考量点。",
+			"3": "thread_id 由外层 config 提供，两种方案都在同一个 thread 上，与此无关。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "memorysaver-with-interrupt",
+		"prompt": "这个运维图用 `MemorySaver()` 作为 checkpointer，同时又依赖 `interrupt()` 挂起等待人工审批。这个组合在生产环境里的问题是什么？",
+		"options": [
+			"MemorySaver 只存在进程内存里，一旦服务重启或换实例，挂起中的审批状态就没了，人工点了同意也无处恢复",
+			"MemorySaver 不支持 `interrupt()`，编译时就会报错",
+			"MemorySaver 会把 state 写进磁盘临时文件，凭证有泄露风险",
+			"MemorySaver 不支持 thread_id，所以多个事件的状态会互相覆盖"
+		],
+		"answerIndex": 0,
+		"explanation": "`interrupt()` 的恢复机制建立在 checkpoint 上：state 存住，人工回复后从断点继续。审批的等待时间是人的时间尺度——几分钟到几小时，运维值班还可能跨班次——而 MemorySaver 的生命周期只有进程那么长。同系列的客服笔记在同一个位置用的是 `PostgresSaver.from_conn_string(...)`，那才是能撑住人工等待的形态。MemorySaver 适合本地跑通流程。",
+		"hint": "人工审批可能等多久？这段时间里进程一定活着吗？",
+		"distractorNotes": {
+			"1": "MemorySaver 是合法的 checkpointer 实现，`interrupt()` 在它上面能正常工作——只是不持久。",
+			"2": "MemorySaver 就是内存字典，不落盘；持久化风险恰恰是反过来的（什么都没存下）。",
+			"3": "MemorySaver 一样按 thread_id 隔离，笔记里也传了 `thread_id`，不存在互相覆盖。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "severity-router-auto-resolve",
+		"prompt": "`severity_router` 的逻辑是：P0/P1 走「诊断 → 修复」，其余全部走 `auto_resolve` 这个节点——而它的实现是 `lambda s: {\"resolved\": True, \"actions_taken\": [\"自动处理\"]}`。这个分支的实质风险是什么？",
+		"options": [
+			"P2/P3 事件根本没被处理，却被写成 `resolved: True`，等于用状态字段掩盖了「已忽略」这件事",
+			"lambda 节点不能修改 state，所以 `resolved` 字段实际不会被更新",
+			"低优先级告警会绕过 checkpointer，因此无法追溯历史",
+			"这个分支会在没有人工审批的情况下执行 kubectl 写操作"
+		],
+		"answerIndex": 0,
+		"explanation": "这个节点没有调用任何工具、没查指标、也没通知人，只是把 `resolved` 置为 True 并记一句「自动处理」。作为一条「低优先级先不占用昂贵的诊断链路」的分流策略它讲得通，问题在于它撒了个谎：下游看板和统计会把这些事件算作已解决。诚实的做法是分出 `acknowledged` / `deferred` 这类状态，或者至少把它排进批量复盘队列——分诊只有承认自己丢掉了什么，才谈得上安全。",
+		"hint": "看清楚 `auto_resolve` 这个 lambda 实际做了哪些事、又声称完成了什么。",
+		"distractorNotes": {
+			"1": "节点返回的字典就是 state 更新，lambda 也一样生效，`resolved` 会被真的置为 True。",
+			"2": "checkpointer 在编译时对整张图生效，这条分支同样被记录。",
+			"3": "`auto_resolve` 里没有任何 kubectl 调用；写操作只出现在带 `interrupt()` 审批的那两个工具里。"
+		},
+		"reviewed": false
+	}
+]
