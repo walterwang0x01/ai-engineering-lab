@@ -1,0 +1,57 @@
+[
+	{
+		"id": "what-is-saved",
+		"prompt": "关于 KV Cache 到底省掉了哪部分计算，下面哪个说法符合这篇笔记？",
+		"options": [
+			"省掉的是历史位置上 K/V 投影的重复计算，attention 打分随长度线性增长这件事没省掉",
+			"省掉的是 attention 打分，投影计算量不变",
+			"K、V、Q 三者都缓存，所以三者的重复投影都省掉了",
+			"每步的 FFN 计算也一并被缓存跳过了"
+		],
+		"answerIndex": 0,
+		"explanation": "第 i 个 token 的 K_i = x_i·W_K、V_i = x_i·W_V 只依赖它自己的输入表示，算出来之后永远不变，所以可以缓存复用——省掉的正是这部分投影的重复。笔记明确写了「没有省掉的部分」：第 t 步的 Q_t·K_{1:t}ᵀ 打分量仍是 O(t)，随序列长度线性增长；每步仍要过一遍 FFN。KV Cache 解决的是「投影计算的重复」，不是「attention 本身随长度增长」。",
+		"hint": "笔记里有一小节专门叫「没有省掉的部分」。",
+		"distractorNotes": {
+			"1": "正好说反了。打分 Q_t·K_{1:t}ᵀ 是每步都必须重算的（Q_t 每步都是新的），恰恰是没省掉的那部分。",
+			"2": "Query 刻意不缓存：每步只需要当前新 token 的 query 去查历史 K/V，历史 query 在它自己那一步已经产出过输出，之后再也用不上。",
+			"3": "FFN 每步都要对新 token 完整跑一遍，和缓存无关。缓存只作用在历史位置的 K/V 上。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "prefill-vs-decode",
+		"prompt": "同一次生成里，Prefill 阶段计算密集而 Decode 阶段显存带宽密集，根本原因是什么？",
+		"options": [
+			"Prefill 一次处理整段 prompt，是大矩阵乘法；Decode 每步只处理 1 个 token，矩阵乘退化成向量乘矩阵，但要把整份 KV Cache 从显存搬到计算单元",
+			"Prefill 跑在 GPU 上，Decode 通常被调度到 CPU 上执行",
+			"Prefill 要写 KV Cache 所以慢，Decode 只读不写所以快",
+			"Prefill 用 FP16，Decode 为了省显存自动降到 INT8，精度切换带来带宽压力"
+		],
+		"answerIndex": 0,
+		"explanation": "Prefill 的矩阵乘规模是 [seq_len, d_model] × [d_model, d_model]，GPU 算力能被充分利用，所以是 compute-bound。Decode 每步 batch 内每个请求只有 1 个新 token，矩阵乘退化成 [1, d_model] × [d_model, d_model]，计算量很小，但仍要把整份历史 KV 搬到计算单元参与 attention，搬运时间远超实际计算时间，所以是 memory-bandwidth-bound。这个差异直接决定优化方向：Prefill 提吞吐靠算力利用率，Decode 提吞吐靠减少搬运量（MQA/GQA 压缩 cache 尺寸）或让更多请求共享搬运成本（连续批处理）。",
+		"distractorNotes": {
+			"1": "两个阶段都在 GPU 上跑，阶段划分与设备无关，是矩阵形状与数据搬运量的差异。",
+			"2": "Decode 同样要写：每步都把新算出的 K_t、V_t 追加进 cache。瓶颈在于读取整份历史 KV 的搬运量，不在读写方向。",
+			"3": "笔记没有说存储精度会在两个阶段之间自动切换。KV Cache 量化是独立的一项优化决策，不是阶段特性。"
+		},
+		"reviewed": false
+	},
+	{
+		"id": "continuous-batching-gain",
+		"prompt": "相比静态批处理，连续批处理（Continuous Batching）直接解决的是哪个问题？",
+		"options": [
+			"batch 里有请求提前结束时槽位空闲、要等整批跑完才能换入新请求",
+			"KV Cache 的总字节数偏大",
+			"不同请求的 KV Cache 之间存在显存碎片",
+			"Decode 阶段单个请求的首 token 延迟过高"
+		],
+		"answerIndex": 0,
+		"explanation": "静态批处理要求同一批请求长度对齐、同时开始同时结束，某个请求提前生成完，它的槽位就空转到整批结束。连续批处理允许在 batch 执行过程中动态移出已完成请求、移入新到达请求，槽位不再被对齐绑死，提升的是 GPU 利用率——在请求生成长度差异很大的真实流量下收益尤其明显。它和 PagedAttention 是配合关系：每个请求的 cache 独立分页，换入换出不需要挪动其他请求的显存布局。",
+		"distractorNotes": {
+			"1": "压缩单 token 的 KV 字节数是 MQA/GQA 和量化的职责，连续批处理不改变 cache 尺寸公式里的任何因子。",
+			"2": "碎片是 PagedAttention 解决的（分页 + 块表）。两者常一起用，但解决的是不同问题。",
+			"3": "首 token 延迟由 Prefill 决定。连续批处理优化的是批内槽位调度带来的整体吞吐，不是单请求的首包时间。"
+		},
+		"reviewed": false
+	}
+]
