@@ -337,7 +337,7 @@
 		left: 0;
 		right: 0;
 		height: 2px;
-		background: var(--color-surface-sunken);
+		background: var(--color-track);
 		z-index: 10;
 	}
 

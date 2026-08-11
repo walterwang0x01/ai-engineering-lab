@@ -97,7 +97,16 @@
 				<dd class="stat-l">个交互演示</dd>
 			</div>
 			<div class="stat">
-				<dt class="stat-n ok" data-testid="stat-mastered">
+				<!--
+					绿色只在真的掌握了题之后才出现。新用户这里恒为 0，用成功绿渲染一个 0
+					会让「绿=正向成绩」这个规则失效——四个数字里三套颜色且无可推断规则，
+					读者就建立不起「蓝=内容量、绿=我的成绩」的映射。
+				-->
+				<dt
+					class="stat-n"
+					class:ok={progressReady && overall.mastered > 0}
+					data-testid="stat-mastered"
+				>
 					{progressReady ? overall.mastered : 0}
 				</dt>
 				<dd class="stat-l">已掌握</dd>
@@ -287,7 +296,9 @@
 
 	.btn-secondary {
 		color: var(--color-accent);
-		border: 1px solid var(--color-border-subtle);
+		/* 无底色的幽灵按钮，边框是它唯一的按钮线索——浅色下 border-subtle
+		   只有 1.6:1，它会退化成一段带箭头的蓝字 */
+		border: 1px solid var(--color-border-strong);
 	}
 
 	.btn-primary:hover,

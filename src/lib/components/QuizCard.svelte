@@ -290,7 +290,7 @@
 	.numeric-input {
 		flex: 0 1 12rem;
 		background: var(--color-surface-sunken);
-		border: 1px solid var(--color-border-subtle);
+		border: 1px solid var(--color-border-strong);
 		border-radius: 8px;
 		padding: 0.625rem 0.875rem;
 		color: inherit;
@@ -490,7 +490,10 @@
 	}
 
 	.btn:disabled {
-		opacity: 0.4;
+		/* 显式取值而不是 opacity，理由见 layout.css 的 --color-disabled-surface */
+		background: var(--color-disabled-surface);
+		color: var(--color-disabled-text);
+		border-color: transparent;
 		cursor: not-allowed;
 	}
 

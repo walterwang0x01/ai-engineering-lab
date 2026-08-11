@@ -156,13 +156,49 @@ const TEXT_STEPS = [
 const SEMANTIC = ['color-accent', 'color-ok', 'color-warn', 'color-bad', 'color-bad-text'] as const;
 
 /**
+ * **所有会承载文字的面层**，不只是 `--color-surface`。
+ *
+ * 这份清单是补出来的，因为原来只校验对 `--color-surface` 的对比度，
+ * 而文字实际还压在卡片（raised）、统计卡与状态条（sunken）、代码块（code）、
+ * hover 层（overlay）上。浅色主题里 sunken 是浅灰卡片底，muted 小字压上去
+ * 只有 4.42:1 —— 差 0.08 不达标，而门禁看的是它对 surface 的 6.0:1，全程绿灯。
+ *
+ * 教训：一个 token 的对比度不是它自己的属性，是它与**每一个可能的底色**配对的属性。
+ */
+const TEXT_SURFACES = [
+	'color-surface',
+	'color-surface-raised',
+	'color-surface-sunken',
+	'color-surface-inset',
+	'color-surface-overlay',
+	'color-surface-code'
+] as const;
+
+/**
+ * 非文字但承载必要信息的 token，按 WCAG 1.4.11 要求 3:1。
+ *
+ * - `accent-dim`：hover / 选中态的边框，是状态指示。
+ * - `border-strong`：边框是该控件唯一的视觉边界时用它（搜索框、答题框、幽灵按钮）。
+ * - `track`：进度轨道。新用户所有进度都是 0，轨道是那一刻唯一可见的部分。
+ *
+ * `border-subtle` **刻意不在此列**：它只做装饰性分隔，容器本身有底色差异可辨。
+ * 但这个豁免曾经被滥用——幽灵按钮和输入框也在用它，而那些地方边框是唯一的
+ * 可供性信号，浅色下 1.6:1 让它们退化成纯文本。所以拆出了 border-strong。
+ */
+const NON_TEXT = ['color-accent-dim', 'color-border-strong', 'color-track'] as const;
+
+/**
  * 刻意在两套主题里保持一致的 token，不参与「深色必须覆盖」的完整性校验。
  * 每一项都必须有理由——热力图是有自己画布的数据可视化，见 layout.css 里的说明。
  */
 const THEME_INVARIANT = new Set([
 	'color-heat-lo',
 	'color-heat-hi',
+	'color-heat-canvas',
+	'color-heat-mask-a',
+	'color-heat-mask-b',
 	'color-on-heat',
+	'color-on-heat-dark',
 	'color-on-heat-outline'
 ]);
 
@@ -221,33 +257,56 @@ describe('两套主题都定义完整', () => {
 });
 
 describe.each(THEMES)('$name', ({ tokens }) => {
-	const surface = () => tokens.get('color-surface')!;
+	/** 该主题下最难承载文字的面层（浅色里最暗、深色里最亮的那个） */
+	function hardestSurface(fg: string): { name: string; ratio: number } {
+		let worst = { name: '', ratio: Infinity };
+		for (const s of TEXT_SURFACES) {
+			const ratio = contrast(fg, tokens.get(s)!);
+			if (ratio < worst.ratio) worst = { name: s, ratio };
+		}
+		return worst;
+	}
 
-	describe('文字与语义色达到 WCAG AA（4.5:1）', () => {
+	describe('文字与语义色对每一个承载它的面层都达到 AA（4.5:1）', () => {
 		for (const name of [...TEXT_STEPS, ...SEMANTIC]) {
 			it(`--${name}`, () => {
-				const ratio = contrast(tokens.get(name)!, surface());
+				const worst = hardestSurface(tokens.get(name)!);
 				expect(
-					ratio,
-					`--${name} 对 --color-surface 只有 ${ratio}:1。小字要求 4.5:1；` +
-						'确实只用于大字或非文字时，请在 layout.css 里写明契约并移出这份清单'
+					worst.ratio,
+					`--${name} 压在 --${worst.name} 上只有 ${worst.ratio}:1。一个 token 的对比度` +
+						'不是它自己的属性，是它与每一个可能底色配对的属性——只校验 --color-surface ' +
+						'就是 muted 小字 4.42:1 那次漏检的原因'
 				).toBeGreaterThanOrEqual(4.5);
 			});
 		}
 	});
 
 	describe('非文字对比（WCAG 1.4.11，3:1）', () => {
+		for (const name of NON_TEXT) {
+			it(`--${name}`, () => {
+				const worst = hardestSurface(tokens.get(name)!);
+				expect(
+					worst.ratio,
+					`--${name} 压在 --${worst.name} 上只有 ${worst.ratio}:1，作为必要的视觉指示需要 3:1`
+				).toBeGreaterThanOrEqual(3);
+			});
+		}
+	});
+
+	describe('禁用态仍要能读出标签', () => {
 		/**
-		 * accent-dim 只用于 hover / 选中态的边框。那种边框是控件状态的视觉指示，
-		 * 门槛是 3:1，不是 4.5:1。border-subtle 不在此列——它只做装饰性分隔，
-		 * 容器本身有底色差异可辨（理由写在 layout.css 里）。
+		 * WCAG 对禁用控件豁免对比度，但用户仍需读出按钮上写的是「提交」还是「下一题」
+		 * 才知道下一步该干什么。这一条同时守着「不要用 opacity 表达禁用」——
+		 * opacity 把元素往背景色拉，浅色下浅文字与浅底一起变淡，差值被压掉。
 		 */
-		it('--color-accent-dim', () => {
-			const ratio = contrast(tokens.get('color-accent-dim')!, surface());
-			expect(
-				ratio,
-				`--color-accent-dim 只有 ${ratio}:1，作为状态边框需要 3:1`
-			).toBeGreaterThanOrEqual(3);
+		it('--color-disabled-text 对 --color-disabled-surface', () => {
+			const ratio = contrast(
+				tokens.get('color-disabled-text')!,
+				tokens.get('color-disabled-surface')!
+			);
+			expect(ratio, `禁用态标签只有 ${ratio}:1，用户读不出按钮上写的是什么`).toBeGreaterThanOrEqual(
+				4.5
+			);
 		});
 	});
 
@@ -271,7 +330,7 @@ describe.each(THEMES)('$name', ({ tokens }) => {
 		 * 明度反而最低。「越强 = 对底色反差越大」才是与主题无关的那个不变量。
 		 */
 		it('从 strong 到 faint，对底色的对比度单调递减', () => {
-			const ratios = TEXT_STEPS.map((n) => contrast(tokens.get(n)!, surface()));
+			const ratios = TEXT_STEPS.map((n) => contrast(tokens.get(n)!, tokens.get('color-surface')!));
 			for (let i = 1; i < ratios.length; i++) {
 				expect(
 					ratios[i],

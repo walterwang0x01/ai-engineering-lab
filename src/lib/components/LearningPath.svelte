@@ -316,7 +316,9 @@
 	.bar {
 		margin-top: 0.75rem;
 		height: 5px;
-		background: var(--color-surface-sunken);
+		/* 轨道用 --color-track 而不是 sunken：新用户所有进度都是 0，
+		   轨道是那一刻唯一可见的部分，sunken 在浅色下只有 1.1:1 等于不存在 */
+		background: var(--color-track);
 		border-radius: 999px;
 		overflow: hidden;
 		display: flex;
@@ -366,7 +368,7 @@
 		padding: 0.1875rem 0.5rem;
 		border-radius: 5px;
 		background: var(--color-surface-sunken);
-		border: 1px solid var(--color-border-subtle);
+		border: 1px solid var(--color-border-strong);
 		color: var(--color-text-soft);
 	}
 
@@ -411,7 +413,7 @@
 		align-items: center;
 		padding: 0.75rem 0.875rem;
 		background: var(--color-surface-raised);
-		border: 1px solid var(--color-border-subtle);
+		border: 1px solid var(--color-border-strong);
 		border-left: 2px solid var(--color-accent);
 		border-radius: 8px;
 		text-decoration: none;
@@ -477,7 +479,10 @@
 		width: 19px;
 		height: 19px;
 		border-radius: 50%;
-		background: var(--color-surface-raised);
+		/* 环线原来走 border-subtle（浅色 1.6:1）、内圈是纯白（1.0:1），
+		   合起来等于圆环不存在，只剩数字漂着 */
+		background: var(--color-surface-sunken);
+		border: 1px solid var(--color-border-strong);
 		font-family: var(--font-mono);
 		font-size: 0.5625rem;
 		display: grid;
