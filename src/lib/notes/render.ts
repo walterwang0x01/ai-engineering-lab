@@ -183,9 +183,20 @@ export function renderMarkdown(markdown: string, options: RenderOptions = {}): R
 					return `<pre class="mermaid-pending" data-mermaid-source="${encodeURIComponent(text)}">${escapeHtml(text)}</pre>\n`;
 				}
 				const language = lang && hljs.getLanguage(lang) ? lang : undefined;
-				const highlighted = language
-					? hljs.highlight(text, { language }).value
-					: hljs.highlightAuto(text).value;
+				/*
+				 * 没声明语言就**不高亮**，而不是 hljs.highlightAuto() 去猜。
+				 *
+				 * 笔记里 3511 个围栏块没有语言标记，只有约 800 个有。没标记的那批绝大多数
+				 * 是伪代码、数学推导、终端输出、目录树，自动检测在它们身上会自信地猜错：
+				 * 反向传播那篇的伪代码被整段染成「字符串绿」、`for` 被当成关键字。
+				 *
+				 * 站内长期没有任何 hljs 主题，所以误判一直是不可见的——所有 span 都渲染成
+				 * 正文色。一旦上色，误判就从无害变成了错误信息。猜错的高亮比不高亮更糟，
+				 * 这与「错误的技术内容比没有内容更糟」是同一条原则。
+				 *
+				 * `render.spec.ts` 有一条守着这个：没有语言标记的块里不能出现 hljs span。
+				 */
+				const highlighted = language ? hljs.highlight(text, { language }).value : escapeHtml(text);
 				return `<pre><code class="hljs${language ? ` language-${language}` : ''}">${highlighted}</code></pre>\n`;
 			}
 		}

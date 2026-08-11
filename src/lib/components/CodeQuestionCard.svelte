@@ -670,7 +670,7 @@
 
 	.btn-primary {
 		background: var(--color-accent);
-		color: var(--color-surface-code);
+		color: var(--color-on-accent);
 		font-weight: 600;
 	}
 

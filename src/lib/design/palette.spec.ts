@@ -170,8 +170,7 @@ const TEXT_SURFACES = [
 	'color-surface-raised',
 	'color-surface-sunken',
 	'color-surface-inset',
-	'color-surface-overlay',
-	'color-surface-code'
+	'color-surface-overlay'
 ] as const;
 
 /**
@@ -186,6 +185,27 @@ const TEXT_SURFACES = [
  * 可供性信号，浅色下 1.6:1 让它们退化成纯文本。所以拆出了 border-strong。
  */
 const NON_TEXT = ['color-accent-dim', 'color-border-strong', 'color-track'] as const;
+
+/**
+ * 语法高亮的五档。
+ *
+ * 它们只出现在 `<pre>` 里，而 `<pre>` 的底色是 `--color-surface-sunken`，
+ * 所以只对那一个面层校验——把它们塞进 TEXT_SURFACES 的全量交叉检查会得出
+ * 一堆永远不会发生的配对，然后逼着取值去满足不存在的约束。
+ *
+ * 门槛取 5:1 而不是 4.5:1：代码是等宽小字，而且要长时间扫读。
+ *
+ * **取值要留余量，不要正好压在门槛上。** 这里的 OKLab 矩阵与 Chromium 的实现
+ * 有约 0.01–0.02 的差，第一版把四个取值解到恰好 5.00，本地全绿而浏览器实测
+ * 是 4.99 —— 门禁通过了，真实渲染却不达标。现在解到 5.25。
+ */
+const CODE_TOKENS = [
+	'color-code-keyword',
+	'color-code-string',
+	'color-code-number',
+	'color-code-fn',
+	'color-code-comment'
+] as const;
 
 /**
  * 刻意在两套主题里保持一致的 token，不参与「深色必须覆盖」的完整性校验。
@@ -291,6 +311,64 @@ describe.each(THEMES)('$name', ({ tokens }) => {
 				).toBeGreaterThanOrEqual(3);
 			});
 		}
+	});
+
+	describe('语法高亮五档对代码块底色达到 5:1', () => {
+		for (const name of CODE_TOKENS) {
+			it(`--${name}`, () => {
+				const ratio = contrast(tokens.get(name)!, tokens.get('color-surface-sunken')!);
+				expect(
+					ratio,
+					`--${name} 压在 --color-surface-sunken 上只有 ${ratio}:1。` +
+						'代码是等宽小字且要长时间扫读，所以门槛比正文的 4.5 更高'
+				).toBeGreaterThanOrEqual(5);
+			});
+		}
+
+		/**
+		 * 五档必须互相可辨。全部达标但彼此雷同的话，高亮就没有传递任何结构信息——
+		 * 而这正是它存在的唯一理由。
+		 */
+		it('五档之间两两可辨', () => {
+			/*
+			 * 三个维度任一项拉开即算可辨，**饱和度也算**。
+			 *
+			 * 第一版只看色相和明度，于是把 code-fn（饱和蓝 C=0.15）和 code-comment
+			 * （近灰 C=0.012）判成「太接近」——它们色相差 14°、明度差 0.015，
+			 * 但一个是蓝一个是灰，肉眼一眼分得开。判据漏了那一维，不是取值有问题。
+			 *
+			 * 色相差只在两者都有可观饱和度时才算得上区分手段：两个近灰之间，
+			 * 色相是没有意义的（C→0 时色相不影响观感）。
+			 */
+			const vals = CODE_TOKENS.map((n) => ({ n, ...parse(tokens.get(n)!) }));
+			for (let i = 0; i < vals.length; i++) {
+				for (let j = i + 1; j < vals.length; j++) {
+					const a = vals[i];
+					const b = vals[j];
+					const dh = Math.min(Math.abs(a.H - b.H), 360 - Math.abs(a.H - b.H));
+					const bothSaturated = a.C > 0.05 && b.C > 0.05;
+					const distinguishable =
+						(bothSaturated && dh > 25) || Math.abs(a.L - b.L) > 0.08 || Math.abs(a.C - b.C) > 0.06;
+					expect(
+						distinguishable,
+						`--${a.n} 与 --${b.n} 太接近：色相差 ${dh.toFixed(0)}°、` +
+							`明度差 ${Math.abs(a.L - b.L).toFixed(3)}、饱和差 ${Math.abs(a.C - b.C).toFixed(3)}。` +
+							'五档全部达标但彼此雷同的话，高亮没有传递任何结构信息'
+					).toBe(true);
+				}
+			}
+		});
+	});
+
+	describe('强调色填充上的文字', () => {
+		/**
+		 * 主按钮是实心 accent 底 + on-accent 文字。这一对不在 TEXT_SURFACES 的
+		 * 交叉检查里（accent 不是面层），漏掉它就意味着最显眼的那个按钮没人校验。
+		 */
+		it('--color-on-accent 对 --color-accent', () => {
+			const ratio = contrast(tokens.get('color-on-accent')!, tokens.get('color-accent')!);
+			expect(ratio, `主按钮标签只有 ${ratio}:1`).toBeGreaterThanOrEqual(4.5);
+		});
 	});
 
 	describe('禁用态仍要能读出标签', () => {

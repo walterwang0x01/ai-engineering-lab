@@ -42,8 +42,17 @@
 	--color-surface-inset: oklch(0.972 0.005 264);
 	/** 浮在卡片之上的层，如 hover 态 */
 	--color-surface-overlay: oklch(0.94 0.01 264);
-	/** 代码块底色，略偏蓝以与普通下沉面区分 */
-	--color-surface-code: oklch(0.965 0.014 250);
+	/**
+	 * 强调色填充之上的文字色（主按钮的标签）。
+	 *
+	 * 这一档原名 `--color-surface-code`，注释写着「代码块底色」——**而它从来没被
+	 * 当作底色用过**，两处用法都是 `color:`。名字说谎比没有名字更糟：下一个人会
+	 * 按注释去改它，然后把按钮标签改坏。
+	 *
+	 * 浅色下它是近白（压在蓝底上），深色下是近黑（压在亮青底上）。
+	 * 由 palette.spec.ts 校验它对 --color-accent 达到 4.5:1。
+	 */
+	--color-on-accent: oklch(0.965 0.014 250);
 
 	/*
 	 * 分隔线。
@@ -140,6 +149,31 @@
 	--color-bad-text-strong: oklch(0.405 0.095 27);
 
 	/*
+	 * ── 代码语法高亮 ───────────────────────────────────────
+	 *
+	 * 168 篇笔记里 167 篇有代码块，而站内**从未引入任何 hljs 主题**：
+	 * `render.ts` 老老实实输出 `hljs-keyword` 之类的类名，没有一条 CSS 接住它们，
+	 * 于是所有代码都以正文色单色渲染。缺的不是「好看」，是**结构信息**——
+	 * 读者分不出哪个是字符串、哪个是关键字、哪一行是注释。
+	 *
+	 * 只定义 5 档，不是 17 档。产物里统计出的 17 个 hljs 类按频次归并到这 5 档，
+	 * 剩下的（punctuation / variable / params / subst…）刻意继承正文色：
+	 * 每个 token 都上色等于没有重点，而且档位越多越没人能维护两套主题。
+	 *
+	 * 色相与语义色（accent 蓝 / ok 绿 / warn 琥珀 / bad 红）**有重叠，这是可以的**：
+	 * 语义色出现在徽标、边框、状态文字上，从不出现在 <pre> 内部，
+	 * 两套视觉语言不会在同一处相遇。为此扭曲配色反而会让代码更难读。
+	 *
+	 * 五档都按 5:1 起步（高于 AA 的 4.5），因为代码是等宽小字、且要长时间扫读。
+	 */
+	--color-code-keyword: oklch(0.517 0.16 300);
+	--color-code-string: oklch(0.487 0.12 150);
+	--color-code-number: oklch(0.508 0.12 62);
+	--color-code-fn: oklch(0.499 0.15 250);
+	/** 注释不是次要信息，它常常是这段代码唯一的解释，所以也要达标 */
+	--color-code-comment: oklch(0.503 0.012 264);
+
+	/*
 	 * ── 注意力热力图 ─────────────────────────────────────
 	 *
 	 * 这四个 token **刻意在两套主题里相同**。
@@ -200,7 +234,7 @@
 			--color-surface-sunken: oklch(0.13 0.01 260);
 			--color-surface-inset: oklch(0.2 0.01 260);
 			--color-surface-overlay: oklch(0.24 0.012 260);
-			--color-surface-code: oklch(0.15 0.02 200);
+			--color-on-accent: oklch(0.15 0.02 200);
 			--color-border-subtle: oklch(0.29 0.015 260);
 			--color-border-strong: oklch(0.529 0.012 264);
 			--color-track: oklch(0.529 0.01 264);
@@ -221,6 +255,13 @@
 			--color-bad: oklch(0.66 0.19 22);
 			--color-bad-text: oklch(0.78 0.05 22);
 			--color-bad-text-strong: oklch(0.72 0.06 22);
+
+			/* 深色下取更高的对比（8–9:1），否则在近黑底上偏闷 */
+			--color-code-keyword: oklch(0.732 0.16 300);
+			--color-code-string: oklch(0.736 0.12 150);
+			--color-code-number: oklch(0.756 0.12 62);
+			--color-code-fn: oklch(0.715 0.15 250);
+			--color-code-comment: oklch(0.632 0.012 264);
 		}
 	}
 
