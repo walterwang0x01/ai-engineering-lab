@@ -299,16 +299,16 @@
 	}
 
 	/*
-	 * 可点的卡片要有抬起反馈。只做 1px 位移 + 阴影加深，不做 scale——
+	 * 可点的卡片要有抬起反馈：位移 + 阴影加深，不做 scale——
 	 * 缩放会让卡片里的文字在动画过程中发虚。
+	 *
+	 * 这里刻意只有一条 hover 规则。先前是 `.card:hover` 和 `a.card:hover` 各设一个
+	 * translateY（1px 与 2px），后者更具体所以前者的位移被静默吃掉——两条规则对
+	 * 同一件事给出矛盾的值，只有一个生效，是下次改动踩坑的来源。
 	 */
-	.card:hover {
-		box-shadow: var(--shadow-lift);
-		transform: translateY(-1px);
-	}
-
 	a.card:hover {
 		border-color: var(--color-accent);
+		box-shadow: var(--shadow-lift);
 		transform: translateY(-2px);
 	}
 
