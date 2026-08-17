@@ -78,7 +78,7 @@
 		gap: 0.5rem;
 		padding: 0.875rem 1rem;
 		background: var(--color-surface-sunken);
-		border-radius: 9px;
+		border-radius: var(--radius-control);
 	}
 
 	dt {

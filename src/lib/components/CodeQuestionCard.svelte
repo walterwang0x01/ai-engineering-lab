@@ -403,7 +403,7 @@
 	.card {
 		background: var(--color-surface-raised);
 		border: 1px solid var(--color-border-subtle);
-		border-radius: 14px;
+		border-radius: var(--radius-card);
 		padding: 1.75rem;
 		display: grid;
 		gap: 1.25rem;
@@ -436,7 +436,7 @@
 
 	.setup {
 		background: var(--color-surface-sunken);
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 		padding: 0.625rem 0.875rem;
 		font-size: 0.875rem;
 	}
@@ -452,7 +452,7 @@
 
 	.editor {
 		border: 1px solid var(--color-border-subtle);
-		border-radius: 9px;
+		border-radius: var(--radius-control);
 		overflow: hidden;
 		min-height: 8rem;
 	}
@@ -484,7 +484,7 @@
 		background: var(--color-surface-sunken);
 		color: inherit;
 		border: 1px solid var(--color-border-subtle);
-		border-radius: 9px;
+		border-radius: var(--radius-control);
 		padding: 0.875rem;
 		font-family: var(--font-mono);
 		font-size: 0.875rem;
@@ -506,7 +506,7 @@
 		color: var(--color-text-muted);
 		padding: 0.75rem 0.875rem;
 		background: var(--color-surface-sunken);
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 	}
 
 	.feedback:empty {
@@ -578,7 +578,7 @@
 		gap: 0.625rem;
 		padding: 0.625rem 0.75rem;
 		background: var(--color-surface-sunken);
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 		border-left: 2px solid var(--color-bad);
 		font-size: 0.875rem;
 		line-height: 1.6;
@@ -613,7 +613,7 @@
 
 	.panel {
 		padding: 0.875rem 1rem;
-		border-radius: 9px;
+		border-radius: var(--radius-control);
 		background: var(--color-surface-sunken);
 		display: grid;
 		gap: 0.5rem;
@@ -670,13 +670,13 @@
 	.error-detail {
 		background: var(--color-surface);
 		padding: 0.625rem 0.75rem;
-		border-radius: 6px;
+		border-radius: var(--radius-control);
 		color: var(--color-bad-text);
 	}
 
 	.stdout {
 		background: var(--color-surface-sunken);
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 		padding: 0.625rem 0.875rem;
 		font-size: 0.875rem;
 	}
@@ -690,7 +690,7 @@
 	.hint {
 		margin: 0;
 		padding: 0.75rem 0.875rem;
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 		font-size: 0.9375rem;
 		line-height: 1.7;
 		background: color-mix(in oklch, var(--color-warn) 10%, var(--color-surface-sunken));
@@ -702,7 +702,7 @@
 		margin: 0.75rem 0;
 		padding: 0.75rem 0.875rem;
 		background: var(--color-surface-sunken);
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 		overflow-x: auto;
 		font-family: var(--font-mono);
 		font-size: 0.8125rem;
@@ -713,7 +713,7 @@
 		font-family: var(--font-mono);
 		font-size: 0.875em;
 		padding: 0.0625rem 0.25rem;
-		border-radius: 4px;
+		border-radius: var(--radius-control);
 		background: var(--color-surface-sunken);
 	}
 
@@ -724,7 +724,7 @@
 	.explanation {
 		background: var(--color-surface-sunken);
 		border-left: 2px solid var(--color-accent);
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 		padding: 1rem 1.125rem;
 		display: grid;
 		gap: 0.75rem;
@@ -741,7 +741,7 @@
 		font: inherit;
 		font-size: 0.9375rem;
 		padding: 0.5rem 1.0625rem;
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 		border: 1px solid transparent;
 		cursor: pointer;
 		text-decoration: none;

@@ -223,7 +223,7 @@
 		padding: 1.25rem 1.5rem;
 		background: var(--color-surface-sunken);
 		border: 1px solid var(--color-accent-dim);
-		border-radius: 12px;
+		border-radius: var(--radius-card);
 		display: grid;
 		gap: 0.5rem;
 	}
@@ -255,7 +255,7 @@
 		gap: 0.4375rem;
 		min-height: 44px;
 		padding: 0 0.75rem;
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 		background: var(--color-surface-raised);
 		border: 1px solid var(--color-border-subtle);
 		color: inherit;
@@ -288,12 +288,23 @@
 		background: var(--color-surface-raised);
 		border: 1px solid var(--color-border-subtle);
 		border-left: 2px solid var(--color-accent);
-		border-radius: 12px;
+		border-radius: var(--radius-card);
 		text-decoration: none;
 		color: inherit;
+		box-shadow: var(--shadow-card);
 		transition:
-			border-color 160ms ease,
-			transform 160ms ease;
+			border-color var(--dur-ui) var(--ease-out),
+			box-shadow var(--dur-ui) var(--ease-out),
+			transform var(--dur-ui) var(--ease-out);
+	}
+
+	/*
+	 * 可点的卡片要有抬起反馈。只做 1px 位移 + 阴影加深，不做 scale——
+	 * 缩放会让卡片里的文字在动画过程中发虚。
+	 */
+	.card:hover {
+		box-shadow: var(--shadow-lift);
+		transform: translateY(-1px);
 	}
 
 	a.card:hover {
@@ -319,7 +330,7 @@
 		font-size: 0.75rem;
 		font-family: var(--font-mono);
 		padding: 0.1875rem 0.5rem;
-		border-radius: 5px;
+		border-radius: var(--radius-control);
 		background: var(--color-surface-sunken);
 		color: var(--color-accent);
 	}
@@ -364,7 +375,7 @@
 	.facts li {
 		font-size: 0.75rem;
 		padding: 0.1875rem 0.5rem;
-		border-radius: 5px;
+		border-radius: var(--radius-control);
 		background: var(--color-surface-sunken);
 		border: 1px solid var(--color-border-subtle);
 		color: var(--color-text-soft);

@@ -272,10 +272,11 @@
 	.explorer {
 		background: var(--color-surface-raised);
 		border: 1px solid var(--color-border-subtle);
-		border-radius: 14px;
+		border-radius: var(--radius-card);
 		padding: 1.75rem;
 		display: grid;
 		gap: 1.5rem;
+		box-shadow: var(--shadow-card);
 	}
 
 	header {
@@ -318,7 +319,7 @@
 	.node {
 		width: 100%;
 		padding: 0.625rem 0.75rem;
-		border-radius: 9px;
+		border-radius: var(--radius-control);
 		background: var(--color-surface-sunken);
 		border: 1px solid var(--color-border-subtle);
 		font-family: var(--font-mono);
@@ -472,7 +473,7 @@
 		gap: 0.25rem;
 		padding: 0.625rem 0.75rem;
 		background: var(--color-surface-sunken);
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 		text-align: center;
 	}
 
@@ -533,7 +534,7 @@
 		padding: 0.875rem 1rem;
 		background: var(--color-surface-sunken);
 		border-left: 2px solid var(--color-ok);
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 		/* 吉祥物与文字并排。顶部对齐，文字多行时图形不跟着往下飘 */
 		display: flex;
 		align-items: flex-start;
@@ -563,7 +564,7 @@
 		font-size: 0.875em;
 		background: var(--color-surface);
 		padding: 0.05em 0.35em;
-		border-radius: 4px;
+		border-radius: var(--radius-control);
 	}
 
 	.disclaimer {

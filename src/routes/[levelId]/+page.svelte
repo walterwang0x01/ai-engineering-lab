@@ -196,7 +196,35 @@
 				<button class="btn-ghost" onclick={restartRound}>再练一轮全部题目</button>
 			</div>
 		{:else if current}
-			<p class="counter">第 {index + 1} / {deck.length} 题</p>
+			<!--
+				进度条替代了原来的「第 N / M 题」纯文字。
+				文字仍然保留（读屏和精确定位都需要），但视觉主体是那条会填充的轨道——
+				它回答的是「我走到哪了」，这是 AGENTS.md 允许的「进度可见」。
+			-->
+			<div class="quiz-progress">
+				<div
+					class="qp-track"
+					role="progressbar"
+					aria-valuemin="0"
+					aria-valuemax={deck.length}
+					aria-valuenow={index}
+					aria-label="本轮进度"
+				>
+					<div class="qp-fill" style="--pct: {(index / deck.length) * 100}%"></div>
+				</div>
+				<div class="qp-meta">
+					<span class="counter">第 {index + 1} / {deck.length} 题</span>
+					{#if progress.streak > 1}
+						<!--
+							会话内连击。key 让数字每次变化都重新入场，动效因此能被感知到；
+							关掉页面即清零（不落 localStorage），所以它不是跨天打卡。
+						-->
+						{#key progress.streak}
+							<span class="qp-streak">🔥 连对 {progress.streak}</span>
+						{/key}
+					{/if}
+				</div>
+			</div>
 			<!-- 按题型分派：代码题的判定是异步的，走完全不同的组件 -->
 			{#key current.id}
 				{#if current.kind === 'code'}
@@ -273,7 +301,7 @@
 		padding: 1.25rem 1.5rem;
 		background: var(--color-surface-raised);
 		border: 1px solid var(--color-border-subtle);
-		border-radius: 14px;
+		border-radius: var(--radius-card);
 	}
 
 	.bg-title {
@@ -298,7 +326,7 @@
 		justify-content: space-between;
 		gap: 1rem;
 		padding: 0.5rem 0.75rem;
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 		background: var(--color-surface-sunken);
 		border: 1px solid transparent;
 		color: inherit;
@@ -367,6 +395,58 @@
 		color: var(--color-text-muted);
 	}
 
+	/* ── 本轮进度 ── */
+	.quiz-progress {
+		display: grid;
+		gap: 0.5rem;
+		margin-bottom: 0.25rem;
+	}
+
+	.qp-track {
+		height: 8px;
+		border-radius: 999px;
+		background: var(--color-track);
+		overflow: hidden;
+	}
+
+	.qp-fill {
+		width: var(--pct);
+		height: 100%;
+		border-radius: inherit;
+		background: var(--color-accent);
+		/*
+		 * 填充用 ease-out-back：进度条推进时轻微过冲再落位，是「走到这了」的落地感。
+		 * 时长走 --dur-enter（400ms）而不是判定时长——它是装饰，且不挡住下一步操作。
+		 */
+		transition: width var(--dur-enter) var(--ease-out-back);
+	}
+
+	.qp-meta {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+
+	.qp-streak {
+		font-size: 0.8125rem;
+		font-weight: 600;
+		color: var(--color-warn);
+		/* {#key} 让它每次连击数变化都重新入场，否则数字静默跳变没人会注意到 */
+		animation: streak-pop var(--dur-ui) var(--ease-out-back);
+	}
+
+	@keyframes streak-pop {
+		from {
+			transform: scale(0.82);
+			opacity: 0;
+		}
+		to {
+			transform: scale(1);
+			opacity: 1;
+		}
+	}
+
 	.placeholder {
 		margin: 0;
 		color: var(--color-text-faint);
@@ -376,7 +456,7 @@
 	.done {
 		background: var(--color-surface-raised);
 		border: 1px solid var(--color-border-subtle);
-		border-radius: 14px;
+		border-radius: var(--radius-card);
 		padding: 1.75rem;
 		display: grid;
 		gap: 0.75rem;
@@ -404,7 +484,7 @@
 		background: transparent;
 		color: var(--color-accent);
 		border: 1px solid var(--color-border-subtle);
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 		cursor: pointer;
 		transition: border-color 140ms ease;
 	}

@@ -490,7 +490,7 @@
 	.note-body :global(pre) {
 		background: var(--color-surface-sunken);
 		border: 1px solid var(--color-border-subtle);
-		border-radius: 9px;
+		border-radius: var(--radius-control);
 		padding: 0.875rem 1rem;
 		overflow-x: auto;
 		font-size: 0.8125rem;
@@ -547,7 +547,7 @@
 	.note-body :global(:not(pre) > code) {
 		background: var(--color-surface-sunken);
 		padding: 0.125rem 0.375rem;
-		border-radius: 4px;
+		border-radius: var(--radius-control);
 		font-size: 0.875em;
 	}
 
@@ -586,7 +586,7 @@
 	.note-body :global(img) {
 		max-width: 100%;
 		height: auto;
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 	}
 
 	.note-body :global(hr) {
@@ -598,14 +598,14 @@
 	.self-check {
 		background: var(--color-surface-raised);
 		border: 1px solid var(--color-border-subtle);
-		border-radius: 14px;
+		border-radius: var(--radius-card);
 		padding: 1.5rem 1.75rem;
 	}
 
 	.to-level {
 		background: var(--color-surface-raised);
 		border: 1px solid var(--color-accent-dim);
-		border-radius: 14px;
+		border-radius: var(--radius-card);
 		padding: 1.5rem 1.75rem;
 		display: grid;
 		gap: 0.5rem;
@@ -617,7 +617,7 @@
 		align-items: center;
 		min-height: 44px;
 		padding: 0 0.875rem;
-		border-radius: 9px;
+		border-radius: var(--radius-control);
 		background: var(--color-surface-sunken);
 		border: 1px solid var(--color-accent-dim);
 		color: var(--color-accent);
@@ -663,7 +663,7 @@
 	.gradable-done {
 		background: var(--color-surface-raised);
 		border: 1px solid var(--color-border-subtle);
-		border-radius: 14px;
+		border-radius: var(--radius-card);
 		padding: 1.5rem 1.75rem;
 		display: grid;
 		gap: 0.75rem;
@@ -691,7 +691,7 @@
 		background: transparent;
 		color: var(--color-accent);
 		border: 1px solid var(--color-border-subtle);
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 		cursor: pointer;
 		transition: border-color 140ms ease;
 	}
@@ -794,7 +794,7 @@
 		font: inherit;
 		font-size: 0.9375rem;
 		padding: 0.5rem 1.0625rem;
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 		border: 1px solid var(--color-border-subtle);
 		background: transparent;
 		color: var(--color-accent);

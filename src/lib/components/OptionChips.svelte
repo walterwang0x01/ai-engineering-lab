@@ -72,7 +72,7 @@
 		padding: 0.5rem 0.875rem;
 		background: var(--color-surface-sunken);
 		border: 1px solid var(--color-border-subtle);
-		border-radius: 9px;
+		border-radius: var(--radius-control);
 		cursor: pointer;
 		transition: border-color 140ms ease;
 		min-width: 6.5rem;

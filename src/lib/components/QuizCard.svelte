@@ -232,14 +232,16 @@
 	.card {
 		background: var(--color-surface-raised);
 		border: 1px solid var(--color-border-subtle);
-		border-radius: 14px;
-		padding: 1.75rem;
+		border-radius: var(--radius-card);
+		/* 内边距放宽、行距加大：这是「减少文字压迫感」最有效的一处，比任何动效都管用 */
+		padding: 2rem;
 		display: grid;
-		gap: 1.25rem;
-		/* 反馈动画控制在 180ms，快于 300ms 的感知阈值 */
+		gap: 1.5rem;
+		box-shadow: var(--shadow-card);
+		/* 判定反馈走 --dur-verdict（180ms），快于 300ms 的感知阈值 */
 		transition:
-			border-color 180ms ease,
-			box-shadow 180ms ease;
+			border-color var(--dur-verdict) var(--ease-out),
+			box-shadow var(--dur-verdict) var(--ease-out);
 	}
 
 	.card[data-state='ok'] {
@@ -276,7 +278,7 @@
 	.prompt {
 		margin: 0;
 		font-size: 1.0625rem;
-		line-height: 1.7;
+		line-height: 1.8;
 		/* 题干里的换行是有意义的（分行给参数），必须保留 */
 		white-space: pre-wrap;
 	}
@@ -291,7 +293,7 @@
 		flex: 0 1 12rem;
 		background: var(--color-surface-sunken);
 		border: 1px solid var(--color-border-strong);
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 		padding: 0.625rem 0.875rem;
 		color: inherit;
 		font-family: var(--font-mono);
@@ -322,7 +324,7 @@
 		padding: 0.75rem 0.875rem;
 		background: var(--color-surface-sunken);
 		border: 1px solid var(--color-border-subtle);
-		border-radius: 9px;
+		border-radius: var(--radius-control);
 		cursor: pointer;
 		transition: border-color 140ms ease;
 		line-height: 1.6;
@@ -330,6 +332,7 @@
 
 	.options:not([disabled]) .option:hover {
 		border-color: var(--color-accent-dim);
+		transform: translateY(-1px);
 	}
 
 	/* 隐藏原生 radio 但保留键盘与读屏可达性 */
@@ -365,10 +368,14 @@
 		height: 1.5rem;
 		display: grid;
 		place-items: center;
-		border-radius: 5px;
+		border-radius: var(--radius-control);
 		background: var(--color-surface);
 		font-family: var(--font-mono);
 		font-size: 0.8125rem;
+		font-weight: 600;
+		transition:
+			background-color var(--dur-verdict) var(--ease-out),
+			color var(--dur-verdict) var(--ease-out);
 	}
 
 	.feedback:empty {
@@ -410,7 +417,7 @@
 	.distractor {
 		margin: 0;
 		padding: 0.75rem 0.875rem;
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 		font-size: 0.9375rem;
 		line-height: 1.7;
 	}
@@ -431,7 +438,7 @@
 		margin: 0.75rem 0;
 		padding: 0.75rem 0.875rem;
 		background: var(--color-surface-sunken);
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 		overflow-x: auto;
 		font-family: var(--font-mono);
 		font-size: 0.8125rem;
@@ -442,7 +449,7 @@
 		font-family: var(--font-mono);
 		font-size: 0.875em;
 		padding: 0.0625rem 0.25rem;
-		border-radius: 4px;
+		border-radius: var(--radius-control);
 		background: var(--color-surface-sunken);
 	}
 
@@ -453,7 +460,7 @@
 	.explanation {
 		background: var(--color-surface-sunken);
 		border-left: 2px solid var(--color-accent);
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 		padding: 1rem 1.125rem;
 		display: grid;
 		gap: 0.75rem;
@@ -478,7 +485,7 @@
 	.btn {
 		font: inherit;
 		padding: 0.5625rem 1.125rem;
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 		border: 1px solid transparent;
 		cursor: pointer;
 		transition: opacity 140ms ease;
