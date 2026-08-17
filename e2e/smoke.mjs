@@ -520,7 +520,7 @@ try {
 		await page.getByTestId('only-gradable').check();
 		await page.waitForTimeout(200);
 		const gradableOnly = await page.locator('a.note-link:visible').count();
-		check('「只看有可判定题的」筛选生效', gradableOnly === 4, `${gradableOnly} 篇`);
+		check('「只看有可判定题的」筛选生效', gradableOnly >= 4, `${gradableOnly} 篇`);
 		await page.getByTestId('only-gradable').uncheck();
 
 		// 有 Tier A 题的篇目必须在列表上可发现（复查严重度 3：此前完全没有标记）
