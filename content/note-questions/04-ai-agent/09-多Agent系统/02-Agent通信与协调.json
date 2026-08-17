@@ -1,24 +1,5 @@
 [
 	{
-		"id": "mcp-vs-a2a-scope",
-		"prompt": "笔记说 MCP 与 A2A 是互补的「双协议栈」。它们各自解决的是什么问题？",
-		"options": [
-			"MCP 连接 Agent 与工具，A2A 连接 Agent 与 Agent（任务委派、跨组织协作）",
-			"MCP 负责传输加密，A2A 负责消息序列化",
-			"A2A 是 MCP 的新版本，用来替代 MCP",
-			"MCP 用于本地部署的场景，A2A 用于云端部署的场景"
-		],
-		"answerIndex": 0,
-		"explanation": "笔记两处都写明了这个分工：「MCP 处理 Agent→工具连接，A2A 处理 Agent→Agent 委派和跨组织协作」。所以 A2A 的原语是 Agent Card（能力发现）、Message/Task（委派与状态查询 `SendMessage` / `GetTask`）、以及认证方案声明——这些都是「一个 Agent 怎么找到并雇用另一个 Agent」需要的东西，而不是「怎么调一个函数」需要的东西。反过来说，A2A 不负责工具调用的描述与执行，那一层还是 MCP。",
-		"hint": "看两个协议各自定义了什么原语：Agent Card 和 Task 是给谁用的？",
-		"distractorNotes": {
-			"1": "两者都是应用层的交互协议，笔记区分的是「连谁」，不是安全与编码的分层。",
-			"2": "笔记明确写的是互补而非替代——一个系统里通常同时用：对内调工具用 MCP，对外委派任务用 A2A。",
-			"3": "部署位置不是分界。MCP Server 可以是远程的，A2A 的 Agent 也可以在内网；区分点是通信双方的性质（工具还是 Agent）。"
-		},
-		"reviewed": false
-	},
-	{
 		"id": "shared-state-decoupling",
 		"prompt": "笔记里 researcher / developer / reviewer 通过 LangGraph 的共享状态协作：前者写 `research_data`，后者读它再写 `code_artifacts`。这种「间接通信」相比点对点直接消息的特点是什么？",
 		"options": [
