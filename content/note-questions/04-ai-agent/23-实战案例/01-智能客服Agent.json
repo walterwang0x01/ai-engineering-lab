@@ -1,24 +1,5 @@
 [
 	{
-		"id": "mcp-vs-a2a-split",
-		"prompt": "笔记把 2026 年的客服架构画成「MCP（工具层）+ A2A（Agent 间协作）」双协议栈。这两个协议各自解决的问题边界是什么？",
-		"options": [
-			"MCP 让知识库、订单、工单这些系统以框架无关的方式被 Agent 调用；A2A 让本方 Agent 把任务委托给别家厂商的 Agent",
-			"MCP 负责 Agent 之间通信，A2A 负责 Agent 与工具之间通信，两者方向正好相反",
-			"MCP 是 A2A 的传输层，A2A 的每一次跨厂商调用都必须封装成 MCP 请求",
-			"两者功能等价，MCP 用于自建系统、A2A 用于云上系统，选一个即可"
-		],
-		"answerIndex": 0,
-		"explanation": "笔记的 2026 架构图把两条线分得很清：MCP 那一支挂的是知识库检索、订单系统、工单系统——即「工具接入标准化，Agent 框架无关」；A2A 那一支挂的是计费 Agent、物流 Agent（不同供应商、第三方）——即跨组织的 Agent 协作。一个解决「我怎么调用一个系统」，一个解决「我怎么把活外包给另一个自主体」。",
-		"hint": "看架构图上两条支线下面挂的分别是什么东西：系统，还是别家的 Agent。",
-		"distractorNotes": {
-			"1": "方向说反了。MCP 面向工具/数据源，A2A 面向 Agent 与 Agent。",
-			"2": "两者是并列的两层，笔记没有把 A2A 建在 MCP 之上；它们解决的是不同层次的问题，不是嵌套关系。",
-			"3": "它们不等价，也不是按自建/云上划分。区别在于对面是「工具」还是「另一个 Agent」。"
-		},
-		"reviewed": false
-	},
-	{
 		"id": "handoff-summary-before-interrupt",
 		"prompt": "笔记的 `human_handoff_node` 在调用 `interrupt()` 把流程挂起之前，先让 LLM 把对话压成 3 句话摘要，并把摘要放进 interrupt 的载荷里。为什么要在中断前做这一步？",
 		"options": [

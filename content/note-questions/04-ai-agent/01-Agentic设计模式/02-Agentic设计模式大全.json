@@ -38,43 +38,6 @@
 		"reviewed": false
 	},
 	{
-		"id": "swarm-vs-supervisor",
-		"prompt": "Supervisor 模式由监督者决定下一步交给哪个工作者；Swarm 模式让平等的 Agent 之间用 handoff 直接转交控制权，没有中央控制。这个差别带来的直接后果是什么？",
-		"options": [
-			"Supervisor 有单一位置能看到并决定全局流转，Swarm 把路由决策分散到各个 Agent，灵活但整体路径更难约束和追踪",
-			"Swarm 里的 Agent 不能使用工具，只能做分类转交",
-			"Supervisor 模式必然比 Swarm 慢，因为监督者的每次决策都要多一次模型调用，而 Swarm 不需要模型参与路由",
-			"Swarm 保证控制权只会转交一次，因此不存在绕圈的可能"
-		],
-		"answerIndex": 0,
-		"explanation": "两者的区别就是控制权归属：Supervisor 是中央调度，所有分发决策集中在一个 prompt 里，易于观察和加约束；Swarm 让每个 Agent 自己决定要不要 handoff 给谁，路由知识分散在各 Agent 的 instructions 里。笔记把 Swarm 的关键特征写成「多个平等 Agent 通过 handoff 协作，无中央控制」——去掉中央控制换来灵活，也就同时去掉了那个能统一约束流转的位置。",
-		"distractorNotes": {
-			"1": "Swarm 里的 Agent 是完整 Agent，一样能带工具。handoff 只是它们之间额外的一种转交能力。",
-			"2": "Swarm 的 handoff 决策同样由模型做出（triage 的 instructions 就是让模型判断该转交给谁），并不省掉模型参与。",
-			"3": "handoff 可以链式发生，A 转 B、B 再转回 A 都是可能的。恰恰因为没有中央控制，这类绕圈更难被发现和阻止。"
-		},
-		"reviewed": false
-	},
-	{
-		"id": "semantic-cache-threshold",
-		"prompt": "笔记的 SemanticCache 用 embedding 余弦相似度超过阈值就直接返回缓存结果。为了提高命中率而下调这个阈值，风险是什么？",
-		"options": [
-			"会把「语义相近但答案不同」的问题判为同一个，返回一个看起来相关、实际答错的结果",
-			"embedding 的维度会随阈值下降而减少，检索精度整体下降",
-			"缓存条目会无限增长，占用的内存和阈值成反比",
-			"低于某个阈值后余弦相似度会变成负数，比较逻辑失效"
-		],
-		"answerIndex": 0,
-		"explanation": "语义缓存成立的前提是「语义足够相近 ⇒ 答案可以复用」。阈值就是这个前提的强度旋钮，调低相当于放宽前提。而语义相似不等于答案相同——「北京今天天气」和「上海今天天气」在嵌入空间里非常接近，答案却完全不同；这类命中不会报错，只会静默返回错误答案，比不命中更难察觉。",
-		"hint": "举一个「问法几乎一样但答案必须不同」的例子，看看它会不会被误命中。",
-		"distractorNotes": {
-			"1": "embedding 维度由嵌入模型决定，和查询时的判定阈值毫无关系。",
-			"2": "条目增长取决于写入了多少不同查询。阈值调低反而更容易命中已有条目，写入变少。",
-			"3": "余弦相似度本来就可能取负值，这是它的取值范围，不是阈值造成的失效。"
-		},
-		"reviewed": false
-	},
-	{
 		"id": "guardrails-two-sides",
 		"prompt": "笔记的 Guardrails 模式在 Agent 的输入侧和输出侧都设了检查。为什么输入检查通过了，输出侧还需要再查一遍？",
 		"options": [
