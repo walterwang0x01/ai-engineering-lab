@@ -182,12 +182,31 @@ assertValidQuestionSet(YOUR_QUESTIONS, 'your-level-id');
 
 ### 12. Pyodide 必须严格懒加载
 
-Pyodide 核心约 10MB。只在用户点「运行」时才创建 Worker，
+Pyodide 核心约 10MB，numpy wheel 另加 2.9MB。只在用户点「运行」时才创建 Worker，
 阅读路径完全不碰。已验证：CodeMirror 的 297KB 在独立 chunk 里，
 首页和关卡页都不加载它。
 
 **不要在页面加载时调用 `runner.warmup()`** ——
 那等于把 10MB 强加给只想读题的人。
+
+numpy 由 `scripts/sync-pyodide.mjs` 的 `EXTRA_PACKAGES` 同步到 `static/pyodide/`。
+它**不在 npm 包里**——`pyodide` 的 `files` 白名单只含核心运行时，科学计算包设计上
+由 `loadPackage` 运行时从 CDN 取。所以脚本是**下载 + 校验 sha256**，不是从
+`node_modules` 复制。
+
+这个坑踩过一次，值得留着：本地 `node_modules/pyodide/` 里可能**恰好**有 numpy wheel
+（早先某次运行时下载留下的缓存），于是「从 node_modules 复制」在本地跑得通，到 CI 的
+全新安装就 `❌ 缺少必需文件`。**本地绿、CI 红，症状指向环境，根因在实现。**
+
+校验用 sha256 而不是只比大小：大小相同的坏文件（CDN 抖动、单字节损坏）只比大小会
+放过去，而 ABI 或内容损坏的报错发生在浏览器里，极难联想到构建脚本。
+文件名、版本、校验值全部**从 `pyodide-lock.json` 解析**，不硬编码。
+
+它只在用户点了一个 `import numpy` 的代码块的「运行」时由 `loadPackage` 单独拉取。
+
+为什么值得加这 2.9MB：笔记里 578 个 python 块，只靠标准库能跑出结果的仅 11 个，
+加上 numpy 变成 71 个（10 篇 → 66 篇），解锁的正是 KV Cache 显存分析、量化、
+反向传播、CLIP 这批纯计算的推导代码。
 
 ### 13. 死循环只能靠 terminate Worker 中断
 
@@ -331,7 +350,47 @@ CI 因此多了一步显式的 `pnpm run notes:sync`。删掉任何一环都会�
 
 ---
 
-## 目录职责
+### 22. 笔记交互指「内容本身可摆弄」，不是「围绕内容出题」
+
+这条是纠正过一次的理解偏差，写下来免得下一个 agent 再偏一遍。
+
+「给笔记加交互」指的是**把讲解对象做成可操纵的部件**：讲注意力就能拖注意力矩阵、
+讲显存公式就能调参看数字变、讲反向传播就能把神经元推进死区看梯度归零。
+围绕笔记出题、自测、「想一想」折叠**不算交互，那是考核**——题目走第 17 条的
+Tier A 管道，与这里是两件事。
+
+两套机制，都是**渲染后 DOM 增强**，笔记源文件一个字不用改（笔记在另一个仓库，
+逐篇改要乘以 168）：
+
+**① 代码块可运行**（`RunnableCode.svelte`）
+
+在 `<pre><code class="language-python">` 后插控件。判定用**标准库 + numpy 白名单**，
+不是第三方库黑名单——黑名单漏一个就把跑不了的块判成能跑，而 `` `langchain\b` ``
+匹配不到 `langchain_openai`（下划线是词字符）这种漏洞很难自查。白名单漏一个只会
+少给一个按钮，失败方向是安全的。
+
+还排除了要网络/凭证/事件循环的代码，以及没有 `print` 的块。原因是
+**给一个必然失败的运行按钮比不给按钮更糟**——读者点了看到 Pyodide 的英文报错，
+只会以为站点坏了。
+
+编辑器是**点「改一改」才展开**的。第一版直接铺开 textarea，结果同一段代码在页面上
+出现两遍（高亮的 `<pre>` + 编辑框），既占竖向空间，编辑视图还丢了语法高亮。
+
+**② 可操纵部件内嵌**（`NoteWidgets.svelte` + `src/lib/notes/widgets.ts`）
+
+注册表按 slug 声明「在哪个标题之后插什么部件」。目前复用 5 个关卡沙盒，嵌进它们
+各自的背景笔记（映射见 `curriculum/mapping.ts`）——这批组件都不接 props、完全自包含。
+
+**锚点用标题文本，不要用「第 N 个标题」。** 序号方案在作者插入一节后会静默错位，
+部件跑到不相关的段落底下，而这种错位没有任何可见症状。文本锚点改了则是显式失效，
+且 `widgets.spec.ts` 会校验每个锚点在真实 markdown 里存在——改标题会让测试红。
+
+插入位置是「该小节末尾」，判据是**下一个同级或更高级标题之前**：锚在 h2 上时它的
+h3 子节仍属于这一节，部件该放在整节讲完之后。
+
+**覆盖面的硬限制**：能「一次改动覆盖全站」的只有代码块那条路。实测 167 篇有代码、
+只有 24 篇有公式、0 篇有 mermaid 图，所以剩下 163 篇要按篇写部件。那 24 篇有公式的
+是最好的下一批候选——公式最容易变成「调参数看数字变」。
 
 ```
 src/lib/levels/        关卡定义层
@@ -377,11 +436,19 @@ src/lib/components/    UI 组件
   LearningPath.svelte  首页学习路径。模块骨架 + 关卡卡片 + orphanLevels
   Mascot.svelte        吉祥物。身体是 ReLU 折线，跟着存活状态走（见第 21 条）
   ConstraintGauge.svelte / OptionChips.svelte  达标型沙盒共享件（见第 18 条）
+  RunnableCode.svelte  笔记里的 python 块变成可改可跑（见第 22 条）
+  NoteWidgets.svelte   把可操纵部件插进笔记指定小节（见第 22 条）
+
+src/lib/notes/         笔记正文的渲染与增强
+  render.ts            markdown → HTML。无语言标记的块不做自动检测（见第 17.1 条）
+  widgets.ts           ★ slug → 内嵌部件的注册表。锚点是标题文本，人工维护
+  widgets.spec.ts      锚点门禁：每个 afterHeading 必须在真实 markdown 里存在
 
 content/note-questions/  本仓库维护的 Tier A 题库，路径镜像笔记 slug
 
 scripts/
   sync-notes.mjs         构建期同步笔记 + 抽取 Tier A 题目
+  sync-pyodide.mjs       Pyodide 同源托管。EXTRA_PACKAGES 里的包名从 lock 解析（见第 12 条）
   lib/extract-quiz.mjs   Tier A 抽取与校验。被构建脚本和单测共用
   generate-og.mjs        OG 图生成（手动跑，不进构建）。配色从 layout.css 解析，不要再手抄
   review-questions.mjs   把待过审的 Tier A 题打印成可读清单（npm run notes:review）

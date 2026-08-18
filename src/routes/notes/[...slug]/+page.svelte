@@ -14,6 +14,8 @@
 	import { resolve } from '$app/paths';
 	import Seo from '$lib/components/Seo.svelte';
 	import QuizCard from '$lib/components/QuizCard.svelte';
+	import RunnableCode from '$lib/components/RunnableCode.svelte';
+	import NoteWidgets from '$lib/components/NoteWidgets.svelte';
 	import { renderMath, renderMermaidBlocks } from '$lib/notes/render';
 	import { notesProgress } from '$lib/storage/notes-progress.svelte';
 	import { progress } from '$lib/storage/progress.svelte';
@@ -197,6 +199,14 @@
 		{/if}
 
 		<article class="note-body" bind:this={articleEl} data-testid="note-body">
+			<!--
+				正文里的 python 代码块升级成可运行，以及把可操纵部件插进对应小节。
+				两者都靠查询已渲染的 DOM 找锚点，所以必须等 articleEl 存在后再挂载。
+			-->
+			{#if articleEl}
+				<RunnableCode container={articleEl} />
+				<NoteWidgets container={articleEl} slug={data.slug} />
+			{/if}
 			<!-- eslint-disable-next-line svelte/no-at-html-tags -- 内容来自本仓库同步的自有笔记，非用户输入 -->
 			{@html data.html}
 		</article>
