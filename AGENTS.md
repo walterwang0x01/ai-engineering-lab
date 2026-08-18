@@ -189,9 +189,19 @@ Pyodide 核心约 10MB，numpy wheel 另加 2.9MB。只在用户点「运行」�
 **不要在页面加载时调用 `runner.warmup()`** ——
 那等于把 10MB 强加给只想读题的人。
 
-numpy 由 `scripts/sync-pyodide.mjs` 的 `EXTRA_PACKAGES` 同步到 `static/pyodide/`，
-文件名**从 `pyodide-lock.json` 解析**，不要硬编码——硬编码在 numpy 升版后会变成
-「缺少必需文件」中断构建，或更糟：拿到旧 wheel 而 lock 指向新版本。
+numpy 由 `scripts/sync-pyodide.mjs` 的 `EXTRA_PACKAGES` 同步到 `static/pyodide/`。
+它**不在 npm 包里**——`pyodide` 的 `files` 白名单只含核心运行时，科学计算包设计上
+由 `loadPackage` 运行时从 CDN 取。所以脚本是**下载 + 校验 sha256**，不是从
+`node_modules` 复制。
+
+这个坑踩过一次，值得留着：本地 `node_modules/pyodide/` 里可能**恰好**有 numpy wheel
+（早先某次运行时下载留下的缓存），于是「从 node_modules 复制」在本地跑得通，到 CI 的
+全新安装就 `❌ 缺少必需文件`。**本地绿、CI 红，症状指向环境，根因在实现。**
+
+校验用 sha256 而不是只比大小：大小相同的坏文件（CDN 抖动、单字节损坏）只比大小会
+放过去，而 ABI 或内容损坏的报错发生在浏览器里，极难联想到构建脚本。
+文件名、版本、校验值全部**从 `pyodide-lock.json` 解析**，不硬编码。
+
 它只在用户点了一个 `import numpy` 的代码块的「运行」时由 `loadPackage` 单独拉取。
 
 为什么值得加这 2.9MB：笔记里 578 个 python 块，只靠标准库能跑出结果的仅 11 个，
