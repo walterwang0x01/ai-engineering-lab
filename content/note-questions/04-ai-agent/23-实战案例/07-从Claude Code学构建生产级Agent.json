@@ -19,25 +19,6 @@
 		"reviewed": false
 	},
 	{
-		"id": "cache-edits-mark-skip",
-		"prompt": "`CacheAwareMessageStore` 在裁剪历史时用 `skip_indices` 标记跳过，而不是真的从 `messages` 里删掉，并且 `get_cache_key()` 刻意基于包含被跳过消息的完整列表。这个设计买的是什么？",
-		"options": [
-			"保住 Prompt Cache 的前缀连续性——真删除会改变消息序列，让后续请求全部缓存未命中，成本按笔记的定价差是十倍级",
-			"保证被跳过的消息可以随时恢复给用户查看，属于撤销功能",
-			"避免 Python 列表删除元素时的 O(n) 开销，提升长会话的性能",
-			"让被跳过的消息仍然参与模型推理，只是不显示在界面上"
-		],
-		"answerIndex": 0,
-		"explanation": "笔记在成本工程一节把缓存命中与未命中的单价差列为约十倍（缓存命中是标准输入价的一折），并直接写「架构设计必须以缓存为中心」。Prompt Cache 命中依赖前缀逐字节一致，一旦从中间删掉消息，前缀就变了，后面的缓存全部作废。标记跳过让「模型看到的内容」和「用于算缓存键的内容」解耦：可见列表变短，缓存键不变。",
-		"hint": "Prompt Cache 是按前缀匹配的。从历史中间删掉一条消息，前缀还一样吗？",
-		"distractorNotes": {
-			"1": "恢复展示只是副产品，笔记把这段明确定位为「长会话不变慢的核心机制」，理由是缓存。",
-			"2": "列表操作的开销与 LLM 调用成本相比可以忽略，也不是笔记给的理由。",
-			"3": "恰恰相反，`get_visible_messages()` 已经把被跳过的消息排除在发送内容之外，模型看不到它们。"
-		},
-		"reviewed": false
-	},
-	{
 		"id": "permission-check-order",
 		"prompt": "`PermissionManager.check` 的顺序是：先扫 deny、再扫 allow、再扫 auto_approve，都不命中才返回需要确认的 PROMPT。如果把 deny 挪到 allow 之后，会出现什么后果？",
 		"options": [
