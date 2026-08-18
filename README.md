@@ -62,8 +62,24 @@ their companion level; levels link back to their background notes.
 
 **Gradable questions inside the notes themselves (Tier A).** Notes can carry
 machine-graded multiple-choice questions that share the judging engine and the
-spaced-repetition schedule with level questions. Currently four notes are
+spaced-repetition schedule with level questions. Currently eleven notes are
 covered; the pipeline and its gates are in place for the rest.
+
+**The notes are manipulable, not just readable.** Two mechanisms, both pure
+progressive enhancement of the rendered HTML — the note sources (a separate
+repo) are untouched:
+
+- **Python blocks run in the browser.** 71 blocks across 66 notes are runnable
+  via the same Pyodide worker the level code questions use. Hit "运行这段" to see
+  the output, "改一改" to edit and re-run. A block only gets a button if it can
+  actually produce output — the check is a stdlib+numpy allowlist plus exclusions
+  for network, credentials, and event loops, because a run button that is
+  guaranteed to fail is worse than no button.
+- **Sandboxes are embedded where the prose explains them.** Finish the variance
+  analysis for why attention divides by √d_k, and the attention matrix is right
+  there to toggle scaling off and watch softmax saturate. Five notes carry their
+  level's sandbox inline, anchored by heading text (not ordinal position, which
+  would silently drift when a section is inserted).
 
 The KV cache sandbox is representative: a real serving scenario (Llama 2 70B,
 batch 32, 4K context) with two budgets that must hold simultaneously — memory

@@ -24,8 +24,19 @@ const DEST = 'static/pyodide';
  * 运行所需的最小文件集。
  *
  * 刻意不复制整个目录：包里还有 .d.ts、source map、示例 HTML，
- * 加起来几百 KB 的无用产物。科学计算包（numpy 等）也不在这里——
- * 它们按需从 lock 文件里的地址取，目前的题目一个都没用到。
+ * 加起来几百 KB 的无用产物。
+ *
+ * numpy 是唯一被显式纳入的科学计算包。原先这里写「科学计算包按需从 lock 文件里的
+ * 地址取，目前的题目一个都没用到」——关卡题确实一个都没用，但笔记正文的可运行代码块
+ * 用得很多：实测全站 578 个 python 块里，只靠标准库能跑出结果的仅 11 个，
+ * 加上 numpy 后变成 71 个（10 篇 → 66 篇），解锁的正是 KV Cache 显存分析、量化、
+ * 反向传播、CLIP 这类纯计算的推导型代码——最值得动手改一改再跑的那批。
+ *
+ * 不改成「从 CDN 按需取」的原因和 wasm 一样：实测 jsDelivr 在国内只有 24.9 KB/s，
+ * 2.9 MB 要两分钟，用户会以为卡死了。同源托管是几秒。
+ *
+ * 它**不影响阅读路径的体积**：numpy 只在用户点了某个用 numpy 的块的「运行」时，
+ * 由 loadPackage 单独拉取（AGENTS.md 第 12 条要求的严格懒加载依然成立）。
  */
 const FILES = [
 	'pyodide.mjs', // 入口胶水代码
@@ -34,6 +45,13 @@ const FILES = [
 	'python_stdlib.zip', // Python 标准库，2.5 MB
 	'pyodide-lock.json' // 包索引，loadPackage 用
 ];
+
+/**
+ * 额外按需同步的科学计算包。文件名**从 lock 文件解析**，不硬编码——
+ * 硬编码在 numpy 升版后会变成「缺少必需文件」而中断构建，或更糟：
+ * 拿到旧 wheel 而 lock 指向新版本，loadPackage 报难懂的 404。
+ */
+const EXTRA_PACKAGES = ['numpy'];
 
 async function main() {
 	if (!existsSync(SRC)) {
@@ -52,9 +70,20 @@ async function main() {
 
 	await mkdir(DEST, { recursive: true });
 
+	// 从 lock 文件解析额外包的 wheel 文件名，拼进待复制清单
+	const lock = JSON.parse(await readFile(`${SRC}/pyodide-lock.json`, 'utf8'));
+	const extraFiles = EXTRA_PACKAGES.map((name) => {
+		const entry = lock.packages?.[name];
+		if (!entry?.file_name) {
+			console.error(`❌ lock 文件里找不到包 ${name}，无法同步`);
+			process.exit(1);
+		}
+		return entry.file_name;
+	});
+
 	let total = 0;
 	let copied = 0;
-	for (const file of FILES) {
+	for (const file of [...FILES, ...extraFiles]) {
 		const from = path.join(SRC, file);
 		const to = path.join(DEST, file);
 
