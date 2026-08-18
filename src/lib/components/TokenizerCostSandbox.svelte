@@ -217,7 +217,7 @@
 	.sandbox {
 		background: var(--color-surface-raised);
 		border: 1px solid var(--color-border-subtle);
-		border-radius: 14px;
+		border-radius: var(--radius-card);
 		padding: 1.75rem;
 		display: grid;
 		gap: 1.5rem;
@@ -256,7 +256,7 @@
 		padding: 0.75rem 0.875rem;
 		background: var(--color-surface-sunken);
 		border-left: 2px solid var(--color-accent);
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 	}
 
 	.controls {
@@ -280,7 +280,7 @@
 		gap: 0.5rem;
 		padding: 0.875rem 1rem;
 		background: var(--color-surface-sunken);
-		border-radius: 9px;
+		border-radius: var(--radius-control);
 	}
 
 	.readout code {

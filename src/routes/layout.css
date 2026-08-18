@@ -262,10 +262,55 @@
 			--color-code-number: oklch(0.756 0.12 62);
 			--color-code-fn: oklch(0.715 0.15 250);
 			--color-code-comment: oklch(0.632 0.012 264);
+
+			/*
+			 * 深色底上投影几乎不可见（黑压黑），所以换成极淡的顶部高光边——
+			 * 这是深色 UI 里表达「这一层浮起来」的常规手法。
+			 */
+			--shadow-card: inset 0 1px 0 oklch(1 0 0 / 0.04);
+			--shadow-lift: inset 0 1px 0 oklch(1 0 0 / 0.07), 0 8px 24px oklch(0 0 0 / 0.35);
 		}
 	}
 
 	:root {
+		/**
+		 * ── 动效时长与曲线 ─────────────────────────────────────
+		 *
+		 * **这四组必须放在 `:root` 而不是 `@theme`。** Tailwind 4 的 `@theme` 只保留它
+		 * 认识的命名空间（`--color-*`、`--font-*`、`--spacing-*` …），其余会被静默剥掉。
+		 * 第一版写在 `@theme` 里，构建出来的 `:root` 只有 `--color-*`，于是
+		 * `border-radius: var(--radius-card)` 整条声明失效、圆角读成 0px，
+		 * `box-shadow: var(--shadow-card)` 读成 none——**样式静默消失，没有任何报错**。
+		 * 是浏览器里量 computed style 才发现的，构建和 svelte-check 都是绿的。
+		 *
+		 * 判定反馈 ≤180ms（见「反馈必须快于 300ms」），装饰性过渡可以到 400ms
+		 * 但不能挡在下一步操作前面。抽成 token 是为了让这条约束可被一眼核对，
+		 * 而不是散落在各组件里凭感觉写数字。
+		 *
+		 * `--ease-out-back` 只用在「有东西落位」的地方（进度条填充、连击数字跳动）。
+		 * 它会轻微过冲，用在颜色或透明度上会显得廉价。
+		 */
+		--dur-verdict: 180ms;
+		--dur-ui: 240ms;
+		--dur-enter: 400ms;
+		--ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+		--ease-out-back: cubic-bezier(0.34, 1.32, 0.64, 1);
+
+		/**
+		 * ── 圆角与阴影 ─────────────────────────────────────────
+		 *
+		 * 三档圆角：控件 8px、卡片 14px、大容器 20px。同一层级用同一档，
+		 * 混用会让界面看起来是拼的（收敛前全站有 9 档）。
+		 *
+		 * 阴影刻意很淡且只有两档。深色主题下投影几乎不可见（深底上投影无意义），
+		 * 所以深色那套换成极淡的顶部高光边——见下方 prefers-color-scheme 里的覆盖。
+		 */
+		--radius-control: 8px;
+		--radius-card: 14px;
+		--radius-shell: 20px;
+		--shadow-card: 0 1px 2px oklch(0.2 0.02 264 / 0.04), 0 4px 12px oklch(0.2 0.02 264 / 0.05);
+		--shadow-lift: 0 2px 4px oklch(0.2 0.02 264 / 0.05), 0 12px 28px oklch(0.2 0.02 264 / 0.09);
+
 		/*
 		 * 让浏览器的原生控件跟着主题走。
 		 *

@@ -230,7 +230,7 @@
 		padding: 1.125rem 1.25rem;
 		background: var(--color-surface-sunken);
 		border: 1px solid var(--color-border-subtle);
-		border-radius: 12px;
+		border-radius: var(--radius-card);
 	}
 
 	.stat-n {
@@ -279,7 +279,7 @@
 		align-items: center;
 		min-height: 44px;
 		padding: 0 1.125rem;
-		border-radius: 10px;
+		border-radius: var(--radius-card);
 		font-size: 0.9375rem;
 		font-weight: 600;
 		text-decoration: none;

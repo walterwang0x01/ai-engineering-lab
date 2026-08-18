@@ -299,10 +299,11 @@
 	.viz {
 		background: var(--color-surface-raised);
 		border: 1px solid var(--color-border-subtle);
-		border-radius: 14px;
+		border-radius: var(--radius-card);
 		padding: 1.75rem;
 		display: grid;
 		gap: 1.5rem;
+		box-shadow: var(--shadow-card);
 	}
 
 	header {
@@ -351,7 +352,7 @@
 		padding: 0.4375rem 0.9375rem;
 		background: var(--color-surface-sunken);
 		border: 1px solid var(--color-border-subtle);
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 		cursor: pointer;
 		font-family: var(--font-mono);
 		font-size: 0.9375rem;
@@ -392,7 +393,7 @@
 		padding: 0.75rem 0.875rem;
 		background: var(--color-surface-sunken);
 		border: 1px solid var(--color-border-subtle);
-		border-radius: 9px;
+		border-radius: var(--radius-control);
 		cursor: pointer;
 	}
 
@@ -445,7 +446,7 @@
 		 */
 		background: var(--color-heat-canvas);
 		padding: 4px;
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 	}
 
 	.cell {
@@ -528,7 +529,7 @@
 		gap: 0.3125rem;
 		padding: 0.875rem 1rem;
 		background: var(--color-surface-sunken);
-		border-radius: 9px;
+		border-radius: var(--radius-control);
 	}
 
 	.metric-label {
@@ -556,7 +557,7 @@
 		padding: 0.875rem 1rem;
 		background: var(--color-surface-sunken);
 		border-left: 2px solid var(--color-accent);
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 	}
 
 	.disclaimer {

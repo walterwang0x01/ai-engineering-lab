@@ -366,7 +366,7 @@
 		gap: 0.3125rem;
 		font-size: 0.75rem;
 		padding: 0.1875rem 0.5rem;
-		border-radius: 5px;
+		border-radius: var(--radius-control);
 		background: var(--color-surface-sunken);
 		border: 1px solid var(--color-border-strong);
 		color: var(--color-text-soft);
@@ -415,16 +415,19 @@
 		background: var(--color-surface-raised);
 		border: 1px solid var(--color-border-strong);
 		border-left: 2px solid var(--color-accent);
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 		text-decoration: none;
 		color: inherit;
+		box-shadow: var(--shadow-card);
 		transition:
-			border-color 160ms ease,
-			transform 160ms ease;
+			border-color var(--dur-ui) var(--ease-out),
+			box-shadow var(--dur-ui) var(--ease-out),
+			transform var(--dur-ui) var(--ease-out);
 	}
 
 	a.lv:hover {
 		border-color: var(--color-accent);
+		box-shadow: var(--shadow-lift);
 		transform: translateY(-1px);
 	}
 
@@ -432,7 +435,7 @@
 		font-family: var(--font-mono);
 		font-size: 0.6875rem;
 		padding: 0.125rem 0.4375rem;
-		border-radius: 4px;
+		border-radius: var(--radius-control);
 		background: var(--color-surface-sunken);
 		color: var(--color-accent);
 		white-space: nowrap;

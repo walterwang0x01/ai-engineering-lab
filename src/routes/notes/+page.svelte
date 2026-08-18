@@ -380,7 +380,7 @@
 		min-width: 14rem;
 		background: var(--color-surface-sunken);
 		border: 1px solid var(--color-border-strong);
-		border-radius: 9px;
+		border-radius: var(--radius-control);
 		color: inherit;
 	}
 
@@ -480,19 +480,30 @@
 		justify-content: space-between;
 		gap: 1rem;
 		padding: 0.625rem 0.875rem;
-		border-radius: 8px;
+		border-radius: var(--radius-control);
 		background: var(--color-surface-raised);
 		border: 1px solid var(--color-border-subtle);
 		text-decoration: none;
 		color: inherit;
-		transition: border-color 140ms ease;
+		box-shadow: var(--shadow-card);
+		transition:
+			border-color var(--dur-ui) var(--ease-out),
+			box-shadow var(--dur-ui) var(--ease-out),
+			transform var(--dur-ui) var(--ease-out);
 	}
 
 	.note-link:hover {
 		border-color: var(--color-accent);
+		box-shadow: var(--shadow-lift);
+		transform: translateY(-1px);
 	}
 
 	.note-link.is-read {
+		/*
+		 * 已读用 opacity 压淡，在浅色主题下方向是对的（往白拉=退后），
+		 * 但深色主题下它会往黑拉、和未读的区分变弱。这里可以接受：
+		 * 它只是次要状态提示，标题本身仍用 text 档，不承载必须读出的信息。
+		 */
 		opacity: 0.68;
 	}
 
