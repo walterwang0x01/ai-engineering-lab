@@ -4,6 +4,7 @@
 	import Seo from '$lib/components/Seo.svelte';
 	import LearningPath from '$lib/components/LearningPath.svelte';
 	import MasteryLegend from '$lib/components/MasteryLegend.svelte';
+	import HeroMemoryProbe from '$lib/components/HeroMemoryProbe.svelte';
 	import { LEVELS } from '$lib/levels/registry';
 	import { EMPTY_MANIFEST, buildCurriculum } from '$lib/curriculum/build';
 	import { summarizeMastery } from '$lib/quiz/schedule';
@@ -129,6 +130,17 @@
 			</a>
 		</div>
 	</header>
+
+	<!--
+		首屏之后立刻给一个能碰的东西。
+
+		改版前首页从头到尾没有任何可交互元素：整站卖点是「调参数看约束怎么被打破」，
+		而首页只是用文字**声明**了这件事——读者读到承诺却无法验证，
+		一个交互式练习场于是看起来像一篇说明文。这是首页比字号层级更根本的缺陷。
+
+		位置刻意在 hero 与「从哪开始」之间：先证明，再分流。
+	-->
+	<HeroMemoryProbe />
 
 	<section class="start-here" data-testid="start-here">
 		<h2 class="section-title">从哪开始</h2>
