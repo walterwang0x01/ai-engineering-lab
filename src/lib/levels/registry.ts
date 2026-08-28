@@ -14,6 +14,7 @@ import { ATTENTION_QUESTIONS } from '$lib/quiz/attention-questions';
 import { BACKPROP_QUESTIONS } from '$lib/quiz/backprop-questions';
 import { TOKENIZER_QUESTIONS } from '$lib/quiz/tokenizer-questions';
 import { RAG_CHUNKING_QUESTIONS } from '$lib/quiz/rag-chunking-questions';
+import { DEPLOY_DECISION_QUESTIONS } from '$lib/quiz/deploy-decision-questions';
 import type { LevelDefinition } from './types';
 
 export const LEVELS: LevelDefinition[] = [
@@ -184,6 +185,32 @@ export const LEVELS: LevelDefinition[] = [
 				'先猜「分块越小越精确」能不能过，再动手验证。',
 			load: () => import('$lib/components/RagChunkingSandbox.svelte')
 		}
+	},
+	{
+		id: 'deploy-decision',
+		eyebrow: '综合挑战',
+		title: '部署决策：能不能跑起来',
+		lede:
+			'一个真实场景串起全部知识。给你 Llama 2 70B + 8×A100 + batch 32 + 4K 上下文，' +
+			'你来判断：显存够不够、注意力瓶颈在哪、量化能省多少、RAG 怎么分块。',
+		card: {
+			tag: '综合挑战',
+			summary:
+				'跨越 5 个关卡的知识检验。同一个部署场景里，' +
+				'用 KV Cache 公式算显存、用注意力公式算复杂度、用分词效率估成本、用 RAG 公式规划检索。',
+			points: [
+				'KV Cache + 量化对显存的联合影响',
+				'注意力复杂度与分块策略的相互制约',
+				'Tokenizer 效率决定上下文预算分配'
+			]
+		},
+		seo: {
+			title: '综合挑战：部署决策 · AI Engineering Lab',
+			description:
+				'给你 Llama 2 70B、8×A100、batch 32——用全部 5 个关卡学到的公式判断它能不能跑起来，成本多少。',
+			ogImage: 'home.png'
+		},
+		questions: DEPLOY_DECISION_QUESTIONS
 	}
 ];
 

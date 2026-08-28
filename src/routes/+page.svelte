@@ -130,6 +130,30 @@
 		</div>
 	</header>
 
+	<section class="start-here" data-testid="start-here">
+		<h2 class="section-title">从哪开始</h2>
+		<ul class="routes">
+			<li>
+				<span class="route-who">完全入门</span>
+				<span class="route-arrow">→</span>
+				<a href={resolve('/notes')}>从第一篇笔记读起</a>
+				<span class="route-why">按模块顺序，每篇配有可判定题</span>
+			</li>
+			<li>
+				<span class="route-who">有 ML 基础，想深入推理优化</span>
+				<span class="route-arrow">→</span>
+				<a href={resolve('/kv-cache')}>直接进 KV Cache 关卡</a>
+				<span class="route-why">显存公式 + 双约束沙盒，算清楚再往下走</span>
+			</li>
+			<li>
+				<span class="route-who">学过全部关卡，想综合检验</span>
+				<span class="route-arrow">→</span>
+				<a href={resolve('/deploy-decision')}>综合挑战：部署决策</a>
+				<span class="route-why">一个真实场景串起 5 个关卡的知识</span>
+			</li>
+		</ul>
+	</section>
+
 	<section class="path-section">
 		<div class="section-head">
 			<h2 class="section-title">学习路径</h2>
@@ -312,6 +336,73 @@
 		font-size: 0.875rem;
 		line-height: 1.7;
 		color: var(--color-text-faint);
+	}
+
+	/* ─── 从哪开始 路由表 ─── */
+	.start-here {
+		padding: 1.5rem;
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-card);
+	}
+
+	.start-here .section-title {
+		font-size: 1.125rem;
+		margin: 0 0 1rem;
+	}
+
+	.routes {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		gap: 0.875rem;
+	}
+
+	.routes li {
+		display: grid;
+		grid-template-columns: auto auto 1fr;
+		grid-template-rows: auto auto;
+		column-gap: 0.5rem;
+		align-items: baseline;
+	}
+
+	.route-who {
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: var(--color-text);
+	}
+
+	.route-arrow {
+		font-size: 0.875rem;
+		color: var(--color-text-muted);
+	}
+
+	.routes a {
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: var(--color-accent);
+		text-decoration: none;
+	}
+
+	.routes a:hover {
+		text-decoration: underline;
+	}
+
+	.route-why {
+		grid-column: 1 / -1;
+		font-size: 0.8125rem;
+		color: var(--color-text-muted);
+		line-height: 1.5;
+	}
+
+	@media (max-width: 540px) {
+		.routes li {
+			grid-template-columns: 1fr;
+		}
+		.route-arrow {
+			display: none;
+		}
 	}
 
 	.section-head {

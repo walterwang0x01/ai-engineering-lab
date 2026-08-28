@@ -29,7 +29,8 @@ export const LEVEL_BACKGROUND_NOTES: Readonly<Record<string, readonly string[]>>
 	'rag-chunking': [
 		'04-ai-agent/06-RAG进阶/01-RAG架构与核心流程',
 		'04-ai-agent/06-RAG进阶/03-高级RAG策略'
-	]
+	],
+	'deploy-decision': ['02-llm/05-推理优化/02-量化', '02-llm/05-推理优化/04-投机解码与推理引擎']
 };
 
 /**
