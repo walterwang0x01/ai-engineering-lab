@@ -216,29 +216,42 @@
 	main {
 		max-width: 60rem;
 		margin: 0 auto;
-		padding: 2.5rem 1.25rem 5rem;
+		padding: var(--space-7) var(--space-5) var(--space-8);
 		display: grid;
-		gap: 3rem;
+		/*
+		 * 区块间距不再全站一律 3rem。等距是「每个区块权重相同」的视觉表达，
+		 * 而首页是有主次的：hero 之后要断开，功能区之间靠得近。
+		 * 具体节奏由各区块自己的 margin 微调，见下面。
+		 */
+		gap: var(--space-7);
 	}
 
 	.hero {
 		display: grid;
-		gap: 1rem;
+		gap: var(--space-4);
 	}
 
 	h1 {
 		margin: 0;
-		font-size: clamp(2rem, 5.5vw, 2.5rem);
-		line-height: 1.15;
-		letter-spacing: -0.02em;
+		font-size: var(--fs-display);
+		line-height: 1.08;
+		letter-spacing: -0.03em;
+		/*
+		 * **必须显式给 text-strong。** 原来这里没有 color 声明，于是 h1 继承
+		 * html 的 --color-text（正文灰）—— 整页最大的字用的不是最重的颜色。
+		 * 这是「页面缺少一处确定的黑、视线找不到落点」的直接原因：
+		 * 五档灰里最强的那档在首屏根本没出场。
+		 */
+		color: var(--color-text-strong);
+		max-width: 22em;
 	}
 
 	.lede {
 		margin: 0;
-		font-size: 1.0625rem;
+		font-size: var(--fs-md);
 		line-height: 1.7;
 		color: var(--color-text);
-		max-width: 40rem;
+		max-width: 38rem;
 	}
 
 	.lede b {
@@ -247,11 +260,11 @@
 
 	/* 数字带：一眼看出这站有多少东西、自己走到哪 */
 	.totals {
-		margin: 0.75rem 0 0;
+		margin: var(--space-2) 0 0;
 		display: flex;
 		flex-wrap: wrap;
-		gap: 2.5rem;
-		padding: 1.125rem 1.25rem;
+		gap: var(--space-6);
+		padding: var(--space-5);
 		background: var(--color-surface-sunken);
 		border: 1px solid var(--color-border-subtle);
 		border-radius: var(--radius-card);
@@ -260,9 +273,13 @@
 	.stat-n {
 		margin: 0;
 		font-family: var(--font-mono);
-		font-size: 1.5rem;
+		/* 数字是这一带的主角，拉到 --fs-lg 才和 display 标题形成可读的次级关系 */
+		font-size: var(--fs-lg);
 		font-weight: 600;
 		line-height: 1.1;
+		letter-spacing: -0.02em;
+		/* 非强调的两个数字原来也继承正文灰，和它们下面的标签几乎同色 */
+		color: var(--color-text-strong);
 	}
 
 	.stat-n.accent {
@@ -275,26 +292,26 @@
 
 	.stat-gloss {
 		display: block;
-		font-size: 0.6875rem;
+		font-size: var(--fs-2xs);
 		color: var(--color-text-faint);
-		margin-top: 0.0625rem;
+		margin-top: var(--space-1);
 	}
 
 	.legend-slot {
-		margin-top: 1.25rem;
+		margin-top: var(--space-5);
 	}
 
 	.stat-l {
-		margin: 0.125rem 0 0;
-		font-size: 0.75rem;
-		color: var(--color-text-faint);
+		margin: var(--space-1) 0 0;
+		font-size: var(--fs-xs);
+		color: var(--color-text-muted);
 	}
 
 	.cta-row {
-		margin-top: 0.5rem;
+		margin-top: var(--space-2);
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.75rem;
+		gap: var(--space-3);
 	}
 
 	.btn-primary,
@@ -302,19 +319,28 @@
 		display: inline-flex;
 		align-items: center;
 		min-height: 44px;
-		padding: 0 1.125rem;
-		border-radius: var(--radius-card);
-		font-size: 0.9375rem;
+		padding: 0 var(--space-5);
+		border-radius: var(--radius-control);
+		font-size: var(--fs-base);
 		font-weight: 600;
 		text-decoration: none;
+		/* 用 token 而不是又一个手写的 160ms —— 装饰性过渡统一走 --dur-ui */
 		transition:
-			border-color 160ms ease,
-			transform 160ms ease;
+			border-color var(--dur-ui) var(--ease-out),
+			box-shadow var(--dur-ui) var(--ease-out),
+			transform var(--dur-ui) var(--ease-out);
 	}
 
 	.btn-primary {
 		background: var(--color-accent);
-		color: var(--color-surface);
+		/*
+		 * 主按钮标签用 --color-on-accent，不是 --color-surface。
+		 * 这一档存在的唯一目的就是「压在强调色填充上的文字」，且 palette.spec.ts
+		 * 专门校验它对 --color-accent 达到 4.5:1。借用 --color-surface 看着像对的
+		 * （浅色下它也接近白），但那个值的对比度**没有任何测试在盯**，
+		 * 主题一调就可能悄悄跌破可读线。
+		 */
+		color: var(--color-on-accent);
 		border: 1px solid var(--color-accent);
 	}
 
@@ -333,22 +359,39 @@
 
 	.sub {
 		margin: 0;
-		font-size: 0.875rem;
+		font-size: var(--fs-sm);
 		line-height: 1.7;
-		color: var(--color-text-faint);
+		color: var(--color-text-muted);
 	}
 
 	/* ─── 从哪开始 路由表 ─── */
 	.start-here {
-		padding: 1.5rem;
+		padding: var(--space-5);
 		background: var(--color-surface-raised);
-		border: 1px solid var(--color-border);
+		/*
+		 * 这里原来写的是 `var(--color-border)` —— 那个 token **从未被定义过**
+		 * （设计系统只有 -subtle 和 -strong）。引用未定义变量会让整条 border
+		 * 声明失效，所以这张卡片一直**没有边框**：白卡浮在白页上，边界看不出来。
+		 * 静默失效，构建和 svelte-check 都是绿的，只能靠量 computed style 发现。
+		 */
+		border: 1px solid var(--color-border-subtle);
+		/*
+		 * 左侧强调条。这是全页唯一的「先看这里」入口，需要一个不依赖字号的权重来源——
+		 * 原来它和下面两个 section 视觉权重完全相同，扫读时无从判断该先看哪个。
+		 */
+		border-left: 3px solid var(--color-accent);
 		border-radius: var(--radius-card);
+		box-shadow: var(--shadow-card);
 	}
 
+	/* 焦点卡片的标题走真标题，不跟 .section-title 的眉标样式 */
 	.start-here .section-title {
-		font-size: 1.125rem;
-		margin: 0 0 1rem;
+		font-size: var(--fs-md);
+		font-weight: 600;
+		letter-spacing: -0.01em;
+		text-transform: none;
+		color: var(--color-text-strong);
+		margin: 0 0 var(--space-4);
 	}
 
 	.routes {
@@ -356,30 +399,46 @@
 		margin: 0;
 		padding: 0;
 		display: grid;
-		gap: 0.875rem;
+		gap: 0;
 	}
 
 	.routes li {
 		display: grid;
 		grid-template-columns: auto auto 1fr;
 		grid-template-rows: auto auto;
-		column-gap: 0.5rem;
+		column-gap: var(--space-2);
 		align-items: baseline;
+		/*
+		 * 分隔线代替 gap。三条路线是并列可选项，读者要做的是逐行对照「哪一条是我」——
+		 * 有界的行比纯留白更容易横向对齐扫读。
+		 */
+		padding: var(--space-3) 0;
+		border-top: 1px solid var(--color-border-subtle);
+	}
+
+	.routes li:first-child {
+		border-top: 0;
+		padding-top: 0;
+	}
+
+	.routes li:last-child {
+		padding-bottom: 0;
 	}
 
 	.route-who {
-		font-size: 0.875rem;
+		font-size: var(--fs-base);
 		font-weight: 600;
-		color: var(--color-text);
+		/* 「谁」是这一行的索引项，要能被扫到，原来用正文灰和后面的说明同色 */
+		color: var(--color-text-strong);
 	}
 
 	.route-arrow {
-		font-size: 0.875rem;
-		color: var(--color-text-muted);
+		font-size: var(--fs-base);
+		color: var(--color-text-faint);
 	}
 
 	.routes a {
-		font-size: 0.875rem;
+		font-size: var(--fs-base);
 		font-weight: 600;
 		color: var(--color-accent);
 		text-decoration: none;
@@ -391,9 +450,10 @@
 
 	.route-why {
 		grid-column: 1 / -1;
-		font-size: 0.8125rem;
+		font-size: var(--fs-sm);
 		color: var(--color-text-muted);
-		line-height: 1.5;
+		line-height: 1.6;
+		margin-top: var(--space-1);
 	}
 
 	@media (max-width: 540px) {
@@ -409,17 +469,33 @@
 		display: flex;
 		align-items: baseline;
 		justify-content: space-between;
-		gap: 1rem;
-		margin-bottom: 0.5rem;
+		gap: var(--space-4);
+		margin-bottom: var(--space-4);
 	}
 
+	/**
+	 * 区块标题是**真标题**，不是眉标。
+	 *
+	 * 原来这里是 `font-size: 0.8125rem` + `uppercase` + `letter-spacing: 0.08em`
+	 * + `text-faint` —— 一套典型的英文小眉标样式，问题是：
+	 *
+	 * 1. **`uppercase` 对中文完全无效**。「学习路径」没有大小写可转，
+	 *    这条声明在这个站上做的唯一一件事是零。
+	 * 2. **`letter-spacing: 0.08em` 对中文是负作用**。字母间距拉开在英文里制造
+	 *    精致的眉标感，在中文里只是把方块字推散。
+	 * 3. 于是这套样式实际生效的只剩「最弱的灰 + 13px」—— 每个区块的入口
+	 *    在视觉上直接消失，扫读时看不到页面的骨架。
+	 *
+	 * 换成 --fs-lg + 600 + text-strong，和 h1(display) / 卡片标题(md) 一起
+	 * 形成三级层次：页面标题 → 区块标题 → 卡内标题。
+	 */
 	.section-title {
 		margin: 0;
-		font-size: 0.8125rem;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--color-text-faint);
-		font-weight: 500;
+		font-size: var(--fs-lg);
+		letter-spacing: -0.01em;
+		color: var(--color-text-strong);
+		font-weight: 600;
+		line-height: 1.3;
 	}
 
 	.all-notes {
@@ -427,7 +503,7 @@
 		display: inline-flex;
 		align-items: center;
 		min-height: 44px;
-		font-size: 0.8125rem;
+		font-size: var(--fs-sm);
 		color: var(--color-accent);
 		text-decoration: none;
 		white-space: nowrap;
@@ -438,13 +514,13 @@
 	}
 
 	.notice {
-		margin: 0 0 1.25rem;
-		font-size: 0.875rem;
+		margin: 0 0 var(--space-5);
+		font-size: var(--fs-sm);
 		color: var(--color-warn);
 	}
 
 	.why .section-title {
-		margin-bottom: 1.25rem;
+		margin-bottom: var(--space-5);
 	}
 
 	/* dt 和 dd 必须包在 .entry 里：dl 直接用 grid + gap 时，
@@ -452,32 +528,34 @@
 	.why dl {
 		margin: 0;
 		display: grid;
-		gap: 1.5rem;
+		gap: var(--space-5);
 	}
 
 	.why dt {
-		font-size: 1rem;
+		font-size: var(--fs-md);
 		font-weight: 600;
-		margin-bottom: 0.4375rem;
+		/* 三条设计理由的小标题也要立住，原来继承正文灰、和下面的说明区分不足 */
+		color: var(--color-text-strong);
+		margin-bottom: var(--space-2);
 	}
 
 	.why dd {
 		margin: 0;
-		font-size: 0.9375rem;
+		font-size: var(--fs-base);
 		line-height: 1.75;
 		color: var(--color-text-soft);
 	}
 
 	.foot {
 		border-top: 1px solid var(--color-border-subtle);
-		padding-top: 1.5rem;
+		padding-top: var(--space-5);
 	}
 
 	.foot p {
 		margin: 0;
-		font-size: 0.875rem;
+		font-size: var(--fs-sm);
 		line-height: 1.7;
-		color: var(--color-text-faint);
+		color: var(--color-text-muted);
 	}
 
 	.foot a {
