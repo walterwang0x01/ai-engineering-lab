@@ -110,24 +110,30 @@
 
 <style>
 	.note-widget {
-		margin: 1.75rem 0 2rem;
-		padding: 1.25rem;
+		margin: var(--space-6) 0;
+		padding: var(--space-5);
 		background: var(--color-surface-raised);
-		border: 1px solid var(--color-border);
+		/*
+		 * 曾经写的是 `var(--color-border)` —— 而那个 token **从未被定义过**
+		 * （设计系统里只有 -subtle 和 -strong）。CSS 引用未定义变量会让整条声明
+		 * 失效，所以这些嵌在笔记正文里的部件一直**没有边框**：白卡片浮在白页面上，
+		 * 读者看不出「这一块是可操纵的部件」的边界。静默失效，构建和 check 都是绿的。
+		 */
+		border: 1px solid var(--color-border-subtle);
 		border-radius: var(--radius-card);
 		box-shadow: var(--shadow-card);
 	}
 
 	.nw-invitation {
-		margin: 0 0 1.125rem;
-		font-size: 0.875rem;
+		margin: 0 0 var(--space-4);
+		font-size: var(--fs-base);
 		line-height: 1.75;
 		color: var(--color-text-soft);
 	}
 
 	.nw-loading {
 		margin: 0;
-		font-size: 0.8125rem;
+		font-size: var(--fs-sm);
 		color: var(--color-text-muted);
 	}
 </style>
