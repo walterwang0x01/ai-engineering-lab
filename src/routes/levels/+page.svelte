@@ -11,6 +11,17 @@
 	 *
 	 * 这一页同时解决了第三条：代码题被埋在第 9 题。这里直接标出哪一关有代码题、
 	 * 有几道，让最独特的卖点在导航一层就能看见。
+	 *
+	 * ## 这一版重做解决的三件事
+	 *
+	 * 1. **算出来又扔掉的进度**。`summarizeMastery` 返回四档
+	 *    （已掌握 / 在学 / 需重练 / 未做），而卡片只渲染了一个 `done` 数字——
+	 *    「10 / 12 做过」既分不出哪些真掌握了，也看不出哪些答错过要重练。
+	 *    首页的模块行早就在用分段条表达这四档，索引页却把同一份数据压成了一个分数。
+	 * 2. **一整页没有任何可操作的东西**。6 张卡片一列排开，用户只能滚动。
+	 *    加了筛选：想找代码题、想接着做没做完的、想挑没开始的，都是真实意图。
+	 * 3. **对中文无效的英文眉标样式**。`text-transform: uppercase` 对「关卡」
+	 *    做不了任何事，`letter-spacing` 只会把方块字推散——和首页那处同源问题。
 	 */
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
@@ -42,6 +53,46 @@
 			};
 		})
 	);
+
+	/**
+	 * 筛选。
+	 *
+	 * 默认必须是「全部」：冒烟测试断言索引页列出全部关卡，
+	 * 而且首次访问时把卡片藏起来毫无道理。
+	 */
+	type Filter = 'all' | 'todo' | 'doing' | 'code';
+	let filter = $state<Filter>('all');
+
+	const FILTERS: readonly { id: Filter; label: string }[] = [
+		{ id: 'all', label: '全部' },
+		{ id: 'todo', label: '没开始' },
+		{ id: 'doing', label: '做了一半' },
+		{ id: 'code', label: '有代码题' }
+	];
+
+	const visibleRows = $derived(
+		rows.filter((r) => {
+			if (filter === 'all') return true;
+			if (filter === 'code') return r.codeCount > 0;
+			// 进度还没从 localStorage 读出来时不做进度类筛选，否则会闪一下空列表
+			if (!ready) return true;
+			if (filter === 'todo') return r.done === 0;
+			return r.done > 0 && r.mastery.mastered < r.mastery.total;
+		})
+	);
+
+	/** 每个筛选项能命中几关，直接标在按钮上——避免点进去才发现是空的 */
+	function countFor(id: Filter): number {
+		if (id === 'all') return rows.length;
+		if (id === 'code') return rows.filter((r) => r.codeCount > 0).length;
+		if (!ready) return 0;
+		if (id === 'todo') return rows.filter((r) => r.done === 0).length;
+		return rows.filter((r) => r.done > 0 && r.mastery.mastered < r.mastery.total).length;
+	}
+
+	function pct(n: number, total: number): number {
+		return total === 0 ? 0 : (n / total) * 100;
+	}
 
 	/**
 	 * 今天到期需要复习的题，按关卡分组。
@@ -77,13 +128,29 @@
 	const totals = $derived({
 		questions: rows.reduce((n, r) => n + r.mastery.total, 0),
 		code: rows.reduce((n, r) => n + r.codeCount, 0),
-		mastered: rows.reduce((n, r) => n + r.mastery.mastered, 0)
+		mastered: rows.reduce((n, r) => n + r.mastery.mastered, 0),
+		interactive: rows.filter((r) => r.level.interactive).length
 	});
+
+	/** 全站总进度，给页头那条总览条用 */
+	const overall = $derived(
+		summarizeMastery(
+			LEVELS.flatMap((l) => l.questions.map((q) => q.id)),
+			progress.scheduleView
+		)
+	);
 </script>
 
+<!--
+	描述由数据推导，**不写死数字**。
+
+	原文硬编码「5 个关卡、52 道可判定题」，而 deploy-decision 上线后实际是
+	6 关 62 道 —— 加一关就让搜索结果里的文案变成假话，且没有任何东西会报错。
+	这类漂移只能靠「不留下写死的机会」来防。
+-->
 <Seo
 	title="全部关卡 · AI Engineering Lab"
-	description="5 个关卡、52 道可判定题、9 道在浏览器里真跑 Python 的代码题。每关配一个参数沙盒或可交互演示，答错会告诉你错在哪。"
+	description="{LEVELS.length} 个关卡、{totals.questions} 道可判定题、{totals.code} 道在浏览器里真跑 Python 的代码题。每关配一个参数沙盒或可交互演示，答错会告诉你错在哪。"
 	ogImage="home.png"
 />
 
@@ -95,14 +162,47 @@
 			每关是一组<b>能判定对错的题</b>加一个<b>能调参数的交互</b>。
 			题目答错会给出针对那个误解的解释，代码题在你的浏览器里真跑 Python、用断言判定。
 		</p>
-		<p class="sub">
-			共 {totals.questions} 道题，其中 {totals.code} 道是代码题{#if ready && totals.mastered > 0}，你已掌握
-				{totals.mastered} 道{/if}。进度只存在这台设备的浏览器里。
-		</p>
+
+		<dl class="head-stats">
+			<div>
+				<dt>{totals.questions}</dt>
+				<dd>道可判定题</dd>
+			</div>
+			<div>
+				<dt>{totals.code}</dt>
+				<dd>道跑真 Python</dd>
+			</div>
+			<div>
+				<dt>{totals.interactive}</dt>
+				<dd>个可交互演示</dd>
+			</div>
+			<div>
+				<dt class:ok={ready && totals.mastered > 0}>{ready ? totals.mastered : 0}</dt>
+				<dd>道已掌握</dd>
+			</div>
+		</dl>
+
+		{#if ready && overall.total - overall.untouched > 0}
+			<!--
+				全站总进度条。四档用同一套语义色，和首页模块行、图例保持一致：
+				绿=已掌握、琥珀=在学、红=需重练、灰轨=没做过。
+			-->
+			<div class="track" data-testid="overall-bar" aria-hidden="true">
+				<i class="seg ok" style="width: {pct(overall.mastered, overall.total)}%"></i>
+				<i class="seg warn" style="width: {pct(overall.learning, overall.total)}%"></i>
+				<i class="seg bad" style="width: {pct(overall.struggling, overall.total)}%"></i>
+			</div>
+			<p class="track-legend">
+				已掌握 {overall.mastered} · 在学 {overall.learning} · 需重练 {overall.struggling} · 没做过
+				{overall.untouched}
+			</p>
+		{:else}
+			<p class="sub">进度只存在这台设备的浏览器里，没有账号，不上传。</p>
+		{/if}
 	</header>
 
 	{#if ready && (dueTotal > 0 || nextDueInDays !== null)}
-		<section class="review" data-testid="review-panel">
+		<section class="review" class:urgent={dueTotal > 0} data-testid="review-panel">
 			{#if dueTotal > 0}
 				<h2 class="review-title">今天有 {dueTotal} 道题到期复习</h2>
 				<p class="review-body">
@@ -131,12 +231,35 @@
 		</section>
 	{/if}
 
+	<!--
+		筛选。用 radio 而不是一排 button：这是「从若干互斥项里选一个」，
+		radiogroup 的语义让读屏器能播报「4 项中的第 2 项」，button 组做不到。
+	-->
+	<fieldset class="filters" data-testid="level-filters">
+		<legend>怎么挑</legend>
+		<div class="chips">
+			{#each FILTERS as f (f.id)}
+				{@const n = countFor(f.id)}
+				<label class="chip" class:on={filter === f.id} class:empty={n === 0}>
+					<input type="radio" name="level-filter" value={f.id} bind:group={filter} />
+					<span>{f.label}</span>
+					<span class="chip-n">{n}</span>
+				</label>
+			{/each}
+		</div>
+	</fieldset>
+
 	<ol class="levels" data-testid="level-index">
-		{#each rows as row, i (row.level.id)}
+		{#each visibleRows as row (row.level.id)}
+			<!--
+				编号取自**全量** rows 而不是循环下标：筛选后「02」必须还是那一关，
+				否则筛出两张卡就变成 01、02，和用户记住的编号对不上。
+			-->
+			{@const idx = rows.findIndex((r) => r.level.id === row.level.id)}
 			<li>
 				<a class="card" href={resolve('/[levelId]', { levelId: row.level.id })}>
 					<div class="card-top">
-						<span class="num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+						<span class="num" aria-hidden="true">{String(idx + 1).padStart(2, '0')}</span>
 						<span class="tag">{row.level.card.tag}</span>
 						{#if ready && row.mastery.mastered === row.mastery.total}
 							<span class="state state-done">已通关</span>
@@ -150,6 +273,28 @@
 					<h2>{row.level.title}</h2>
 					<p class="summary">{row.level.card.summary}</p>
 
+					{#if ready && row.done > 0}
+						<!--
+							每关自己的四档进度。原来这里只有「10 / 12 做过」——
+							同一个分数既可能是十道全掌握，也可能是十道全答错过，
+							而这两种情况下你该做的事完全不同。
+						-->
+						<div class="track thin" aria-hidden="true">
+							<i class="seg ok" style="width: {pct(row.mastery.mastered, row.mastery.total)}%"></i>
+							<i class="seg warn" style="width: {pct(row.mastery.learning, row.mastery.total)}%"
+							></i>
+							<i class="seg bad" style="width: {pct(row.mastery.struggling, row.mastery.total)}%"
+							></i>
+						</div>
+						<p class="card-legend">
+							{#if row.mastery.mastered > 0}掌握 {row.mastery.mastered}{/if}
+							{#if row.mastery.learning > 0}
+								· 在学 {row.mastery.learning}{/if}
+							{#if row.mastery.struggling > 0}
+								· <b class="need">需重练 {row.mastery.struggling}</b>{/if}
+						</p>
+					{/if}
+
 					<ul class="facts">
 						{#if row.numericCount > 0}<li>{row.numericCount} 道计算题</li>{/if}
 						{#if row.choiceCount > 0}<li>{row.choiceCount} 道选择题</li>{/if}
@@ -160,11 +305,25 @@
 						{#if row.backgroundNotes > 0}<li>{row.backgroundNotes} 篇背景笔记</li>{/if}
 					</ul>
 
-					<span class="cta">{ready && row.done > 0 ? '继续 →' : '开始 →'}</span>
+					<span class="cta">
+						{#if ready && row.mastery.mastered === row.mastery.total && row.mastery.total > 0}
+							重做一遍 →
+						{:else if ready && row.done > 0}
+							继续 →
+						{:else}
+							开始 →
+						{/if}
+					</span>
 				</a>
 			</li>
 		{/each}
 	</ol>
+
+	{#if visibleRows.length === 0}
+		<p class="empty" data-testid="filter-empty">
+			这个条件下没有关卡。<button type="button" onclick={() => (filter = 'all')}>看全部</button>
+		</p>
+	{/if}
 
 	<footer class="page-foot">
 		<a href={resolve('/')}>← 学习路径</a>
@@ -176,33 +335,39 @@
 	main {
 		max-width: 60rem;
 		margin: 0 auto;
-		padding: 2.5rem 1.25rem 5rem;
+		padding: var(--space-7) var(--space-5) var(--space-8);
 		display: grid;
-		gap: 2.5rem;
+		gap: var(--space-6);
 	}
 
 	.page-head {
 		display: grid;
-		gap: 0.75rem;
+		gap: var(--space-3);
 	}
 
+	/*
+	 * 眉标不再用 uppercase + letter-spacing：那对中文做不了任何事
+	 * （「关卡」没有大小写可转），字距只会把方块字推散。
+	 * 换成小号 + 强调色 + 字重，中文里同样能读出「这是眉标」。
+	 */
 	.eyebrow {
 		margin: 0;
-		font-size: 0.8125rem;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
+		font-size: var(--fs-xs);
+		font-weight: 600;
 		color: var(--color-accent);
 	}
 
 	h1 {
 		margin: 0;
-		font-size: clamp(1.75rem, 4vw, 2.25rem);
-		line-height: 1.25;
+		font-size: var(--fs-xl);
+		line-height: 1.2;
+		letter-spacing: -0.02em;
+		color: var(--color-text-strong);
 	}
 
 	.lede {
 		margin: 0;
-		font-size: 1.0625rem;
+		font-size: var(--fs-md);
 		line-height: 1.75;
 		color: var(--color-text);
 		max-width: 42rem;
@@ -214,53 +379,144 @@
 
 	.sub {
 		margin: 0;
-		font-size: 0.875rem;
+		font-size: var(--fs-sm);
 		line-height: 1.7;
-		color: var(--color-text-faint);
+		color: var(--color-text-muted);
 	}
 
-	.review {
-		padding: 1.25rem 1.5rem;
+	/* ── 页头数字带 ── */
+	.head-stats {
+		margin: var(--space-2) 0 0;
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-6);
+		padding: var(--space-4) var(--space-5);
 		background: var(--color-surface-sunken);
-		border: 1px solid var(--color-accent-dim);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: var(--radius-card);
+	}
+
+	.head-stats dt {
+		margin: 0;
+		font-family: var(--font-mono);
+		font-size: var(--fs-lg);
+		font-weight: 600;
+		line-height: 1.1;
+		letter-spacing: -0.02em;
+		color: var(--color-text-strong);
+	}
+
+	.head-stats dt.ok {
+		color: var(--color-ok);
+	}
+
+	.head-stats dd {
+		margin: var(--space-1) 0 0;
+		font-size: var(--fs-xs);
+		color: var(--color-text-muted);
+	}
+
+	/* ── 四档进度条 ── */
+	.track {
+		display: flex;
+		height: 8px;
+		/* 轨道用 --color-track 而不是 sunken：新用户所有进度都是 0，
+		   轨道是那一刻唯一可见的部分，sunken 在浅色下只有 1.1:1 等于不存在 */
+		background: var(--color-track);
+		border-radius: 999px;
+		overflow: hidden;
+	}
+
+	.track.thin {
+		height: 5px;
+		margin-top: var(--space-1);
+	}
+
+	.seg {
+		transition: width var(--dur-ui) var(--ease-out);
+	}
+
+	.seg.ok {
+		background: var(--color-ok);
+	}
+
+	.seg.warn {
+		background: var(--color-warn);
+	}
+
+	.seg.bad {
+		background: var(--color-bad);
+	}
+
+	.track-legend {
+		margin: 0;
+		font-size: var(--fs-xs);
+		color: var(--color-text-muted);
+	}
+
+	.card-legend {
+		margin: 0;
+		font-size: var(--fs-2xs);
+		color: var(--color-text-muted);
+	}
+
+	.card-legend .need {
+		color: var(--color-bad-text);
+		font-weight: 600;
+	}
+
+	/* ── 复习面板 ── */
+	.review {
+		padding: var(--space-4) var(--space-5);
+		background: var(--color-surface-sunken);
+		border: 1px solid var(--color-border-subtle);
 		border-radius: var(--radius-card);
 		display: grid;
-		gap: 0.5rem;
+		gap: var(--space-2);
+	}
+
+	/* 有到期的题时才用强调色描边——没到期时它只是一句说明，不该抢注意力 */
+	.review.urgent {
+		border-color: var(--color-accent-dim);
+		border-left: 3px solid var(--color-accent);
 	}
 
 	.review-title {
 		margin: 0;
-		font-size: 1.0625rem;
+		font-size: var(--fs-md);
+		font-weight: 600;
+		color: var(--color-text-strong);
 	}
 
 	.review-body {
 		margin: 0;
-		font-size: 0.875rem;
+		font-size: var(--fs-sm);
 		line-height: 1.75;
 		color: var(--color-text-soft);
 	}
 
 	.review-list {
-		margin: 0.25rem 0 0;
+		margin: var(--space-1) 0 0;
 		padding: 0;
 		list-style: none;
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.5rem;
+		gap: var(--space-2);
 	}
 
 	.review-list a {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.4375rem;
+		gap: var(--space-2);
 		min-height: 44px;
-		padding: 0 0.75rem;
+		padding: 0 var(--space-3);
 		border-radius: var(--radius-control);
 		background: var(--color-surface-raised);
 		border: 1px solid var(--color-border-subtle);
 		color: inherit;
 		text-decoration: none;
-		font-size: 0.875rem;
+		font-size: var(--fs-sm);
+		transition: border-color var(--dur-ui) var(--ease-out);
 	}
 
 	.review-list a:hover {
@@ -269,22 +525,103 @@
 
 	.review-n {
 		font-family: var(--font-mono);
-		font-size: 0.75rem;
+		font-size: var(--fs-xs);
 		color: var(--color-warn);
 	}
 
+	/* ── 筛选 ── */
+	.filters {
+		margin: 0;
+		padding: 0;
+		border: 0;
+		display: grid;
+		gap: var(--space-2);
+	}
+
+	.filters legend {
+		padding: 0;
+		font-size: var(--fs-xs);
+		color: var(--color-text-muted);
+	}
+
+	.chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-2);
+	}
+
+	.chip {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-2);
+		min-height: 44px;
+		padding: 0 var(--space-4);
+		border-radius: var(--radius-control);
+		background: var(--color-surface-raised);
+		/* 无底色差异时边框是它唯一的可点线索，所以用 strong 而不是 subtle */
+		border: 1px solid var(--color-border-strong);
+		font-size: var(--fs-sm);
+		font-weight: 600;
+		color: var(--color-text-soft);
+		cursor: pointer;
+		transition:
+			border-color var(--dur-verdict) var(--ease-out),
+			background var(--dur-verdict) var(--ease-out),
+			color var(--dur-verdict) var(--ease-out);
+	}
+
+	/* radio 隐藏但保留可聚焦 —— display:none 会让键盘拿不到它 */
+	.chip input {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	.chip:hover {
+		border-color: var(--color-accent);
+	}
+
+	.chip.on {
+		background: var(--color-accent);
+		border-color: var(--color-accent);
+		color: var(--color-on-accent);
+	}
+
+	/* 命中 0 关时降权但**不禁用**：它仍然可点，点了会看到空状态和出路 */
+	.chip.empty:not(.on) {
+		color: var(--color-text-faint);
+	}
+
+	.chip:has(input:focus-visible) {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 2px;
+	}
+
+	.chip-n {
+		font-family: var(--font-mono);
+		font-size: var(--fs-xs);
+		font-weight: 400;
+	}
+
+	.chip.on .chip-n {
+		color: var(--color-on-accent);
+	}
+
+	/* ── 关卡卡片 ── */
 	.levels {
 		margin: 0;
 		padding: 0;
 		list-style: none;
 		display: grid;
-		gap: 1rem;
+		gap: var(--space-4);
 	}
 
 	.card {
 		display: grid;
-		gap: 0.625rem;
-		padding: 1.5rem 1.625rem;
+		gap: var(--space-2);
+		padding: var(--space-5);
 		background: var(--color-surface-raised);
 		border: 1px solid var(--color-border-subtle);
 		border-left: 2px solid var(--color-accent);
@@ -292,6 +629,7 @@
 		text-decoration: none;
 		color: inherit;
 		box-shadow: var(--shadow-card);
+		height: 100%;
 		transition:
 			border-color var(--dur-ui) var(--ease-out),
 			box-shadow var(--dur-ui) var(--ease-out),
@@ -315,21 +653,21 @@
 	.card-top {
 		display: flex;
 		align-items: center;
-		gap: 0.625rem;
+		gap: var(--space-2);
 		flex-wrap: wrap;
 	}
 
 	.num {
 		font-family: var(--font-mono);
-		font-size: 1rem;
+		font-size: var(--fs-base);
 		font-weight: 600;
 		color: var(--color-text-faint);
 	}
 
 	.tag {
-		font-size: 0.75rem;
+		font-size: var(--fs-xs);
 		font-family: var(--font-mono);
-		padding: 0.1875rem 0.5rem;
+		padding: 0.1875rem var(--space-2);
 		border-radius: var(--radius-control);
 		background: var(--color-surface-sunken);
 		color: var(--color-accent);
@@ -338,7 +676,7 @@
 	.state {
 		margin-left: auto;
 		font-family: var(--font-mono);
-		font-size: 0.75rem;
+		font-size: var(--fs-xs);
 		color: var(--color-text-muted);
 	}
 
@@ -352,29 +690,31 @@
 
 	h2 {
 		margin: 0;
-		font-size: 1.375rem;
+		font-size: var(--fs-lg);
 		line-height: 1.25;
+		letter-spacing: -0.01em;
+		color: var(--color-text-strong);
 	}
 
 	.summary {
 		margin: 0;
-		font-size: 0.9375rem;
+		font-size: var(--fs-base);
 		line-height: 1.75;
 		color: var(--color-text-soft);
 	}
 
 	.facts {
-		margin: 0.25rem 0 0;
+		margin: var(--space-1) 0 0;
 		padding: 0;
 		list-style: none;
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.375rem;
+		gap: var(--space-1);
 	}
 
 	.facts li {
-		font-size: 0.75rem;
-		padding: 0.1875rem 0.5rem;
+		font-size: var(--fs-xs);
+		padding: 0.1875rem var(--space-2);
 		border-radius: var(--radius-control);
 		background: var(--color-surface-sunken);
 		border: 1px solid var(--color-border-subtle);
@@ -388,18 +728,40 @@
 	}
 
 	.cta {
-		margin-top: 0.375rem;
-		font-size: 0.9375rem;
+		margin-top: var(--space-1);
+		font-size: var(--fs-base);
 		font-weight: 600;
 		color: var(--color-accent);
 	}
 
+	/* ── 空状态 ── */
+	.empty {
+		margin: 0;
+		padding: var(--space-5);
+		background: var(--color-surface-sunken);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: var(--radius-card);
+		font-size: var(--fs-sm);
+		color: var(--color-text-soft);
+	}
+
+	.empty button {
+		background: none;
+		border: 0;
+		padding: 0;
+		font: inherit;
+		font-weight: 600;
+		color: var(--color-accent);
+		cursor: pointer;
+		text-decoration: underline;
+	}
+
 	.page-foot {
 		display: flex;
-		gap: 1.5rem;
+		gap: var(--space-5);
 		border-top: 1px solid var(--color-border-subtle);
-		padding-top: 1.5rem;
-		font-size: 0.9375rem;
+		padding-top: var(--space-5);
+		font-size: var(--fs-base);
 	}
 
 	.page-foot a {
@@ -412,5 +774,16 @@
 
 	.page-foot a:hover {
 		text-decoration: underline;
+	}
+
+	/*
+	 * 宽屏两列。6 张卡片单列排开会让页面变成一条很长的滚动带，
+	 * 而卡片本身的信息量（标题 + 摘要 + 进度 + 事实条）撑得起半屏宽度。
+	 */
+	@media (min-width: 52rem) {
+		.levels {
+			grid-template-columns: 1fr 1fr;
+			gap: var(--space-4);
+		}
 	}
 </style>
