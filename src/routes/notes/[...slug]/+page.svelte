@@ -346,7 +346,7 @@
 		top: 0;
 		left: 0;
 		right: 0;
-		height: 2px;
+		height: 3px;
 		background: var(--color-track);
 		z-index: 10;
 	}
@@ -354,24 +354,26 @@
 	.progress-fill {
 		height: 100%;
 		background: var(--color-accent);
+		/* 跟随滚动，必须比 --dur-verdict 更快 —— 这条是直接映射手指动作的，
+		   任何可感知的延迟都会让它看起来在「追」滚动条 */
 		transition: width 80ms linear;
 	}
 
 	main {
 		max-width: 62rem;
 		margin: 0 auto;
-		padding: 2.5rem 1.25rem 5rem;
+		padding: var(--space-7) var(--space-5) var(--space-8);
 		display: grid;
-		gap: 1.75rem;
+		gap: var(--space-6);
 	}
 
 	.crumbs {
 		display: flex;
 		align-items: baseline;
 		justify-content: space-between;
-		gap: 1rem;
+		gap: var(--space-4);
 		flex-wrap: wrap;
-		font-size: 0.875rem;
+		font-size: var(--fs-sm);
 	}
 
 	.crumb-level {
@@ -392,13 +394,13 @@
 
 	.crumb-meta {
 		font-family: var(--font-mono);
-		font-size: 0.8125rem;
+		font-size: var(--fs-sm);
 		color: var(--color-text-faint);
 	}
 
 	.layout {
 		display: grid;
-		gap: 2rem;
+		gap: var(--space-6);
 		align-items: start;
 	}
 
@@ -411,7 +413,7 @@
 			grid-column: 2;
 			grid-row: 1;
 			position: sticky;
-			top: 2rem;
+			top: var(--space-6);
 			max-height: calc(100dvh - 4rem);
 			overflow-y: auto;
 		}
@@ -423,16 +425,21 @@
 	}
 
 	.toc {
-		font-size: 0.8125rem;
+		font-size: var(--fs-sm);
 		border-left: 1px solid var(--color-border-subtle);
-		padding-left: 0.875rem;
+		padding-left: var(--space-3);
 	}
 
+	/*
+	 * 目录标题去掉 uppercase + letter-spacing：对「目录」两个字做不了任何事
+	 * （中文没有大小写可转），字距只会把它们推散。与首页、关卡页、
+	 * 笔记索引页同源修正。
+	 */
 	.toc-title {
-		margin: 0 0 0.5rem;
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		color: var(--color-text-faint);
+		margin: 0 0 var(--space-2);
+		font-size: var(--fs-xs);
+		font-weight: 600;
+		color: var(--color-text-muted);
 	}
 
 	.toc ul {
@@ -440,7 +447,7 @@
 		margin: 0;
 		padding: 0;
 		display: grid;
-		gap: 0.375rem;
+		gap: var(--space-1);
 	}
 
 	.toc li {
@@ -460,37 +467,59 @@
 	/* 正文样式：动态插入的 HTML 需要 :global */
 	.note-body {
 		min-width: 0;
-		font-size: 1rem;
+		font-size: var(--fs-md);
 		line-height: 1.8;
 	}
 
+	/*
+	 * 标题**必须显式给 text-strong**。
+	 *
+	 * 原来 h1/h2/h3 一个 color 都没声明（只有 h4 有，而它给的是正文色），
+	 * 于是三级标题全部继承 html 的 --color-text —— **168 篇内容的标题
+	 * 用的都不是最重的墨色**。五档灰里最强的那一档在整个阅读界面从不出场，
+	 * 长文于是读起来是一片均匀的灰，扫不出层级。
+	 * 首页 h1 是同一个 bug，但这里的影响面是全部笔记正文。
+	 */
 	.note-body :global(h1) {
-		font-size: clamp(1.625rem, 4vw, 2.125rem);
-		line-height: 1.25;
-		margin: 0 0 1.25rem;
+		font-size: var(--fs-xl);
+		line-height: 1.2;
+		letter-spacing: -0.02em;
+		color: var(--color-text-strong);
+		margin: 0 0 var(--space-5);
 	}
 
 	.note-body :global(h2) {
-		font-size: 1.375rem;
-		margin: 2.5rem 0 0.875rem;
-		padding-bottom: 0.375rem;
+		font-size: var(--fs-lg);
+		line-height: 1.3;
+		letter-spacing: -0.01em;
+		color: var(--color-text-strong);
+		margin: var(--space-7) 0 var(--space-3);
+		padding-bottom: var(--space-1);
 		border-bottom: 1px solid var(--color-border-subtle);
 	}
 
 	.note-body :global(h3) {
-		font-size: 1.125rem;
-		margin: 2rem 0 0.75rem;
+		font-size: var(--fs-md);
+		line-height: 1.4;
+		color: var(--color-text-strong);
+		margin: var(--space-6) 0 var(--space-2);
 	}
 
 	.note-body :global(h4) {
-		font-size: 1rem;
-		margin: 1.5rem 0 0.5rem;
-		color: var(--color-text);
+		font-size: var(--fs-base);
+		font-weight: 600;
+		color: var(--color-text-strong);
+		margin: var(--space-5) 0 var(--space-2);
 	}
 
 	.note-body :global(p),
 	.note-body :global(li) {
 		color: var(--color-text);
+	}
+
+	/* 强调文字用最重的墨色，否则 <strong> 在正文灰里几乎读不出加粗 */
+	.note-body :global(strong) {
+		color: var(--color-text-strong);
 	}
 
 	.note-body :global(a) {
@@ -501,9 +530,10 @@
 		background: var(--color-surface-sunken);
 		border: 1px solid var(--color-border-subtle);
 		border-radius: var(--radius-control);
-		padding: 0.875rem 1rem;
+		padding: var(--space-4);
+		margin: var(--space-5) 0;
 		overflow-x: auto;
-		font-size: 0.8125rem;
+		font-size: var(--fs-sm);
 		line-height: 1.65;
 	}
 
@@ -556,28 +586,30 @@
 
 	.note-body :global(:not(pre) > code) {
 		background: var(--color-surface-sunken);
-		padding: 0.125rem 0.375rem;
+		padding: 0.125rem var(--space-1);
 		border-radius: var(--radius-control);
+		/* 用 em 而不是 token：行内代码要跟着所在文字的字号缩放，
+		   出现在 h2 里和出现在正文里应该是不同的绝对大小 */
 		font-size: 0.875em;
 	}
 
 	.note-body :global(blockquote) {
-		margin: 1.25rem 0;
-		padding: 0.75rem 1rem;
+		margin: var(--space-5) 0;
+		padding: var(--space-3) var(--space-4);
 		border-left: 2px solid var(--color-accent);
 		background: var(--color-surface-sunken);
-		border-radius: 0 8px 8px 0;
+		border-radius: 0 var(--radius-control) var(--radius-control) 0;
 	}
 
 	.note-body :global(blockquote p) {
-		margin: 0.375rem 0;
+		margin: var(--space-1) 0;
 	}
 
 	.note-body :global(table) {
 		width: 100%;
 		border-collapse: collapse;
-		font-size: 0.875rem;
-		margin: 1.25rem 0;
+		font-size: var(--fs-sm);
+		margin: var(--space-5) 0;
 		display: block;
 		overflow-x: auto;
 	}
@@ -585,12 +617,14 @@
 	.note-body :global(th),
 	.note-body :global(td) {
 		border: 1px solid var(--color-border-subtle);
-		padding: 0.5rem 0.75rem;
+		padding: var(--space-2) var(--space-3);
 		text-align: left;
 	}
 
 	.note-body :global(th) {
 		background: var(--color-surface-sunken);
+		color: var(--color-text-strong);
+		font-weight: 600;
 	}
 
 	.note-body :global(img) {
@@ -602,23 +636,25 @@
 	.note-body :global(hr) {
 		border: 0;
 		border-top: 1px solid var(--color-border-subtle);
-		margin: 2rem 0;
+		margin: var(--space-6) 0;
 	}
 
 	.self-check {
 		background: var(--color-surface-raised);
 		border: 1px solid var(--color-border-subtle);
 		border-radius: var(--radius-card);
-		padding: 1.5rem 1.75rem;
+		padding: var(--space-5);
 	}
 
 	.to-level {
 		background: var(--color-surface-raised);
-		border: 1px solid var(--color-accent-dim);
+		border: 1px solid var(--color-border-subtle);
+		/* 左侧强调条：这是读完之后唯一的「下一步」出口，需要不依赖字号的权重 */
+		border-left: 3px solid var(--color-accent);
 		border-radius: var(--radius-card);
-		padding: 1.5rem 1.75rem;
+		padding: var(--space-5);
 		display: grid;
-		gap: 0.5rem;
+		gap: var(--space-2);
 		justify-items: start;
 	}
 
@@ -626,14 +662,15 @@
 		display: inline-flex;
 		align-items: center;
 		min-height: 44px;
-		padding: 0 0.875rem;
+		padding: 0 var(--space-4);
 		border-radius: var(--radius-control);
 		background: var(--color-surface-sunken);
 		border: 1px solid var(--color-accent-dim);
 		color: var(--color-accent);
-		font-size: 0.875rem;
+		font-size: var(--fs-sm);
+		font-weight: 600;
 		text-decoration: none;
-		transition: border-color 140ms ease;
+		transition: border-color var(--dur-ui) var(--ease-out);
 	}
 
 	.jump-quiz:hover {
@@ -642,30 +679,32 @@
 
 	.gradable {
 		display: grid;
-		gap: 0.875rem;
+		gap: var(--space-3);
 	}
 
 	.gradable-head {
 		display: flex;
 		align-items: baseline;
 		justify-content: space-between;
-		gap: 0.75rem;
+		gap: var(--space-3);
 		flex-wrap: wrap;
 	}
 
 	.gradable-head h2 {
 		margin: 0;
-		font-size: 1.125rem;
+		font-size: var(--fs-lg);
+		letter-spacing: -0.01em;
+		color: var(--color-text-strong);
 	}
 
 	.gradable-mastery {
-		font-size: 0.8125rem;
+		font-size: var(--fs-sm);
 		font-family: var(--font-mono);
 		color: var(--color-ok);
 	}
 
 	.gradable-counter {
-		font-size: 0.8125rem;
+		font-size: var(--fs-sm);
 		font-family: var(--font-mono);
 		color: var(--color-text-muted);
 	}
@@ -674,65 +713,50 @@
 		background: var(--color-surface-raised);
 		border: 1px solid var(--color-border-subtle);
 		border-radius: var(--radius-card);
-		padding: 1.5rem 1.75rem;
+		padding: var(--space-5);
 		display: grid;
-		gap: 0.75rem;
+		gap: var(--space-3);
 		justify-items: start;
 	}
 
 	.gradable-done-body {
 		margin: 0;
-		font-size: 0.875rem;
+		font-size: var(--fs-sm);
 		line-height: 1.75;
 		color: var(--color-text-soft);
 	}
 
 	.gradable-done-title {
 		margin: 0;
-		font-size: 1rem;
+		font-size: var(--fs-md);
 		font-weight: 600;
 		color: var(--color-ok);
 	}
 
-	.btn-ghost {
-		font: inherit;
-		font-size: 0.9375rem;
-		padding: 0.5rem 1rem;
-		background: transparent;
-		color: var(--color-accent);
-		border: 1px solid var(--color-border-subtle);
-		border-radius: var(--radius-control);
-		cursor: pointer;
-		transition: border-color 140ms ease;
-	}
-
-	.btn-ghost:hover {
-		border-color: var(--color-accent);
-	}
-
 	.to-level-eyebrow {
 		margin: 0;
-		font-size: 0.75rem;
+		font-size: var(--fs-xs);
 		font-family: var(--font-mono);
-		letter-spacing: 0.04em;
 		color: var(--color-accent);
 	}
 
 	.to-level h2 {
 		margin: 0;
-		font-size: 1.125rem;
+		font-size: var(--fs-lg);
+		letter-spacing: -0.01em;
+		color: var(--color-text-strong);
 	}
 
 	.to-level-body {
 		margin: 0;
-		font-size: 0.9375rem;
+		font-size: var(--fs-base);
 		line-height: 1.75;
 		color: var(--color-text-soft);
 	}
 
 	.to-level-cta {
-		margin-top: 0.25rem;
-		font-size: 0.9375rem;
+		margin-top: var(--space-1);
+		font-size: var(--fs-base);
 		font-weight: 600;
 		color: var(--color-accent);
 		text-decoration: none;
@@ -743,16 +767,18 @@
 	}
 
 	.self-check h2 {
-		margin: 0 0 0.5rem;
-		font-size: 1.125rem;
+		margin: 0 0 var(--space-2);
+		font-size: var(--fs-lg);
+		letter-spacing: -0.01em;
+		color: var(--color-text-strong);
 	}
 
 	.self-check ol {
-		margin: 0.875rem 0 0;
-		padding-left: 1.375rem;
+		margin: var(--space-3) 0 0;
+		padding-left: var(--space-5);
 		display: grid;
-		gap: 0.625rem;
-		font-size: 0.9375rem;
+		gap: var(--space-2);
+		font-size: var(--fs-base);
 		line-height: 1.7;
 	}
 
@@ -761,26 +787,26 @@
 	}
 
 	.dim {
-		font-size: 0.875rem;
-		color: var(--color-text-faint);
+		font-size: var(--fs-sm);
+		color: var(--color-text-muted);
 		line-height: 1.7;
 	}
 
 	.foot {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 1rem;
+		gap: var(--space-4);
 		align-items: center;
 		justify-content: space-between;
 		border-top: 1px solid var(--color-border-subtle);
-		padding-top: 1.5rem;
+		padding-top: var(--space-5);
 	}
 
 	.neighbours {
 		display: flex;
-		gap: 1.25rem;
+		gap: var(--space-5);
 		flex-wrap: wrap;
-		font-size: 0.875rem;
+		font-size: var(--fs-sm);
 	}
 
 	.neighbours a {
@@ -799,20 +825,39 @@
 		text-decoration: underline;
 	}
 
+	/*
+	 * 两个幽灵按钮共用一条规则。
+	 *
+	 * `.btn-ghost` 原来被定义了**两次** —— 一次在 .gradable-done 附近、
+	 * 一次在这里，两处给了不同的 padding（1rem vs 1.0625rem）和不同的
+	 * border-color 来源，后者更靠后所以静默胜出。关卡页注释里记过同类问题
+	 * （`.card:hover` 与 `a.card:hover` 各给一个 translateY），
+	 * 症状一样：两条规则对同一件事给出矛盾的值，只有一个生效，
+	 * 下一个改动的人会以为自己改的那处失效了。现在只留这一处。
+	 *
+	 * 无底色的幽灵按钮，边框是它唯一的按钮线索 —— 按 WCAG 1.4.11
+	 * 用 border-strong 而不是 border-subtle（后者在浅色下只有 1.9:1，
+	 * 按钮会退化成一段带边的蓝字）。
+	 */
 	.btn-read,
 	.btn-ghost {
 		font: inherit;
-		font-size: 0.9375rem;
-		padding: 0.5rem 1.0625rem;
+		font-size: var(--fs-base);
+		font-weight: 600;
+		min-height: 44px;
+		padding: 0 var(--space-4);
 		border-radius: var(--radius-control);
-		border: 1px solid var(--color-border-subtle);
+		border: 1px solid var(--color-border-strong);
 		background: transparent;
 		color: var(--color-accent);
 		cursor: pointer;
 		text-decoration: none;
+		transition: border-color var(--dur-ui) var(--ease-out);
 	}
 
-	.btn-read:not(:disabled):hover {
+	/* hover 反馈两个按钮都要有。原来 .btn-ghost 的那条藏在被覆盖的重复定义里 */
+	.btn-read:not(:disabled):hover,
+	.btn-ghost:hover {
 		border-color: var(--color-accent);
 	}
 
