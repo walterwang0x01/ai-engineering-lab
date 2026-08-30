@@ -144,6 +144,60 @@ describe('QuizCard 选择题', () => {
 		const screen = render(QuizCard, { question: choice });
 		await expect.element(screen.getByRole('button', { name: '提交' })).toBeDisabled();
 	});
+
+	/**
+	 * 判定后 A/B/C 标记要实心染色，用来区分「正确项」和「你选的项」。
+	 *
+	 * 这一条断言的是**渲染结果**，不是 data 属性是否存在。
+	 * `.marker` 此前一直声明着 background-color / color 的过渡，却没有任何规则
+	 * 改变过这两个属性 —— 那两行过渡是死代码，标记从判定前到判定后一直同色，
+	 * 而**没有任何测试会因此失败**。同类的静默失效在本仓库反复出现过：
+	 * 未定义的 `var(--color-border)` 让整条 border 声明失效、`.btn-ghost` 被
+	 * 定义两次导致前一处被静默吃掉。所以这里量到元素上：选择器写错、被覆盖、
+	 * 或哪天有人删掉染色规则，都会在这里断掉。
+	 */
+	it('答错两次后，正确项与所选项的标记染上互不相同的底色', async () => {
+		const screen = render(QuizCard, { question: choice });
+
+		// 两次都选同一个错误项，把组件推进 settled
+		await screen.getByText('显存更大').click();
+		await screen.getByRole('button', { name: '提交' }).click();
+		await screen.getByRole('button', { name: '再试一次' }).click();
+		await screen.getByText('显存更大').click();
+		await screen.getByRole('button', { name: '提交' }).click();
+
+		await expect.element(screen.getByText(/所有头共享一组 KV/)).toBeInTheDocument();
+
+		/*
+		 * 先给三个 token 注入可区分的哨兵值。
+		 *
+		 * 组件测试不加载 layout.css，所以 `var(--color-ok)` 之类在这里全都解析
+		 * 不出值，`background` 一律计算成 rgba(0,0,0,0) —— 第一版没注入就断言，
+		 * 三个标记全是透明，测试「失败」了但什么也没证明：它分不清
+		 * 「染色规则没生效」和「token 没加载」。
+		 *
+		 * 注入之后，断言才真正落在**这一条 CSS 规则是否命中**上，
+		 * 而与调色板的具体取值无关（取值本身由 palette.spec.ts 把关）。
+		 */
+		document.documentElement.style.setProperty('--color-surface', 'rgb(1, 1, 1)');
+		document.documentElement.style.setProperty('--color-ok', 'rgb(2, 2, 2)');
+		document.documentElement.style.setProperty('--color-bad', 'rgb(3, 3, 3)');
+
+		const bgOf = (sel: string): string => {
+			const el = document.querySelector(sel);
+			expect(el, `找不到 ${sel} —— 染色规则的选择器没匹配上`).not.toBeNull();
+			return getComputedStyle(el!).backgroundColor;
+		};
+
+		const correctBg = bgOf("[data-correct='true'] .marker");
+		const chosenBg = bgOf("[data-chosen='true'] .marker");
+		const plainBg = bgOf("[data-correct='false'][data-chosen='false'] .marker");
+
+		// 三者两两不同：正确项、选错项、未涉及项各有各的样子
+		expect(correctBg, '正确项标记与未涉及项同色').not.toBe(plainBg);
+		expect(chosenBg, '所选错误项标记与未涉及项同色').not.toBe(plainBg);
+		expect(correctBg, '正确项与所选错误项的标记同色，分不出谁是谁').not.toBe(chosenBg);
+	});
 });
 
 describe('QuizCard 交互契约', () => {

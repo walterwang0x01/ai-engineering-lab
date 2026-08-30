@@ -360,15 +360,27 @@ describe.each(THEMES)('$name', ({ tokens }) => {
 		});
 	});
 
-	describe('强调色填充上的文字', () => {
+	describe('语义色填充上的文字', () => {
 		/**
-		 * 主按钮是实心 accent 底 + on-accent 文字。这一对不在 TEXT_SURFACES 的
-		 * 交叉检查里（accent 不是面层），漏掉它就意味着最显眼的那个按钮没人校验。
+		 * 实心填充 + on-accent 文字的每一种组合都要在这里出现。
+		 *
+		 * 这些对子都不在 TEXT_SURFACES 的交叉检查里（accent / ok / bad 都不是面层），
+		 * 所以只能逐一点名。漏掉一个的后果是：那个组合的对比度**没有任何东西在盯**，
+		 * 而 on-accent 是「近白 / 近黑」那一档 —— 它压在不同饱和底上的表现差别很大，
+		 * 对 accent 达标完全不能推出对 ok 或 bad 也达标。
+		 *
+		 * ok / bad 这两对是答题卡的 A/B/C 标记加上的：判定后标记会实心染色，
+		 * 让「正确项」和「你选的项」在小屏上一眼可分（12% 的底色差不够）。
+		 * 加它们的时候顺手发现这一档从来只被校验过 accent 一个底色。
 		 */
-		it('--color-on-accent 对 --color-accent', () => {
-			const ratio = contrast(tokens.get('color-on-accent')!, tokens.get('color-accent')!);
-			expect(ratio, `主按钮标签只有 ${ratio}:1`).toBeGreaterThanOrEqual(4.5);
-		});
+		const FILLS = ['color-accent', 'color-ok', 'color-bad'] as const;
+
+		for (const fill of FILLS) {
+			it(`--color-on-accent 对 --${fill}`, () => {
+				const ratio = contrast(tokens.get('color-on-accent')!, tokens.get(fill)!);
+				expect(ratio, `压在 --${fill} 上的标签只有 ${ratio}:1`).toBeGreaterThanOrEqual(4.5);
+			});
+		}
 	});
 
 	describe('禁用态仍要能读出标签', () => {
