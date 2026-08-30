@@ -234,9 +234,9 @@
 		border: 1px solid var(--color-border-subtle);
 		border-radius: var(--radius-card);
 		/* 内边距放宽、行距加大：这是「减少文字压迫感」最有效的一处，比任何动效都管用 */
-		padding: 2rem;
+		padding: var(--space-6);
 		display: grid;
-		gap: 1.5rem;
+		gap: var(--space-5);
 		box-shadow: var(--shadow-card);
 		/* 判定反馈走 --dur-verdict（180ms），快于 300ms 的感知阈值 */
 		transition:
@@ -277,8 +277,10 @@
 
 	.prompt {
 		margin: 0;
-		font-size: 1.0625rem;
+		font-size: var(--fs-md);
 		line-height: 1.8;
+		/* 题干是这张卡里最该先读到的东西，给最重的墨色 */
+		color: var(--color-text-strong);
 		/* 题干里的换行是有意义的（分行给参数），必须保留 */
 		white-space: pre-wrap;
 	}
@@ -286,27 +288,49 @@
 	.answer-row {
 		display: flex;
 		align-items: center;
-		gap: 0.625rem;
+		gap: var(--space-2);
 	}
 
 	.numeric-input {
 		flex: 0 1 12rem;
+		/* 44px 触摸目标。原来靠 padding 撑出约 41px，差一点点但确实不达标 */
+		min-height: 44px;
 		background: var(--color-surface-sunken);
 		border: 1px solid var(--color-border-strong);
 		border-radius: var(--radius-control);
-		padding: 0.625rem 0.875rem;
+		padding: 0 var(--space-3);
 		color: inherit;
 		font-family: var(--font-mono);
-		font-size: 1.0625rem;
+		font-size: var(--fs-md);
+		transition: border-color var(--dur-verdict) var(--ease-out);
 	}
 
+	.numeric-input:focus-visible {
+		border-color: var(--color-accent);
+	}
+
+	/*
+	 * 禁用态用显式取值，**不要用 opacity**。
+	 *
+	 * 原来这里是 `opacity: 0.65` —— 而同一个文件里 `.btn:disabled` 的注释
+	 * 正写着「显式取值而不是 opacity，理由见 layout.css」。两处对同一个问题
+	 * 给了相反的做法，说明那条约束当时只落实了一半。
+	 *
+	 * opacity 把元素往背景色拉：深色底往黑拉（浅字与深底的差值还在），
+	 * 浅色底往白拉（本就浅的文字和浅底一起变淡，差值被压掉）。
+	 * 答完题后输入框里留着的是**用户自己填的答案**，他要能回看自己填了什么，
+	 * 所以这里照小字 4.5:1 要求，用 disabled-surface / disabled-text 那一对。
+	 */
 	.numeric-input:disabled {
-		opacity: 0.65;
+		background: var(--color-disabled-surface);
+		color: var(--color-disabled-text);
+		border-color: var(--color-border-subtle);
+		cursor: not-allowed;
 	}
 
 	.unit {
 		color: var(--color-text-muted);
-		font-size: 0.9375rem;
+		font-size: var(--fs-base);
 	}
 
 	.options {
@@ -314,22 +338,41 @@
 		margin: 0;
 		padding: 0;
 		display: grid;
-		gap: 0.5rem;
+		gap: var(--space-2);
 	}
 
 	.option {
 		display: flex;
 		align-items: flex-start;
-		gap: 0.75rem;
-		padding: 0.75rem 0.875rem;
+		gap: var(--space-3);
+		/* 选项整行可点，min-height 保证窄屏上单行选项也够 44px */
+		min-height: 44px;
+		padding: var(--space-3);
 		background: var(--color-surface-sunken);
 		border: 1px solid var(--color-border-subtle);
 		border-radius: var(--radius-control);
 		cursor: pointer;
-		transition: border-color 140ms ease;
+		/*
+		 * 刻意**不过渡 transform**（见下面 hover 规则的说明）。
+		 * 只过渡颜色，判定时的高亮变化才有动感，而位移保持瞬时。
+		 */
+		transition:
+			border-color var(--dur-verdict) var(--ease-out),
+			background-color var(--dur-verdict) var(--ease-out);
 		line-height: 1.6;
 	}
 
+	/*
+	 * hover 的 1px 位移是**瞬时**的，不进过渡列表。
+	 *
+	 * 第一版我把 transform 加进了上面的 transition，于是这个位移变成 180ms
+	 * 的动画 —— 而选项是点击目标。Playwright 点击前先 hover，且拒绝点击
+	 * 边界框还在变化的元素；动画期间它每帧都在变。主按钮那边正是这么超时的，
+	 * 只不过选项这边更可能表现为**偶发**失败，比稳定失败更难查。
+	 *
+	 * 保持瞬时：元素跳一次就稳定，稳定性检查立刻通过，而人眼看到的
+	 * 「按下去有反应」效果没有区别。
+	 */
 	.options:not([disabled]) .option:hover {
 		border-color: var(--color-accent-dim);
 		transform: translateY(-1px);
@@ -370,12 +413,42 @@
 		place-items: center;
 		border-radius: var(--radius-control);
 		background: var(--color-surface);
+		color: var(--color-text-strong);
 		font-family: var(--font-mono);
-		font-size: 0.8125rem;
+		font-size: var(--fs-sm);
 		font-weight: 600;
 		transition:
 			background-color var(--dur-verdict) var(--ease-out),
 			color var(--dur-verdict) var(--ease-out);
+	}
+
+	/*
+	 * 判定后给标记本身上色。
+	 *
+	 * `.marker` 一直声明着 background-color 与 color 的过渡，但**没有任何规则
+	 * 改变过这两个属性** —— 那两行过渡是死代码，A/B/C/D 标记从判定前到判定后
+	 * 一直是同一个灰底。过渡声明本身说明当初有这个意图，只是没落地。
+	 *
+	 * 落地它的价值不只是好看：答错时屏幕上同时有「正确项」和「你选的项」两个
+	 * 高亮行，而 12% 的底色差在小屏上很弱，标记染色让两行的角色一眼可分。
+	 *
+	 * 前景用 `--color-on-accent`：那一档正是为「压在饱和填充上的文字」设的。
+	 *
+	 * 但它此前只被校验过压在 **accent** 上（palette.spec.ts 里
+	 * 「强调色填充上的文字」那条，为主按钮设的），压在 ok / bad 上没人盯 ——
+	 * 而这正是本系列反复在修的那类问题：门禁保证的是 token 取值，
+	 * 管不到有人把它用在未被校验的新组合里。所以这次不是靠「看着应该没问题」
+	 * 就用下去，而是给这两对新组合补了门禁（见 palette.spec.ts 同一个 describe）。
+	 * 实测浅色 4.96:1 / 5.86:1，深色 8.45:1 / 5.76:1，两套都过 AA。
+	 */
+	.option[data-correct='true'] .marker {
+		background: var(--color-ok);
+		color: var(--color-on-accent);
+	}
+
+	.option[data-chosen='true'] .marker {
+		background: var(--color-bad);
+		color: var(--color-on-accent);
 	}
 
 	.feedback:empty {
@@ -384,15 +457,16 @@
 
 	.feedback {
 		display: grid;
-		gap: 0.75rem;
+		gap: var(--space-3);
 	}
 
 	.msg {
 		margin: 0;
+		font-size: var(--fs-md);
 		font-weight: 600;
 		display: flex;
 		align-items: baseline;
-		gap: 0.5rem;
+		gap: var(--space-2);
 	}
 
 	.msg-ok {
@@ -408,7 +482,7 @@
 
 	.detail {
 		font-weight: 400;
-		font-size: 0.875rem;
+		font-size: var(--fs-sm);
 		color: var(--color-text-muted);
 		font-family: var(--font-mono);
 	}
@@ -416,9 +490,9 @@
 	.hint,
 	.distractor {
 		margin: 0;
-		padding: 0.75rem 0.875rem;
+		padding: var(--space-3);
 		border-radius: var(--radius-control);
-		font-size: 0.9375rem;
+		font-size: var(--fs-base);
 		line-height: 1.7;
 	}
 
@@ -435,20 +509,21 @@
 
 	/* explanation 里的参考解法代码块。不做语法高亮：关卡页不加载 highlight.js */
 	.prose-code {
-		margin: 0.75rem 0;
-		padding: 0.75rem 0.875rem;
+		margin: var(--space-3) 0;
+		padding: var(--space-3);
 		background: var(--color-surface-sunken);
 		border-radius: var(--radius-control);
 		overflow-x: auto;
 		font-family: var(--font-mono);
-		font-size: 0.8125rem;
+		font-size: var(--fs-sm);
 		line-height: 1.6;
 	}
 
 	.explanation :global(code) {
 		font-family: var(--font-mono);
+		/* 用 em 而不是 token：行内代码要跟着所在文字的字号缩放 */
 		font-size: 0.875em;
-		padding: 0.0625rem 0.25rem;
+		padding: 0.0625rem var(--space-1);
 		border-radius: var(--radius-control);
 		background: var(--color-surface-sunken);
 	}
@@ -461,10 +536,10 @@
 		background: var(--color-surface-sunken);
 		border-left: 2px solid var(--color-accent);
 		border-radius: var(--radius-control);
-		padding: 1rem 1.125rem;
+		padding: var(--space-4);
 		display: grid;
-		gap: 0.75rem;
-		font-size: 0.9375rem;
+		gap: var(--space-3);
+		font-size: var(--fs-base);
 		line-height: 1.75;
 	}
 
@@ -479,21 +554,40 @@
 
 	.actions {
 		display: flex;
-		gap: 0.75rem;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-3);
 	}
 
 	.btn {
 		font: inherit;
-		padding: 0.5625rem 1.125rem;
+		font-size: var(--fs-base);
+		/* 提交按钮是这张卡上最常被点的东西，原来靠 padding 撑出约 38px */
+		min-height: 44px;
+		padding: 0 var(--space-5);
 		border-radius: var(--radius-control);
 		border: 1px solid transparent;
 		cursor: pointer;
-		transition: opacity 140ms ease;
+		/*
+		 * 只过渡 box-shadow，**不要过渡 transform**，也不要在 hover 里位移。
+		 *
+		 * 第一版跟着全站卡片的 hover 语言给这个按钮加了 `translateY(-1px)`，
+		 * QuizCard 的测试立刻超时，报的是 `element is not stable`：
+		 * Playwright 点击前会先 hover，而它拒绝点击边界框还在变化的元素。
+		 *
+		 * 这不是测试太严格，位移本身对按钮就是坏主意：指针停在按钮下边缘时，
+		 * 元素上移会让指针脱离它 → hover 撤销 → 元素落回 → 再次进入 hover，
+		 * 形成抖动循环。卡片能这么做是因为面积大、1px 相对无害；
+		 * 44px 高的按钮不行。移除位移后本文件 23 个测试全过。
+		 *
+		 * 阴影不参与布局，能表达同样的「浮起」而完全不动几何。
+		 */
+		transition: box-shadow var(--dur-ui) var(--ease-out);
 	}
 
 	.submit-why {
-		font-size: 0.8125rem;
-		color: var(--color-text-faint);
+		font-size: var(--fs-sm);
+		color: var(--color-text-muted);
 	}
 
 	.btn:disabled {
@@ -510,8 +604,21 @@
 		font-weight: 600;
 	}
 
+	/*
+	 * hover 用阴影，**不用 opacity**。
+	 *
+	 * 原来是 `opacity: 0.88`，和上面 `.numeric-input:disabled` 曾经的
+	 * `opacity: 0.65` 是同一个反模式：opacity 作用在整个元素上，
+	 * accent 底和压在它上面的 on-accent 前景**一起**往背景色拉 ——
+	 * 而 palette.spec.ts 专门校验的就是这两者之间的 4.5:1。
+	 * 门禁保证的是 token 取值，管不到运行时被 opacity 稀释掉的部分，
+	 * 于是「主按钮标签在 hover 时对比度下降」这件事没有任何东西会报警。
+	 *
+	 * 只加阴影、不加位移（理由见 .btn 里那段说明：按钮在光标下移动
+	 * 会让 Playwright 的稳定性检查永远不通过，也是真实的误点来源）。
+	 */
 	.btn-primary:not(:disabled):hover {
-		opacity: 0.88;
+		box-shadow: var(--shadow-lift);
 	}
 
 	.sr-only {
