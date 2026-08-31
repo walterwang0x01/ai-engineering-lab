@@ -529,6 +529,43 @@ try {
 			(await page.locator('[data-testid="note-has-gradable"]').count()) > 0
 		);
 
+		// 交互发现入口：做了部件但用户找不到，等于没做。
+		await page.getByTestId('only-interactive').check();
+		await page.waitForTimeout(200);
+		const interactiveOnly = await page.locator('a.note-link:visible').count();
+		const interactionBadges = await page
+			.locator('[data-testid="note-has-interaction"]:visible')
+			.count();
+		check(
+			'「只看可交互的」筛选只留下带实验徽章的笔记',
+			interactiveOnly >= 10 && interactionBadges === interactiveOnly,
+			`${interactiveOnly} 篇 / ${interactionBadges} 个徽章`
+		);
+
+		// 声明式实验的完整路径：索引发现 → 阅读页跳转 → 按需加载 → 预设改变结果。
+		await page.getByTestId('notes-search').fill('模型合并');
+		await page.waitForTimeout(200);
+		const modelMerge = page.locator('a.note-link:visible').first();
+		check('模型合并实验可从索引筛选找到', (await modelMerge.count()) === 1);
+		await modelMerge.click();
+		await page.waitForSelector('[data-testid="jump-to-interaction"]', { timeout: 20_000 });
+		await page.getByTestId('jump-to-interaction').click();
+		await page.waitForSelector('[data-interaction="model-merge-tradeoff"]', { timeout: 20_000 });
+		const interaction = page.locator('[data-interaction="model-merge-tradeoff"]');
+		const beforeMetric = await interaction.locator('.metric-value').first().innerText();
+		await interaction.getByRole('button', { name: '激进叠加' }).click();
+		await page.waitForTimeout(200);
+		const afterMetric = await interaction.locator('.metric-value').first().innerText();
+		check(
+			'声明式实验预设会改变可见指标',
+			beforeMetric !== afterMetric,
+			`${beforeMetric} → ${afterMetric}`
+		);
+
+		// 回到干净的笔记索引继续通用阅读页验证。
+		await page.goto(`${BASE}/notes`, { waitUntil: 'networkidle' });
+		await page.waitForSelector('a.note-link');
+
 		// 点进第一篇，验证客户端渲染真的产出正文
 		const firstNote = page.locator('a.note-link').first();
 		const noteHref = await firstNote.getAttribute('href');

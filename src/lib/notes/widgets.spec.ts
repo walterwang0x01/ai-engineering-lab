@@ -14,7 +14,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
-import { NOTE_WIDGETS } from './widgets';
+import { NOTE_WIDGETS, widgetId } from './widgets';
 
 const MANIFEST = 'static/notes/manifest.json';
 const hasManifest = existsSync(MANIFEST);
@@ -45,6 +45,96 @@ describe('笔记内嵌部件的注册表', () => {
 			for (const w of widgets) {
 				expect(w.invitation.trim().length, `${slug} 的引导文案为空`).toBeGreaterThan(10);
 				expect(w.invitation).not.toMatch(/TODO|待补|占位/);
+			}
+		}
+	});
+
+	it('每个部件必须且只能选择旧组件或声明式规格之一', () => {
+		for (const [slug, widgets] of Object.entries(NOTE_WIDGETS)) {
+			for (const w of widgets) {
+				const count = Number(Boolean(w.load)) + Number(Boolean(w.loadSpec));
+				expect(count, `${slug} / ${w.afterHeading} 必须在 load 与 loadSpec 中二选一`).toBe(1);
+			}
+		}
+	});
+
+	it('每个交互都有全站唯一的稳定 id', () => {
+		const seen = new Set<string>();
+		for (const [slug, widgets] of Object.entries(NOTE_WIDGETS)) {
+			for (const widget of widgets) {
+				const id = widgetId(widget);
+				expect(id).toMatch(/^[a-z0-9][a-z0-9-]+$/);
+				expect(seen.has(id), `交互 id 重复：${id}（${slug}）`).toBe(false);
+				seen.add(id);
+			}
+		}
+	});
+
+	it('声明式规格的参数、预设和默认输出全部合法', async () => {
+		for (const [slug, widgets] of Object.entries(NOTE_WIDGETS)) {
+			for (const w of widgets) {
+				if (!w.loadSpec) continue;
+				const spec = await w.loadSpec();
+				expect(spec.id, `${slug} 的轻量 id 与懒加载规格不一致`).toBe(widgetId(w));
+				expect(spec.parameters.length, `${spec.id} 没有参数`).toBeGreaterThan(0);
+
+				const parameterIds = new Set(spec.parameters.map((p) => p.id));
+				expect(parameterIds.size, `${spec.id} 参数 id 重复`).toBe(spec.parameters.length);
+				for (const p of spec.parameters) {
+					expect(p.min, `${spec.id}.${p.id} min >= max`).toBeLessThan(p.max);
+					expect(p.step, `${spec.id}.${p.id} step 必须 > 0`).toBeGreaterThan(0);
+					expect(p.defaultValue, `${spec.id}.${p.id} 默认值越界`).toBeGreaterThanOrEqual(p.min);
+					expect(p.defaultValue, `${spec.id}.${p.id} 默认值越界`).toBeLessThanOrEqual(p.max);
+				}
+
+				for (const preset of spec.presets) {
+					for (const [id, value] of Object.entries(preset.values)) {
+						expect(parameterIds.has(id), `${spec.id}.${preset.id} 引用了未知参数 ${id}`).toBe(true);
+						const parameter = spec.parameters.find((p) => p.id === id)!;
+						expect(value, `${spec.id}.${preset.id}.${id} 越界`).toBeGreaterThanOrEqual(
+							parameter.min
+						);
+						expect(value, `${spec.id}.${preset.id}.${id} 越界`).toBeLessThanOrEqual(parameter.max);
+					}
+				}
+
+				const defaults = Object.fromEntries(spec.parameters.map((p) => [p.id, p.defaultValue]));
+				const scenarios: readonly (readonly [string, Readonly<Record<string, number>>])[] = [
+					['default', defaults],
+					...spec.presets.map((preset) => [preset.id, { ...defaults, ...preset.values }] as const),
+					['all-min', Object.fromEntries(spec.parameters.map((p) => [p.id, p.min]))],
+					['all-max', Object.fromEntries(spec.parameters.map((p) => [p.id, p.max]))]
+				];
+
+				for (const [scenario, values] of scenarios) {
+					const result = spec.evaluate(values);
+					expect(result.metrics.length, `${spec.id}/${scenario} 没有输出指标`).toBeGreaterThan(0);
+					for (const metric of result.metrics) {
+						expect(
+							Number.isFinite(metric.value),
+							`${spec.id}/${scenario}.${metric.label} 不是有限数`
+						).toBe(true);
+					}
+					for (const bar of result.bars ?? []) {
+						expect(
+							Number.isFinite(bar.value),
+							`${spec.id}/${scenario}.${bar.label} bar value 非有限数`
+						).toBe(true);
+						expect(bar.max, `${spec.id}/${scenario}.${bar.label} bar max 必须 > 0`).toBeGreaterThan(
+							0
+						);
+					}
+					for (const item of result.ranking ?? []) {
+						expect(
+							Number.isFinite(item.score),
+							`${spec.id}/${scenario}.${item.label} score 非有限数`
+						).toBe(true);
+					}
+					expect(
+						result.conclusion.trim().length,
+						`${spec.id}/${scenario} 没有结论`
+					).toBeGreaterThan(20);
+				}
 			}
 		}
 	});
