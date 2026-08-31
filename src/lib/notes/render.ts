@@ -12,6 +12,7 @@
 
 import { Marked } from 'marked';
 import hljs from 'highlight.js/lib/core';
+import { detectMarkdownFeatures, isPlausibleInlineMath } from './feature-detection';
 // 笔记里出现的语言：Python/JS/TS 是主力，Bash 和 JSON 偶尔出现。
 // 按需注册而非 import 'highlight.js' 全量包，避免把几十种语言都打进 bundle。
 import python from 'highlight.js/lib/languages/python';
@@ -61,10 +62,7 @@ function slugify(text: string, seen: Map<string, number>): string {
  * 正常路径用 manifest 的结果即可；这个函数是给「manifest 缺失/降级」场景兜底的。
  */
 export function detectFeatures(markdown: string): { hasMath: boolean; hasMermaid: boolean } {
-	return {
-		hasMath: /\$\$[\s\S]+?\$\$|(?<!\\)\$[^$\n]+\$/.test(markdown),
-		hasMermaid: /```mermaid/.test(markdown)
-	};
+	return detectMarkdownFeatures(markdown);
 }
 
 /**
@@ -245,16 +243,26 @@ export async function renderMath(container: HTMLElement): Promise<void> {
 
 		const frag = document.createDocumentFragment();
 		let cursor = 0;
-		const re = /\$\$([\s\S]+?)\$\$|\$([^$\n]+)\$/g;
+		const re = /\$\$([\s\S]+?)\$\$|(?<!\\)\$([^$\n]+)\$/g;
 		let m: RegExpExecArray | null;
 		let matched = false;
 		while ((m = re.exec(raw))) {
 			matched = true;
 			if (m.index > cursor) frag.append(raw.slice(cursor, m.index));
-			const span = document.createElement('span');
 			const isBlock = m[1] !== undefined;
+			const source = m[1] ?? m[2] ?? '';
+
+			// 行内候选必须与 hasMath 检测走同一契约。否则一篇只要有一个真公式，
+			// 同篇价格表里的 $5/M、模板里的 ${topic} 也会被 KaTeX 一并误渲染。
+			if (!isBlock && !isPlausibleInlineMath(source)) {
+				frag.append(m[0]);
+				cursor = re.lastIndex;
+				continue;
+			}
+
+			const span = document.createElement('span');
 			try {
-				katex.render(m[1] ?? m[2] ?? '', span, { throwOnError: false, displayMode: isBlock });
+				katex.render(source, span, { throwOnError: false, displayMode: isBlock });
 			} catch {
 				span.textContent = m[0];
 			}

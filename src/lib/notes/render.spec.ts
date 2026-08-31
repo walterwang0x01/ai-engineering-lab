@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { renderMarkdown } from './render';
+import { detectFeatures, renderMarkdown } from './render';
+import { detectMarkdownFeatures as detectBuildFeatures } from '../../../scripts/lib/feature-detection.mjs';
 
 /**
  * 笔记正文里的链接改写门禁。
@@ -107,6 +108,45 @@ describe('不传 slug 时保持纯渲染行为', () => {
 		expect(html).toContain('href="../y.md"');
 		expect(html).not.toContain('link-unavailable');
 	});
+});
+
+describe('Markdown 特性检测', () => {
+	/**
+	 * hasMath 只决定是否懒加载 KaTeX，不是「是否值得做交互」标签。
+	 *
+	 * 旧实现直接对原始 Markdown 跑 `$...$`：24 篇被标成含公式，但审计发现大量是
+	 * 价格（$5/M）、模板插值（${topic}）、正则结尾符和代码。误报意味着每次打开这些
+	 * 笔记都白白下载 KaTeX。运行时和构建脚本各有一份实现（后者不能加载 TS），
+	 * 所以同一组契约样例必须同时跑两份，防止 manifest 与 SSR 降级路径漂移。
+	 */
+	const cases: readonly [name: string, markdown: string, hasMath: boolean, hasMermaid?: boolean][] =
+		[
+			['块级 LaTeX', '$$\\theta=(1-\\alpha)A+\\alpha B$$', true],
+			['行内 LaTeX 命令', '方差是 $\\sigma^2/n$', true],
+			['行内变量', '令 $x$ 为输入', true],
+			['行内表达式', '复杂度为 $n^2 + d_k$', true],
+			['美元价格', '输入 $5/M，输出 $15/M', false],
+			['中文金额', '融资额 $3000 万，估值 $2 亿', false],
+			['模板插值', '提示词是 ${topic}，序号 ${i + 1}', false],
+			['行内代码里的美元', '调用 `cost = $5/M` 与 `${topic}`', false],
+			[
+				'围栏代码里的美元与正则',
+				['```js', 'const x = `${topic}`', 'const re = /x$/', '```'].join('\n'),
+				false
+			],
+			['自然语言与表格价格不跨行成公式', '| 模型 | 输入 | 输出 |\n| A | $5/M | $15/M |', false],
+			['转义美元', '不是公式：\\$x$', false],
+			['mermaid 与数学独立', ['```mermaid', 'graph TD', 'A-->B', '```'].join('\n'), false, true]
+		];
+
+	for (const [name, markdown, hasMath, hasMermaid = false] of cases) {
+		it(name, () => {
+			const runtime = detectFeatures(markdown);
+			const build = detectBuildFeatures(markdown);
+			expect(runtime).toEqual({ hasMath, hasMermaid });
+			expect(build).toEqual(runtime);
+		});
+	}
 });
 
 describe('语法高亮只在作者声明了语言时发生', () => {
