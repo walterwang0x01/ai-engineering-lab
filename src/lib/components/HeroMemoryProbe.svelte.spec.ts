@@ -45,13 +45,21 @@ describe('HeroMemoryProbe 量化的影响', () => {
 	it('切到 INT8 让 KV 减半到 20.0 GiB（题库 Q5 同值）', async () => {
 		const screen = render(HeroMemoryProbe);
 		await screen.getByText('INT8', { exact: true }).click();
-		expect(screen.getByTestId('probe-kv').element().textContent).toBe('20.0');
+		/*
+		 * click() 只保证浏览器事件完成，不保证 Svelte 的 `$derived` 已经 flush 到 DOM。
+		 * 原来下一行同步读 textContent：共享 Chromium 空闲时碰巧读到 20.0，忙时读到
+		 * 旧的 40.0。连续 5 轮完整测试里前 4 轮绿、第 5 轮稳定复现这两条失败。
+		 *
+		 * expect.element 会重试**用户可见结果**，不是 sleep；若响应式真的坏了，
+		 * 15 秒后仍会如实失败。
+		 */
+		await expect.element(screen.getByTestId('probe-kv')).toHaveTextContent('20.0');
 	});
 
 	it('切到 INT4 再减半到 10.0 GiB', async () => {
 		const screen = render(HeroMemoryProbe);
 		await screen.getByText('INT4', { exact: true }).click();
-		expect(screen.getByTestId('probe-kv').element().textContent).toBe('10.0');
+		await expect.element(screen.getByTestId('probe-kv')).toHaveTextContent('10.0');
 	});
 });
 
@@ -59,13 +67,13 @@ describe('HeroMemoryProbe 线性关系', () => {
 	it('batch 减半到 16 → KV 减半到 20.0 GiB（题库 Q7 同值）', async () => {
 		const screen = render(HeroMemoryProbe);
 		await setRange(screen, 'probe-batch', '16');
-		expect(screen.getByTestId('probe-kv').element().textContent).toBe('20.0');
+		await expect.element(screen.getByTestId('probe-kv')).toHaveTextContent('20.0');
 	});
 
 	it('上下文翻倍到 8K → KV 翻倍到 80.0 GiB', async () => {
 		const screen = render(HeroMemoryProbe);
 		await setRange(screen, 'probe-context', '1');
-		expect(screen.getByTestId('probe-kv').element().textContent).toBe('80.0');
+		await expect.element(screen.getByTestId('probe-kv')).toHaveTextContent('80.0');
 	});
 });
 
