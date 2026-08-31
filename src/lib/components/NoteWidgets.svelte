@@ -100,8 +100,21 @@
 			}
 			const host = document.createElement('div');
 			host.className = 'note-widget-host';
+			/*
+			 * 阅读页在 SSR HTML 中先输出同名占位锚点，让 SvelteKit 预渲染爬虫能验证 href。
+			 * 客户端找到真实插入位置后，把 id 从页首占位转移到这里。不能用
+			 * handleMissingId 忽略——那会让真正拼错的交互 id 也静默通过构建。
+			 */
+			const anchorId = `interaction-${widgetId(widget)}`;
+			document.getElementById(anchorId)?.removeAttribute('id');
+			host.id = anchorId;
 			sectionEnd(heading as HTMLElement).insertAdjacentElement('afterend', host);
 			found.push({ widget, host, LegacyComp: null, HostComp: null, spec: null });
+
+			// 带 hash 直达时，浏览器在 hydration 前只能滚到页首占位；id 转移后重滚到真实实验。
+			if (decodeURIComponent(location.hash) === `#${anchorId}`) {
+				requestAnimationFrame(() => host.scrollIntoView({ block: 'start' }));
+			}
 		}
 
 		mounted = found;
@@ -143,7 +156,7 @@
 {#each mounted as m (widgetId(m.widget))}
 	<div
 		class="note-widget"
-		id={`interaction-${widgetId(m.widget)}`}
+		id={`interaction-content-${widgetId(m.widget)}`}
 		use:mountInto={m.host}
 		data-interaction={widgetId(m.widget)}
 	>

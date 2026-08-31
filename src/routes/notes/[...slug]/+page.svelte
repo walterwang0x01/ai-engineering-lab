@@ -176,6 +176,16 @@
 	</nav>
 
 	<div class="jump-links">
+		<!--
+			交互本体在 hydration 后才被搬进正文，SSR 阶段不存在真实 DOM id。
+			先输出稳定占位锚点，供 SvelteKit 预渲染爬虫验证链接；客户端挂载后
+			NoteWidgets 会把 id 转移到正文里的真实实验位置。不要用 handleMissingId
+			忽略，否则真正拼错的 id 也会静默通过构建。
+		-->
+		{#each noteWidgets as widget (widgetId(widget))}
+			<span class="interaction-anchor" id={`interaction-${widgetId(widget)}`} aria-hidden="true"
+			></span>
+		{/each}
 		{#if firstInteractionId}
 			<a
 				class="jump-quiz"
@@ -675,9 +685,23 @@
 	}
 
 	.jump-links {
+		position: relative;
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--space-2);
+	}
+
+	/*
+	 * SSR 阶段给预渲染爬虫和无 JS 导航提供真实锚点；客户端会把 id 转移到正文实验。
+	 * 不用 display:none：隐藏元素没有可滚动位置。1px 视觉隐藏即可。
+	 */
+	.interaction-anchor {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		pointer-events: none;
 	}
 
 	.jump-quiz {
