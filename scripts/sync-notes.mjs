@@ -229,6 +229,14 @@ function main() {
 				2
 			)
 		);
+		fs.writeFileSync(
+			path.join(OUT_DIR, 'thinking.json'),
+			JSON.stringify(
+				{ generatedAt: new Date().toISOString(), total: 0, notes: 0, items: {} },
+				null,
+				2
+			)
+		);
 		return;
 	}
 
@@ -239,12 +247,15 @@ function main() {
 
 	const entries = [];
 	const quizItems = {};
-	/** slug → 可判定题（Tier A） */
+	/** slug → 可判定题（Tier A，已过审） */
 	const gradableItems = {};
+	/** slug → 思考卡题（未过审草稿，只展示不判定） */
+	const thinkingItems = {};
 	/** 抽取过程中的全部结构问题。非空则让构建失败 */
 	const gradableIssues = [];
 	let gradableTotal = 0;
 	let gradableDrafts = 0;
+	let thinkingTotal = 0;
 	let totalQuestions = 0;
 	let notesWithQuiz = 0;
 
@@ -262,7 +273,7 @@ function main() {
 		const wordCount = countWords(f.content);
 		const features = detectFeatures(f.content);
 
-		entries.push({
+		const entry = {
 			slug,
 			title,
 			module: moduleId,
@@ -275,7 +286,8 @@ function main() {
 			wordCount,
 			minutes: estimateMinutes(f.content, wordCount),
 			...features
-		});
+		};
+		entries.push(entry);
 
 		const questions = extractQuestions(f.content);
 		if (questions.length > 0) {
@@ -288,7 +300,7 @@ function main() {
 		const localPath = path.join(LOCAL_QUESTIONS_DIR, `${slug}.json`);
 		const local = fs.existsSync(localPath)
 			? parseLocalQuestions(slug, fs.readFileSync(localPath, 'utf8'))
-			: { questions: [], drafts: 0, issues: [] };
+			: { questions: [], draftQuestions: [], drafts: 0, issues: [] };
 		const merged = mergeSources(slug, extractNoteQuestions(slug, f.content), local);
 
 		gradableIssues.push(...merged.issues);
@@ -297,6 +309,15 @@ function main() {
 			gradableItems[slug] = merged.questions;
 			gradableTotal += merged.questions.length;
 		}
+		if (merged.draftQuestions.length > 0) {
+			thinkingItems[slug] = merged.draftQuestions;
+			thinkingTotal += merged.draftQuestions.length;
+		}
+
+		// 这两项决定「这篇能不能动手」，笔记库的筛选与徽章都要读它们。
+		// 只能等来源合并完再补，所以放在 entry 已经 push 之后赋值
+		entry.gradable = merged.questions.length;
+		entry.thinking = merged.draftQuestions.length;
 	}
 
 	// 本地题库指向了不存在的篇目 —— 笔记改名或写错路径，题目会静默消失
@@ -336,7 +357,11 @@ function main() {
 			hasCode: e.hasCode,
 			hasMath: e.hasMath,
 			hasMermaid: e.hasMermaid,
-			hasQuiz: Boolean(quizItems[e.slug])
+			hasQuiz: Boolean(quizItems[e.slug]),
+			// 索引页不搬题目正文，只搬这两个计数：徽章、筛选、首页入口都靠它判断
+			// 「这篇能不能动手」，而题目本身留给阅读页按篇加载
+			gradable: e.gradable ?? 0,
+			thinking: e.thinking ?? 0
 		});
 	}
 
@@ -384,6 +409,19 @@ function main() {
 			2
 		)
 	);
+	fs.writeFileSync(
+		path.join(OUT_DIR, 'thinking.json'),
+		JSON.stringify(
+			{
+				generatedAt: new Date().toISOString(),
+				total: thinkingTotal,
+				notes: Object.keys(thinkingItems).length,
+				items: thinkingItems
+			},
+			null,
+			2
+		)
+	);
 
 	console.log(
 		`  ✅ 笔记: ${entries.length} 篇（跳过加密目录 ${stats.skippedEncryptedDirs} 个 / 加密文件 ${stats.skippedEncryptedFiles} 个）`
@@ -391,7 +429,10 @@ function main() {
 	console.log(`  ✅ 自测题: ${notesWithQuiz} 篇笔记 / ${totalQuestions} 道题`);
 	console.log(
 		`  ✅ 可判定题（Tier A）: ${Object.keys(gradableItems).length} 篇 / ${gradableTotal} 道` +
-			(gradableDrafts > 0 ? `（另有 ${gradableDrafts} 道未过审，已排除）` : '')
+			(gradableDrafts > 0 ? `（另有 ${gradableDrafts} 道未过审）` : '')
+	);
+	console.log(
+		`  ✅ 思考卡（未过审草稿）: ${Object.keys(thinkingItems).length} 篇 / ${thinkingTotal} 道`
 	);
 	for (const mod of modules) {
 		console.log(`     ${mod.label}: ${mod.notes} 篇`);

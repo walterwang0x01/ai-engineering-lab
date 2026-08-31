@@ -125,7 +125,9 @@ describe('学习路径构建', () => {
 									hasCode: false,
 									hasMath: true,
 									hasMermaid: false,
-									hasQuiz: true
+									hasQuiz: true,
+									gradable: 0,
+									thinking: 0
 								}
 							]
 						},
@@ -141,7 +143,9 @@ describe('学习路径构建', () => {
 									hasCode: false,
 									hasMath: false,
 									hasMermaid: false,
-									hasQuiz: false
+									hasQuiz: false,
+									gradable: 0,
+									thinking: 0
 								}
 							]
 						}
