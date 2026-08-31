@@ -165,7 +165,7 @@
 		{#each CARDS as card (card.featured.spec.id)}
 			<li>
 				<a
-					class="card"
+					class="feature-card"
 					href={hrefFor(card.featured)}
 					data-testid={`featured-card-${card.featured.spec.id}`}
 				>
@@ -251,7 +251,7 @@
 		display: contents;
 	}
 
-	.card {
+	.feature-card {
 		display: grid;
 		gap: var(--space-3);
 		padding: var(--space-4);
@@ -268,7 +268,7 @@
 			transform var(--dur-ui) var(--ease-out);
 	}
 
-	.card:hover {
+	.feature-card:hover {
 		border-color: var(--color-accent);
 		box-shadow: var(--shadow-lift);
 		transform: translateY(-1px);
@@ -396,7 +396,7 @@
 	@media (max-width: 34rem) {
 		/* 触摸目标 ≥ 44px（WCAG 2.5.5）。牌面上整张卡是 <a>，
 		   但 title 字号大、视觉重心在卡片整体，所以全局再补一点内边距 */
-		.card {
+		.feature-card {
 			padding: var(--space-4) var(--space-4) var(--space-5);
 		}
 	}
