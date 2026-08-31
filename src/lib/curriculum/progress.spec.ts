@@ -23,7 +23,9 @@ function note(slug: string): NoteEntry {
 		hasCode: false,
 		hasMath: false,
 		hasMermaid: false,
-		hasQuiz: false
+		hasQuiz: false,
+		gradable: 0,
+		thinking: 0
 	};
 }
 

@@ -20,6 +20,10 @@ export interface NoteEntry {
 	hasMath: boolean;
 	hasMermaid: boolean;
 	hasQuiz: boolean;
+	/** 已过审、可判定对错的题数（Tier A） */
+	gradable: number;
+	/** 未过审、只作思考卡展示的题数 */
+	thinking: number;
 }
 
 export interface NoteSection {
@@ -71,9 +75,31 @@ export interface NotesGradable {
 	generatedAt: string;
 	/** 已过审并进入产物的题目总数 */
 	total: number;
-	/** 因 reviewed 不为 true 而被排除的草稿数，仅用于可观测性 */
+	/** 未过审题的数量。它们没被丢掉，而是进了 thinking.json */
 	drafts: number;
 	/** 有可判定题的篇数 */
+	notes: number;
+	items: Record<string, ChoiceQuestion[]>;
+}
+
+/**
+ * slug → 该篇的**思考卡**题。
+ *
+ * 这些题结构与可判定题完全一致，唯一区别是 `reviewed` 不为 true——
+ * 人还没逐题核实过。所以它们：
+ *
+ *   - **不判定对错**，界面上不给「答对 / 答错」的结论；
+ *   - **不写学习记录**，不进掌握度、不进间隔重复排期；
+ *   - **在界面上标明未过审**，读者知道自己在看草稿。
+ *
+ * 让草稿上线的理由：仓库里 90% 以上的题都停在未过审状态，
+ * 一律藏起来的结果是绝大多数笔记一个可动手的东西都没有。
+ * 门禁要防的是「把没核实的内容当成核实过的发出去」，
+ * 而思考卡不产出任何结论，只是把已经写好的解析摆出来让人边读边想。
+ */
+export interface NotesThinking {
+	generatedAt: string;
+	total: number;
 	notes: number;
 	items: Record<string, ChoiceQuestion[]>;
 }

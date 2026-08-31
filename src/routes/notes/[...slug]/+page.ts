@@ -2,7 +2,13 @@ import { error } from '@sveltejs/kit';
 import { readFileSync } from 'node:fs';
 import { base } from '$app/paths';
 import { detectFeatures, renderMarkdown } from '$lib/notes/render';
-import type { NoteEntry, NotesGradable, NotesManifest, NotesQuiz } from '$lib/notes/types';
+import type {
+	NoteEntry,
+	NotesGradable,
+	NotesManifest,
+	NotesQuiz,
+	NotesThinking
+} from '$lib/notes/types';
 import type { ChoiceQuestion } from '$lib/quiz/types';
 import type { EntryGenerator, PageLoad } from './$types';
 
@@ -64,6 +70,8 @@ export interface NotePageData {
 	openQuestions: string[];
 	/** Tier A 可判定题 */
 	gradable: ChoiceQuestion[];
+	/** 未过审的草稿题。只作思考卡展示，不判定、不记分 */
+	thinking: ChoiceQuestion[];
 	/** 正文是否含公式 / mermaid，决定客户端是否加载那两个大库 */
 	hasMath: boolean;
 	hasMermaid: boolean;
@@ -75,11 +83,12 @@ export const load: PageLoad = async ({ params, fetch }): Promise<NotePageData> =
 	// 正文与三份索引一起取。索引缺失是可容忍的降级，正文缺失是 404
 	// 路径必须带 base：子路径部署时静态资源在 /<base>/notes/ 下，
 	// 用根绝对路径会在预渲染时 fetch failed（CI 的子路径构建校验抓到过一次）
-	const [mdRes, manifestRes, quizRes, gradableRes] = await Promise.all([
+	const [mdRes, manifestRes, quizRes, gradableRes, thinkingRes] = await Promise.all([
 		fetch(`${base}/notes/${slug.split('/').map(encodeURIComponent).join('/')}.md`),
 		fetch(`${base}/notes/manifest.json`),
 		fetch(`${base}/notes/quiz.json`),
-		fetch(`${base}/notes/gradable.json`)
+		fetch(`${base}/notes/gradable.json`),
+		fetch(`${base}/notes/thinking.json`)
 	]);
 
 	if (!mdRes.ok) error(404, `找不到这篇笔记：${slug}`);
@@ -104,6 +113,11 @@ export const load: PageLoad = async ({ params, fetch }): Promise<NotePageData> =
 	const gradable = gradableRes.ok
 		? (((await gradableRes.json()) as NotesGradable).items?.[slug] ?? [])
 		: [];
+	// thinking.json 是构建期才读的全量文件（未压缩约 670 KB），但每篇只取自己那几道，
+	// 预渲染之后读者拿到的 HTML 里只多出几 KB
+	const thinking = thinkingRes.ok
+		? (((await thinkingRes.json()) as NotesThinking).items?.[slug] ?? [])
+		: [];
 
 	// 传入 slug 与已知 slug 集合，把笔记之间的相对 .md 链接改写成站内路由。
 	// 不传的话正文里那些链接会 404 —— 改成 SSR 之后 SvelteKit 的爬虫会因此让构建失败，
@@ -119,6 +133,7 @@ export const load: PageLoad = async ({ params, fetch }): Promise<NotePageData> =
 		next,
 		openQuestions,
 		gradable,
+		thinking,
 		// manifest 有标记就用它，缺失时回退到同一份特性检测契约，避免构建期与运行时漂移
 		hasMath: meta?.hasMath ?? detectFeatures(markdown).hasMath,
 		hasMermaid: meta?.hasMermaid ?? detectFeatures(markdown).hasMermaid

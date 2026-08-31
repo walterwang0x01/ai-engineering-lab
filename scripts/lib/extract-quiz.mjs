@@ -35,8 +35,20 @@
  *
  * ## reviewed 门禁
  *
- * `reviewed` 必须显式为 `true` 才会进产物。LLM 起草的题一律先写 `false`，
- * 人工逐题过审后才翻转。未过审的内容在物理上到不了线上。
+ * `reviewed` 必须显式给出，LLM 起草的题一律先写 `false`，人工逐题过审后才翻转。
+ * 翻转前后的题走**两条互不相交的通道**：
+ *
+ *   - `reviewed: true` → `questions`：可判定题，进 `gradable.json`，判对错、计掌握度、
+ *     进间隔重复排期。这是唯一会把结果写进学习记录的一档。
+ *   - `reviewed: false` → `draftQuestions`：思考卡，进 `thinking.json`，
+ *     只做「先猜后看 + 逐项解析」，不判定、不记分、不进排期。
+ *
+ * 草稿能上线，是因为它**不以「已核实」的身份出现**：界面上明确标注未过审、
+ * 不产生任何对错结论、任何地方都不声称这些答案经过人工确认。
+ * 门禁要挡的是「把没核实的内容当成核实过的发出去」，不是「草稿永远不能见人」——
+ * 后者会让 90% 以上已经写好的内容永远躺在仓库里，读者看到的全是干巴巴的正文。
+ *
+ * 两档共用同一套结构校验：草稿豁免的是「人还没核实」，不是「格式可以随便写」。
  */
 
 /** 围栏块的语言标记 */
@@ -65,8 +77,14 @@ const ALLOWED_KEYS = new Set([
 
 /**
  * 抽取结果。
+ *
+ * `questions` 与 `draftQuestions` 是**两条互不相交的通道**：
+ * 前者已过审、可判定；后者结构合法但还没过审，只作为思考卡展示。
+ * 一道题永远只会在其中一条里，不会两边都出现。
+ *
  * @typedef {{
  *   questions: import('../../src/lib/quiz/types').ChoiceQuestion[],
+ *   draftQuestions: import('../../src/lib/quiz/types').ChoiceQuestion[],
  *   drafts: number,
  *   issues: QuizIssue[]
  * }} ExtractResult
@@ -282,8 +300,9 @@ export function extractNoteQuestions(slug, markdown) {
 function finalize(slug, raws, issues, source) {
 	/** @type {import('../../src/lib/quiz/types').ChoiceQuestion[]} */
 	const questions = [];
+	/** @type {import('../../src/lib/quiz/types').ChoiceQuestion[]} */
+	const draftQuestions = [];
 	const seen = new Set();
-	let drafts = 0;
 
 	for (const [i, raw] of raws.entries()) {
 		const where = `${slug} ${source} 第 ${i + 1} 题`;
@@ -297,15 +316,14 @@ function finalize(slug, raws, issues, source) {
 		}
 		seen.add(question.id);
 
-		// 未过审的只计数，不进产物
-		if (!reviewed) {
-			drafts += 1;
-			continue;
-		}
-		questions.push(question);
+		// 未过审的进思考卡通道，不进可判定通道。
+		// 它照样要通过上面全部结构校验——草稿豁免的是「人还没核实」，
+		// 不是「格式可以随便写」
+		if (reviewed) questions.push(question);
+		else draftQuestions.push(question);
 	}
 
-	return { questions, drafts, issues };
+	return { questions, draftQuestions, drafts: draftQuestions.length, issues };
 }
 
 /**
@@ -330,14 +348,14 @@ export function parseLocalQuestions(slug, json) {
 			where: `content/note-questions/${slug}.json`,
 			problem: `JSON 解析失败：${e instanceof Error ? e.message : e}`
 		});
-		return { questions: [], drafts: 0, issues };
+		return { questions: [], draftQuestions: [], drafts: 0, issues };
 	}
 	if (!Array.isArray(parsed)) {
 		issues.push({
 			where: `content/note-questions/${slug}.json`,
 			problem: '文件内容必须是 JSON 数组'
 		});
-		return { questions: [], drafts: 0, issues };
+		return { questions: [], draftQuestions: [], drafts: 0, issues };
 	}
 	return finalize(slug, parsed, issues, '本地题库');
 }
@@ -352,22 +370,40 @@ export function parseLocalQuestions(slug, json) {
  */
 export function mergeSources(slug, inline, local) {
 	const issues = [...inline.issues, ...local.issues];
-	const byId = new Map(inline.questions.map((q) => [q.id, q]));
 
-	for (const q of local.questions) {
-		if (byId.has(q.id)) {
-			issues.push({
-				where: slug,
-				problem: `题目 id "${q.id}" 同时出现在笔记正文和本地题库里，来源必须唯一`
-			});
-			continue;
+	/**
+	 * 两条通道统一占一个 id 命名空间：一道题换了过审状态不会变成两道题，
+	 * 也不会在「可判定」和「思考卡」里同时出现。
+	 * @type {Map<string, { question: import('../../src/lib/quiz/types').ChoiceQuestion, reviewed: boolean }>}
+	 */
+	const byId = new Map();
+
+	/** @param {import('../../src/lib/quiz/types').ChoiceQuestion[]} list @param {boolean} reviewed */
+	const take = (list, reviewed) => {
+		for (const question of list) {
+			if (byId.has(question.id)) {
+				issues.push({
+					where: slug,
+					problem: `题目 id "${question.id}" 同时出现在笔记正文和本地题库里，来源必须唯一`
+				});
+				continue;
+			}
+			byId.set(question.id, { question, reviewed });
 		}
-		byId.set(q.id, q);
+	};
+
+	take(inline.questions, true);
+	take(inline.draftQuestions, false);
+	take(local.questions, true);
+	take(local.draftQuestions, false);
+
+	/** @type {import('../../src/lib/quiz/types').ChoiceQuestion[]} */
+	const questions = [];
+	/** @type {import('../../src/lib/quiz/types').ChoiceQuestion[]} */
+	const draftQuestions = [];
+	for (const { question, reviewed } of byId.values()) {
+		(reviewed ? questions : draftQuestions).push(question);
 	}
 
-	return {
-		questions: [...byId.values()],
-		drafts: inline.drafts + local.drafts,
-		issues
-	};
+	return { questions, draftQuestions, drafts: draftQuestions.length, issues };
 }

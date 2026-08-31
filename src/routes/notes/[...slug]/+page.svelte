@@ -14,12 +14,14 @@
 	import { resolve } from '$app/paths';
 	import Seo from '$lib/components/Seo.svelte';
 	import QuizCard from '$lib/components/QuizCard.svelte';
+	import ThinkingCard from '$lib/components/ThinkingCard.svelte';
 	import RunnableCode from '$lib/components/RunnableCode.svelte';
 	import NoteWidgets from '$lib/components/NoteWidgets.svelte';
 	import { renderMath, renderMermaidBlocks } from '$lib/notes/render';
-	import { widgetId, widgetsForNote } from '$lib/notes/widgets';
+	import { thinkingInteractionId, widgetId, widgetsForNote } from '$lib/notes/widgets';
 	import { notesProgress } from '$lib/storage/notes-progress.svelte';
 	import { progress } from '$lib/storage/progress.svelte';
+	import { interactionProgress } from '$lib/storage/interaction-progress.svelte';
 	import { levelForNote } from '$lib/curriculum/mapping';
 	import { getLevel } from '$lib/levels/registry';
 	import { INTERVALS_DAYS, buildDueDeck, summarizeMastery } from '$lib/quiz/schedule';
@@ -31,6 +33,8 @@
 	const meta = $derived(data.meta);
 	const toc = $derived(data.toc);
 	const gradable = $derived(data.gradable);
+	/** 未过审的草稿题。只作思考卡，不判定、不进进度 */
+	const thinking = $derived(data.thinking);
 	const openQuestions = $derived(data.openQuestions);
 	const noteWidgets = $derived(widgetsForNote(slug));
 	const firstInteractionId = $derived(noteWidgets.length > 0 ? widgetId(noteWidgets[0]) : null);
@@ -39,6 +43,8 @@
 	const relatedLevel = $derived(getLevel(levelForNote(slug) ?? ''));
 
 	let gradableIndex = $state(0);
+	/** 思考卡当前看到第几题。越界即「全部想过一遍」 */
+	let thinkingIndex = $state(0);
 	/**
 	 * 本篇要练的题序列。
 	 *
@@ -68,6 +74,7 @@
 	onMount(() => {
 		notesProgress.load();
 		progress.load();
+		interactionProgress.load();
 		ready = true;
 		rebuildDeck();
 
@@ -96,6 +103,18 @@
 			if (needMath) await renderMath(el);
 			if (needMermaid) await renderMermaidBlocks(el);
 		})();
+	});
+
+	/**
+	 * 换一篇笔记就把思考卡拨回第一题。
+	 *
+	 * 客户端路由在两篇笔记之间跳转时组件会复用，onMount 只跑一次，
+	 * 靠它重置的话打开第二篇会停在上一次看到的题号上——
+	 * 而那一题和眼前这篇毫无关系。
+	 */
+	$effect(() => {
+		void data.slug;
+		thinkingIndex = 0;
 	});
 
 	function markRead() {
@@ -141,10 +160,42 @@
 		gradableIndex = 0;
 	}
 
+	const currentThinking = $derived(
+		thinkingIndex < thinking.length ? thinking[thinkingIndex] : undefined
+	);
+
+	function nextThinking() {
+		thinkingIndex += 1;
+	}
+
+	function resetThinking() {
+		thinkingIndex = 0;
+	}
+
+	/**
+	 * 只记「这篇我动过手了」。
+	 *
+	 * 思考卡不判对错，所以这里连 correct 参数都没有——记录里永远不会有
+	 * 「答对了几道」这种数字。这是刻意的：这些题还没人工核实过，
+	 * 拿它们去算掌握度，等于把草稿当结论。
+	 */
+	function handleThinkingReveal() {
+		interactionProgress.record(thinkingInteractionId(slug));
+	}
+
 	/** 摘要：取正文前若干字做 description，避免 168 篇共用一句话 */
+	const quizSummary = $derived(
+		gradable.length > 0 && thinking.length > 0
+			? `，含 ${gradable.length} 道可判定自测题与 ${thinking.length} 道思考题。`
+			: gradable.length > 0
+				? `，含 ${gradable.length} 道可判定自测题。`
+				: thinking.length > 0
+					? `，含 ${thinking.length} 道思考题。`
+					: '。'
+	);
+
 	const description = $derived(
-		`${meta?.title ?? '笔记'}——AI 工程笔记，约 ${meta?.minutes ?? 0} 分钟读完` +
-			(gradable.length > 0 ? `，含 ${gradable.length} 道可判定自测题。` : '。')
+		`${meta?.title ?? '笔记'}——AI 工程笔记，约 ${meta?.minutes ?? 0} 分钟读完${quizSummary}`
 	);
 </script>
 
@@ -195,6 +246,11 @@
 				本篇有 {noteWidgets.length} 个可调实验 · 直接去动手 ↓
 			</a>
 		{/if}
+		{#if thinking.length > 0}
+			<a class="jump-quiz" href="#thinking" data-testid="jump-to-thinking">
+				本篇有 {thinking.length} 道思考题 · 边读边想 ↓
+			</a>
+		{/if}
 		{#if gradable.length > 0}
 			<!--
 				题目区在整篇最底部，在「推荐视频资源 / 系统课程与教材」这些附录之后。
@@ -237,6 +293,49 @@
 			{@html data.html}
 		</article>
 	</div>
+
+	<!--
+		思考卡排在可判定题**前面**。
+
+		两者不是「简单版 / 正式版」的关系：思考卡是读的时候随手点一下、
+		看看解析，可判定题是要认真答、答完进复习排期的。
+		绝大多数笔记只有思考卡（草稿题占九成以上），
+		把它放在后面对这些笔记来说就等于没有。
+	-->
+	{#if thinking.length > 0}
+		<section class="thinking" id="thinking" data-testid="note-thinking">
+			<div class="thinking-head">
+				<h2>边读边想：{thinking.length} 道思考题</h2>
+				{#if currentThinking}
+					<span class="thinking-counter" data-testid="note-thinking-counter">
+						第 {thinkingIndex + 1} / {thinking.length} 题
+					</span>
+				{/if}
+			</div>
+			<p class="dim">
+				这些题还没有人工逐题核实，所以<strong>不判对错、不计分、不进复习排期</strong>——
+				选一项就把解析摊开，每个干扰项为什么不成立也都写着。 把它当成「作者边写边给自己提的问题」。
+			</p>
+
+			{#if currentThinking}
+				{#key currentThinking.id}
+					<ThinkingCard
+						question={currentThinking}
+						onNext={nextThinking}
+						onReveal={handleThinkingReveal}
+					/>
+				{/key}
+			{:else}
+				<div class="thinking-done" data-testid="note-thinking-done">
+					<p class="thinking-done-title">{thinking.length} 道都想过了</p>
+					<p class="thinking-done-body">
+						这里不记录对错，所以想再看一遍随时可以——解析不会因为重看就变短。
+					</p>
+					<button class="btn-ghost" onclick={resetThinking}>再想一遍</button>
+				</div>
+			{/if}
+		</section>
+	{/if}
 
 	{#if gradable.length > 0}
 		<!--
@@ -721,6 +820,55 @@
 
 	.jump-quiz:hover {
 		border-color: var(--color-accent);
+	}
+
+	.thinking {
+		display: grid;
+		gap: var(--space-3);
+	}
+
+	.thinking-head {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: var(--space-3);
+		flex-wrap: wrap;
+	}
+
+	.thinking-head h2 {
+		margin: 0;
+		font-size: var(--fs-lg);
+		letter-spacing: -0.01em;
+		color: var(--color-text-strong);
+	}
+
+	.thinking-counter {
+		font-size: var(--fs-sm);
+		font-family: var(--font-mono);
+		color: var(--color-text-muted);
+	}
+
+	.thinking-done {
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: var(--radius-card);
+		padding: var(--space-5);
+		display: grid;
+		gap: var(--space-3);
+		justify-items: start;
+	}
+
+	.thinking-done-title {
+		margin: 0;
+		font-size: var(--fs-md);
+		font-weight: 600;
+	}
+
+	.thinking-done-body {
+		margin: 0;
+		font-size: var(--fs-sm);
+		line-height: 1.75;
+		color: var(--color-text-soft);
 	}
 
 	.gradable {
