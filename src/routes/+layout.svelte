@@ -17,7 +17,7 @@
 <nav class="site-nav" aria-label="站点导航">
 	<a class="brand" href={resolve('/')}>
 		<!-- 装饰性：紧挨着站名文字，不传 label 以免读屏重复播报 -->
-		<Mascot size={26} />
+		<Mascot size={30} />
 		<span>AI Engineering Lab</span>
 	</a>
 	<div class="nav-links">
