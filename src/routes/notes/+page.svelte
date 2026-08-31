@@ -88,9 +88,6 @@
 	 * 思考卡虽然不判对错，但它要求读者先自己选一个再看解析，
 	 * 这已经是「动手」了。
 	 */
-	function hasAnythingToDo(note: NoteEntry): boolean {
-		return hasInteraction(note.slug) || note.gradable > 0 || note.thinking > 0;
-	}
 
 	/**
 	 * 哪些模块处于展开状态。默认只展开第一个。
@@ -154,7 +151,7 @@
 	/** 一篇笔记是否通过当前筛选 */
 	function matches(note: NoteEntry): boolean {
 		if (onlyGradable && (noteQuestionIds[note.slug]?.length ?? 0) === 0) return false;
-		if (onlyInteractive && !hasAnythingToDo(note)) return false;
+		if (onlyInteractive && !hasInteraction(note.slug)) return false;
 		const q = query.trim().toLowerCase();
 		return q === '' || note.title.toLowerCase().includes(q);
 	}
