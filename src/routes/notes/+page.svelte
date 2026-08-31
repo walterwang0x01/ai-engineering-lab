@@ -14,6 +14,12 @@
 	import { progress } from '$lib/storage/progress.svelte';
 	import { levelForNote } from '$lib/curriculum/mapping';
 	import { noteProgress } from '$lib/curriculum/progress';
+	import {
+		hasInteraction,
+		interactionCountForNote,
+		interactionIdsForNote
+	} from '$lib/notes/widgets';
+	import { interactionProgress } from '$lib/storage/interaction-progress.svelte';
 	import type { NotesGradable, NotesManifest } from '$lib/notes/types';
 
 	let manifest = $state<NotesManifest | null>(null);
@@ -25,6 +31,7 @@
 	onMount(async () => {
 		notesProgress.load();
 		progress.load();
+		interactionProgress.load();
 		try {
 			const [manifestRes, gradableRes] = await Promise.all([
 				fetch(`${base}/notes/manifest.json`),
@@ -61,6 +68,10 @@
 			{ slug },
 			{ read: notesProgress.read, schedule: progress.scheduleView, noteQuestionIds }
 		).state;
+	}
+
+	function hasExperiencedInteraction(slug: string): boolean {
+		return interactionIdsForNote(slug).some((id) => interactionProgress.hasInteracted(id));
 	}
 
 	/**
@@ -118,12 +129,14 @@
 
 	let query = $state('');
 	let onlyGradable = $state(false);
+	let onlyInteractive = $state(false);
 
-	const filtering = $derived(query.trim() !== '' || onlyGradable);
+	const filtering = $derived(query.trim() !== '' || onlyGradable || onlyInteractive);
 
 	/** 一篇笔记是否通过当前筛选 */
 	function matches(note: { slug: string; title: string }): boolean {
 		if (onlyGradable && (noteQuestionIds[note.slug]?.length ?? 0) === 0) return false;
+		if (onlyInteractive && !hasInteraction(note.slug)) return false;
 		const q = query.trim().toLowerCase();
 		return q === '' || note.title.toLowerCase().includes(q);
 	}
@@ -185,6 +198,7 @@
 	function clearFilters() {
 		query = '';
 		onlyGradable = false;
+		onlyInteractive = false;
 	}
 </script>
 
@@ -248,7 +262,11 @@
 				<input type="checkbox" bind:checked={onlyGradable} data-testid="only-gradable" />
 				只看有可判定题的
 			</label>
-			{#if query.trim() !== '' || onlyGradable}
+			<label class="only-gradable">
+				<input type="checkbox" bind:checked={onlyInteractive} data-testid="only-interactive" />
+				只看可交互的
+			</label>
+			{#if query.trim() !== '' || onlyGradable || onlyInteractive}
 				<span class="filter-count" data-testid="filter-count">{matchCount} 篇匹配</span>
 			{/if}
 		</div>
@@ -321,6 +339,15 @@
 														{#if (noteQuestionIds[note.slug]?.length ?? 0) > 0}
 															<span class="badge-gradable" data-testid="note-has-gradable">
 																{noteQuestionIds[note.slug].length} 道可判定题
+															</span>
+														{/if}
+														{#if hasInteraction(note.slug)}
+															<span class="badge-interactive" data-testid="note-has-interaction">
+																{#if hasExperiencedInteraction(note.slug)}
+																	{interactionCountForNote(note.slug)} 个实验 · 已体验
+																{:else}
+																	{interactionCountForNote(note.slug)} 个可调实验
+																{/if}
 															</span>
 														{/if}
 														{#if levelForNote(note.slug)}
@@ -572,6 +599,12 @@
 
 	.badge-gradable {
 		color: var(--color-ok);
+		white-space: nowrap;
+	}
+
+	.badge-interactive {
+		color: var(--color-accent);
+		font-weight: 600;
 		white-space: nowrap;
 	}
 

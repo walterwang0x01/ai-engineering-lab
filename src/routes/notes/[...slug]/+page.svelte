@@ -17,6 +17,7 @@
 	import RunnableCode from '$lib/components/RunnableCode.svelte';
 	import NoteWidgets from '$lib/components/NoteWidgets.svelte';
 	import { renderMath, renderMermaidBlocks } from '$lib/notes/render';
+	import { widgetId, widgetsForNote } from '$lib/notes/widgets';
 	import { notesProgress } from '$lib/storage/notes-progress.svelte';
 	import { progress } from '$lib/storage/progress.svelte';
 	import { levelForNote } from '$lib/curriculum/mapping';
@@ -31,6 +32,8 @@
 	const toc = $derived(data.toc);
 	const gradable = $derived(data.gradable);
 	const openQuestions = $derived(data.openQuestions);
+	const noteWidgets = $derived(widgetsForNote(slug));
+	const firstInteractionId = $derived(noteWidgets.length > 0 ? widgetId(noteWidgets[0]) : null);
 
 	/** 这篇笔记对应的关卡。从 registry 静态取，不需要 fetch */
 	const relatedLevel = $derived(getLevel(levelForNote(slug) ?? ''));
@@ -172,17 +175,28 @@
 		{/if}
 	</nav>
 
-	{#if gradable.length > 0}
-		<!--
-			题目区在整篇最底部，在「推荐视频资源 / 系统课程与教材」这些附录之后。
-			零上下文复查者的原话：「我滚到延伸阅读的时候已经认定笔记结束了，
-			正常人会在这里关掉页面」——全站唯一的 12 道笔记题就藏在那后面。
-		-->
-		<a class="jump-quiz" href="#gradable" data-testid="jump-to-gradable">
-			本篇有 {gradable.length} 道可判定题{#if ready && mastery.mastered > 0}（已掌握 {mastery.mastered}）{/if}·
-			直接去做 ↓
-		</a>
-	{/if}
+	<div class="jump-links">
+		{#if firstInteractionId}
+			<a
+				class="jump-quiz"
+				href={`#interaction-${firstInteractionId}`}
+				data-testid="jump-to-interaction"
+			>
+				本篇有 {noteWidgets.length} 个可调实验 · 直接去动手 ↓
+			</a>
+		{/if}
+		{#if gradable.length > 0}
+			<!--
+				题目区在整篇最底部，在「推荐视频资源 / 系统课程与教材」这些附录之后。
+				零上下文复查者的原话：「我滚到延伸阅读的时候已经认定笔记结束了，
+				正常人会在这里关掉页面」——全站唯一的笔记题就藏在那后面。
+			-->
+			<a class="jump-quiz" href="#gradable" data-testid="jump-to-gradable">
+				本篇有 {gradable.length} 道可判定题{#if ready && mastery.mastered > 0}（已掌握 {mastery.mastered}）{/if}·
+				直接去做 ↓
+			</a>
+		{/if}
+	</div>
 
 	<div class="layout">
 		{#if toc.length > 2}
@@ -205,7 +219,9 @@
 			-->
 			{#if articleEl}
 				<RunnableCode container={articleEl} />
-				<NoteWidgets container={articleEl} slug={data.slug} />
+				{#key data.slug}
+					<NoteWidgets container={articleEl} slug={data.slug} />
+				{/key}
 			{/if}
 			<!-- eslint-disable-next-line svelte/no-at-html-tags -- 内容来自本仓库同步的自有笔记，非用户输入 -->
 			{@html data.html}
@@ -656,6 +672,12 @@
 		display: grid;
 		gap: var(--space-2);
 		justify-items: start;
+	}
+
+	.jump-links {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-2);
 	}
 
 	.jump-quiz {

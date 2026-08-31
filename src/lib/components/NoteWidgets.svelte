@@ -8,7 +8,9 @@
 	 */
 	import { onMount } from 'svelte';
 	import type { Component } from 'svelte';
-	import { widgetsForNote, type NoteWidget } from '$lib/notes/widgets';
+	import type { InteractionSpec } from '$lib/interactions/types';
+	import { widgetId, widgetsForNote, type NoteWidget } from '$lib/notes/widgets';
+	import { interactionProgress } from '$lib/storage/interaction-progress.svelte';
 
 	type Props = {
 		/** 正文容器 */
@@ -22,7 +24,9 @@
 	type Mounted = {
 		widget: NoteWidget;
 		host: HTMLElement;
-		Comp: Component | null;
+		LegacyComp: Component | null;
+		HostComp: Component<{ spec: InteractionSpec }> | null;
+		spec: InteractionSpec | null;
 	};
 
 	let mounted = $state<Mounted[]>([]);
@@ -64,6 +68,23 @@
 		const widgets = widgetsForNote(slug);
 		if (widgets.length === 0) return;
 
+		interactionProgress.load();
+		let active = true;
+
+		/*
+		 * 旧 5 个沙盒不知道新的进度存储，也不该为了记录行为去改每个组件。
+		 * 在正文容器上委托 input/change 事件，找到所属 note-widget 的稳定 id 后记录。
+		 * 新 InteractionHost 也会在这里被记录；它自己额外记录 preset 使用情况。
+		 */
+		const recordInteraction = (event: Event) => {
+			const target = event.target as Element | null;
+			const wrapper = target?.closest<HTMLElement>('.note-widget[data-interaction]');
+			const id = wrapper?.dataset.interaction;
+			if (id) interactionProgress.record(id);
+		};
+		container.addEventListener('input', recordInteraction);
+		container.addEventListener('change', recordInteraction);
+
 		const headings = [...container.querySelectorAll('h1, h2, h3, h4, h5, h6')];
 		const found: Mounted[] = [];
 
@@ -80,30 +101,61 @@
 			const host = document.createElement('div');
 			host.className = 'note-widget-host';
 			sectionEnd(heading as HTMLElement).insertAdjacentElement('afterend', host);
-			found.push({ widget, host, Comp: null });
+			found.push({ widget, host, LegacyComp: null, HostComp: null, spec: null });
 		}
 
 		mounted = found;
 
-		// 逐个懒加载。失败不影响正文阅读，只是少一个部件
+		/*
+		 * 两类部件都按需加载：旧沙盒加载自己的组件；声明式规格只在真正出现时
+		 * 加载统一 InteractionHost。158 篇没有新声明式实验的笔记不为渲染器付首包成本。
+		 */
 		found.forEach(async (m, i) => {
 			try {
-				const mod = await m.widget.load();
-				mounted[i].Comp = mod.default;
+				if (m.widget.loadSpec) {
+					const [spec, mod] = await Promise.all([
+						m.widget.loadSpec(),
+						import('$lib/interactions/InteractionHost.svelte')
+					]);
+					if (!active || !mounted[i]) return;
+					mounted[i].spec = spec;
+					mounted[i].HostComp = mod.default;
+				} else if (m.widget.load) {
+					const mod = await m.widget.load();
+					if (!active || !mounted[i]) return;
+					mounted[i].LegacyComp = mod.default;
+				}
 			} catch (e) {
-				console.warn('[note-widget] 部件加载失败', e);
+				if (active) console.warn('[note-widget] 部件加载失败', e);
 			}
 		});
+
+		return () => {
+			active = false;
+			container.removeEventListener('input', recordInteraction);
+			container.removeEventListener('change', recordInteraction);
+			for (const item of found) item.host.remove();
+			mounted = [];
+		};
 	});
 </script>
 
-{#each mounted as m (m.widget.afterHeading)}
-	<div class="note-widget" use:mountInto={m.host}>
+{#each mounted as m (widgetId(m.widget))}
+	<div
+		class="note-widget"
+		id={`interaction-${widgetId(m.widget)}`}
+		use:mountInto={m.host}
+		data-interaction={widgetId(m.widget)}
+	>
 		<p class="nw-invitation">{m.widget.invitation}</p>
-		{#if m.Comp}
-			<m.Comp />
-		{:else}
+		{#if m.HostComp && m.spec}
+			<m.HostComp spec={m.spec} />
+		{:else if m.LegacyComp}
+			<m.LegacyComp />
+		{:else if m.widget.load || m.widget.loadSpec}
 			<p class="nw-loading">正在载入…</p>
+		{:else}
+			<p class="nw-error">交互配置不完整，正文阅读不受影响。</p>
 		{/if}
 	</div>
 {/each}
@@ -131,9 +183,14 @@
 		color: var(--color-text-soft);
 	}
 
-	.nw-loading {
+	.nw-loading,
+	.nw-error {
 		margin: 0;
 		font-size: var(--fs-sm);
 		color: var(--color-text-muted);
+	}
+
+	.nw-error {
+		color: var(--color-bad-text);
 	}
 </style>
