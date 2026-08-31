@@ -485,14 +485,14 @@ describe('拿不到 token 的独立文档不许漂移', () => {
 describe('换算与浏览器实测一致', () => {
 	/**
 	 * 这一条守的是换算本身。深色主题这三个值在浏览器 canvas 里实测分别是
-	 * 16.86 / 5.55 / 8.52，如果矩阵被改坏，上面所有断言都会静默失真。
+	 * 16.86 / 5.55 / 7.52，如果矩阵被改坏，上面所有断言都会静默失真。
 	 */
 	it('与 canvas 实测值吻合到小数第一位', () => {
 		const surface = DARK_TOKENS.get('color-surface')!;
 		const cases: [string, number][] = [
 			['color-text-strong', 16.86],
 			['color-text-faint', 5.55],
-			['color-accent', 8.52]
+			['color-accent', 7.52]
 		];
 		for (const [name, expected] of cases) {
 			const got = contrast(DARK_TOKENS.get(name)!, surface);

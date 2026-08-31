@@ -14,7 +14,7 @@
 		它必须等于 @theme 里 --color-accent 的 sRGB 值。
 		OG 脚本曾经也是这样手抄的，抄的值在收敛后过期了整整一轮没人发现。
 	-->
-	<rect width="64" height="64" rx="14" fill="#225ee6" />
+	<rect width="64" height="64" rx="14" fill="#7147dd" />
 	<path
 		d="M12 48 L28 48 L46 22"
 		fill="none"
