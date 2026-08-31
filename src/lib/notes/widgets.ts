@@ -7,8 +7,9 @@
  * 本身做成可操纵的部件，嵌在解释它的那段文字后面——读完「为什么要除以 sqrt(d_k)」
  * 立刻能把缩放开关关掉，看 softmax 怎么饱和成 one-hot。
  *
- * **这不是答题。** 题目走 `content/note-questions/`，判定对错；这里的部件没有通关判定，
- * 价值在把抽象的东西变成看得见、能动手改的。
+ * **这不是答题。** 题目走 `content/note-questions/`，分两档：已过审的判定对错并进
+ * 间隔重复，未过审的作为思考卡只揭示不判定（见 `ThinkingCard.svelte`）。
+ * 这里的部件两档都不是——没有通关判定，价值在把抽象的东西变成看得见、能动手改的。
  *
  * ## 为什么放在本仓库而不是笔记源里
  *
@@ -208,4 +209,17 @@ export function interactionCountForNote(slug: string): number {
 
 export function hasInteraction(slug: string): boolean {
 	return interactionCountForNote(slug) > 0;
+}
+
+/**
+ * 思考卡（未过审草稿题）在进度存储里的 id。
+ *
+ * 和实验共用同一个存储，但带 `thinking:` 前缀：两者来源完全不同——
+ * 实验是本文件里手写的规格，思考卡是从 `content/note-questions/` 抽出来的草稿题。
+ * 前缀保证一篇笔记的思考进度永远不会和某个实验的 id 撞车。
+ *
+ * 记的是「这篇我动过手了」，不是对错：思考卡不产出结论，也就没有可记的对错。
+ */
+export function thinkingInteractionId(slug: string): string {
+	return `thinking:${slug}`;
 }

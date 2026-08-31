@@ -17,10 +17,11 @@
 	import {
 		hasInteraction,
 		interactionCountForNote,
-		interactionIdsForNote
+		interactionIdsForNote,
+		thinkingInteractionId
 	} from '$lib/notes/widgets';
 	import { interactionProgress } from '$lib/storage/interaction-progress.svelte';
-	import type { NotesGradable, NotesManifest } from '$lib/notes/types';
+	import type { NoteEntry, NotesGradable, NotesManifest } from '$lib/notes/types';
 
 	let manifest = $state<NotesManifest | null>(null);
 	/** slug → Tier A 题目 id，供统一进度视图判定 */
@@ -71,7 +72,24 @@
 	}
 
 	function hasExperiencedInteraction(slug: string): boolean {
-		return interactionIdsForNote(slug).some((id) => interactionProgress.hasInteracted(id));
+		return (
+			interactionIdsForNote(slug).some((id) => interactionProgress.hasInteracted(id)) ||
+			interactionProgress.hasInteracted(thinkingInteractionId(slug))
+		);
+	}
+
+	/**
+	 * 这篇有没有「能动手的东西」。
+	 *
+	 * 三种都算：可调实验、可判定题、思考卡。
+	 *
+	 * 曾经这里只认实验，于是一篇有 3 道思考题但没有实验的笔记会被判成
+	 * 「没什么可玩的」——而筛选器的作用恰恰是把那些篇目找出来。
+	 * 思考卡虽然不判对错，但它要求读者先自己选一个再看解析，
+	 * 这已经是「动手」了。
+	 */
+	function hasAnythingToDo(note: NoteEntry): boolean {
+		return hasInteraction(note.slug) || note.gradable > 0 || note.thinking > 0;
 	}
 
 	/**
@@ -134,9 +152,9 @@
 	const filtering = $derived(query.trim() !== '' || onlyGradable || onlyInteractive);
 
 	/** 一篇笔记是否通过当前筛选 */
-	function matches(note: { slug: string; title: string }): boolean {
+	function matches(note: NoteEntry): boolean {
 		if (onlyGradable && (noteQuestionIds[note.slug]?.length ?? 0) === 0) return false;
-		if (onlyInteractive && !hasInteraction(note.slug)) return false;
+		if (onlyInteractive && !hasAnythingToDo(note)) return false;
 		const q = query.trim().toLowerCase();
 		return q === '' || note.title.toLowerCase().includes(q);
 	}
@@ -264,7 +282,7 @@
 			</label>
 			<label class="only-gradable">
 				<input type="checkbox" bind:checked={onlyInteractive} data-testid="only-interactive" />
-				只看可交互的
+				只看能动手的（实验 / 思考题 / 可判定题）
 			</label>
 			{#if query.trim() !== '' || onlyGradable || onlyInteractive}
 				<span class="filter-count" data-testid="filter-count">{matchCount} 篇匹配</span>
@@ -348,6 +366,11 @@
 																{:else}
 																	{interactionCountForNote(note.slug)} 个可调实验
 																{/if}
+															</span>
+														{/if}
+														{#if note.thinking > 0}
+															<span class="badge-thinking" data-testid="note-has-thinking">
+																{note.thinking} 道思考题
 															</span>
 														{/if}
 														{#if levelForNote(note.slug)}
@@ -605,6 +628,18 @@
 	.badge-interactive {
 		color: var(--color-accent);
 		font-weight: 600;
+		white-space: nowrap;
+	}
+
+	/*
+	 * 思考卡徽章用普通正文色而不是强调色。
+	 *
+	 * 强调色留给「可调实验」：那是真正能改参数看结果的东西，也最稀缺（15 篇）。
+	 * 思考卡有 151 篇，如果也上强调色，列表里会变成一片彩色，
+	 * 反而看不出哪篇更值得点进去。数量上的常见项，视觉上就该退后。
+	 */
+	.badge-thinking {
+		color: var(--color-text-soft);
 		white-space: nowrap;
 	}
 

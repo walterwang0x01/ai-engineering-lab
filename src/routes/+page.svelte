@@ -5,10 +5,12 @@
 	import LearningPath from '$lib/components/LearningPath.svelte';
 	import MasteryLegend from '$lib/components/MasteryLegend.svelte';
 	import HeroMemoryProbe from '$lib/components/HeroMemoryProbe.svelte';
+	import FeaturedInteractions from '$lib/components/FeaturedInteractions.svelte';
 	import { LEVELS } from '$lib/levels/registry';
 	import { EMPTY_MANIFEST, buildCurriculum } from '$lib/curriculum/build';
 	import { summarizeMastery } from '$lib/quiz/schedule';
 	import { progress } from '$lib/storage/progress.svelte';
+	import { NOTE_WIDGETS } from '$lib/notes/widgets';
 	import type { NotesGradable, NotesManifest } from '$lib/notes/types';
 
 	let progressReady = $state(false);
@@ -59,14 +61,26 @@
 	const overall = $derived(summarizeMastery(allQuestionIds, progress.scheduleView));
 
 	/**
-	 * 关卡里有几个是「达标型沙盒」（多约束调参）。
+	 * 全站「能摆弄滑块的笔记」总数。
 	 *
-	 * 不能笼统说「5 个沙盒」——backprop 和 attention 的交互是观察型的，
-	 * 没有约束也没有达标判定，把它们算成沙盒是不准确的数字。
-	 * 判据取自 registry 的交互标题：达标型的标题统一是「先动手：…」并含「可行/达标」语义，
-	 * 所以这里改用一个不会说错的表述：有交互演示的关卡数。
+	 * 关键事实：`NOTE_WIDGETS` 已经**包含** 5 个旧沙盒（attention / backprop /
+	 * kv-cache / tokenizer / rag-chunking 都嵌进了各自的背景笔记），所以不要
+	 * 再加 `LEVELS.filter((l) => l.interactive)`，否则 5 个会重复算，得 20。
+	 *
+	 * 旧实现 `LEVELS.filter((l) => l.interactive).length` 只算关卡沙盒（5 个），
+	 * 而笔记里新增的 10 个声明式实验（PR #39）没算进去，结果首页 stat 显示 5，
+	 * 与笔记库页可见的「15 / 15 个徽章」对不上——零上下文复查者停在首页会以为
+	 * 这站只有 5 个能摆弄的东西。
+	 *
+	 * NOTE_WIDGETS 是预渲染时就有的同步常量，不会因为 onMount 改变值，
+	 * 不会导致 stat 在 hydration 后跳。
+	 *
+	 * 命名跟着 AGENTS.md #22：`interaction-` 是统一的稳定 id 前缀，
+	 * 所以这里统一叫「可调实验」。
 	 */
-	const interactiveLevels = $derived(LEVELS.filter((l) => l.interactive).length);
+	const interactiveLevels = $derived(
+		Object.values(NOTE_WIDGETS).reduce((n, list) => n + list.length, 0)
+	);
 </script>
 
 <Seo
@@ -95,7 +109,7 @@
 			</div>
 			<div class="stat">
 				<dt class="stat-n" data-testid="stat-interactive">{interactiveLevels}</dt>
-				<dd class="stat-l">个交互演示</dd>
+				<dd class="stat-l">个可调实验</dd>
 			</div>
 			<div class="stat">
 				<!--
@@ -125,8 +139,15 @@
 			<a class="btn-primary" href={resolve('/levels')} data-testid="cta-levels">
 				动手做题 · {totalQuestions} 道可判定题
 			</a>
+			<!--
+				原第二个 CTA「从第一篇笔记读起 →」指 /notes，但首页用户停留几秒
+				后能看到的「可调实验」徽章在 /notes 页的「只看能动手的」筛选里——
+				新用户很难从首页跳转过去发现这个筛选。改成「去笔记库挑能动手的笔记」
+				更贴近「我想玩点东西」的真实意图；从第一篇读起的入口仍在下方
+				「从哪开始」第一条路由（完全入门 → 从第一篇笔记读起）。
+			-->
 			<a class="btn-secondary" href={resolve('/notes')} data-testid="cta-notes">
-				从第一篇笔记读起 →
+				去笔记库挑能动手的 →
 			</a>
 		</div>
 	</header>
@@ -141,6 +162,14 @@
 		位置刻意在 hero 与「从哪开始」之间：先证明，再分流。
 	-->
 	<HeroMemoryProbe />
+
+	<!--
+		HeroMemoryProbe 是「先动手 · 一个具体例子」，
+		FeaturedInteractions 是「动手笔记的全貌 · 5 种类型的代表」——
+		两层一起：先用一个具体且熟的问题证明「调参数 → 数字变 → 跨约束变红」，
+		再展开其他玩法，让用户意识到这不只是一个特例。
+	-->
+	<FeaturedInteractions />
 
 	<section class="start-here" data-testid="start-here">
 		<h2 class="section-title">从哪开始</h2>
