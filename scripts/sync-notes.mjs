@@ -25,6 +25,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { extractNoteQuestions, mergeSources, parseLocalQuestions } from './lib/extract-quiz.mjs';
+import { detectMarkdownFeatures } from './lib/feature-detection.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
@@ -158,8 +159,7 @@ function countWords(content) {
 function detectFeatures(content) {
 	return {
 		hasCode: /```(?!mermaid)\w*\n/.test(content),
-		hasMath: /\$\$[\s\S]+?\$\$|(?<!\\)\$[^$\n]+\$/.test(content),
-		hasMermaid: /```mermaid/.test(content)
+		...detectMarkdownFeatures(content)
 	};
 }
 

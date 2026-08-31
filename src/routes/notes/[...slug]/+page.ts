@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { readFileSync } from 'node:fs';
 import { base } from '$app/paths';
-import { renderMarkdown } from '$lib/notes/render';
+import { detectFeatures, renderMarkdown } from '$lib/notes/render';
 import type { NoteEntry, NotesGradable, NotesManifest, NotesQuiz } from '$lib/notes/types';
 import type { ChoiceQuestion } from '$lib/quiz/types';
 import type { EntryGenerator, PageLoad } from './$types';
@@ -119,8 +119,8 @@ export const load: PageLoad = async ({ params, fetch }): Promise<NotePageData> =
 		next,
 		openQuestions,
 		gradable,
-		// manifest 有标记就用它，缺失时回退到内容启发式，避免漏渲染公式
-		hasMath: meta?.hasMath ?? /\$\$[\s\S]+?\$\$|(?<!\\)\$[^$\n]+\$/.test(markdown),
-		hasMermaid: meta?.hasMermaid ?? /```mermaid/.test(markdown)
+		// manifest 有标记就用它，缺失时回退到同一份特性检测契约，避免构建期与运行时漂移
+		hasMath: meta?.hasMath ?? detectFeatures(markdown).hasMath,
+		hasMermaid: meta?.hasMermaid ?? detectFeatures(markdown).hasMermaid
 	};
 };
