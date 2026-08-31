@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import { userEvent } from '@vitest/browser/context';
+import { userEvent } from 'vitest/browser';
 import QuizCard from './QuizCard.svelte';
 import type { ChoiceQuestion, NumericQuestion } from '$lib/quiz/types';
 

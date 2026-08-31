@@ -61,6 +61,18 @@ export default defineConfig({
 					browser: {
 						enabled: true,
 						provider: playwright(),
+						/**
+						 * 这些组件测试共享同一个 headless Chromium。并行运行测试文件时，
+						 * 某个文件会整批停住，用户事件不再推进到 Svelte；失败对象在
+						 * HeroMemoryProbe / KvCacheSandbox / QuizCard / LearningPath 间轮换。
+						 * 干净 main 上连续运行曾得到 2 failed → 488 passed → 11 failed。
+						 *
+						 * 该字段必须放在 `browser` 内。此前尝试 `test.fileParallelism` 和
+						 * `maxWorkers` 都没约束 Browser Mode 内部调度，进度面板仍同时出现
+						 * 多个 client 文件。Vitest 4.1.10 的 BrowserConfigOptions 明确定义
+						 * 了这里的 fileParallelism，且注明只在 headless 模式生效——正是 CI。
+						 */
+						fileParallelism: false,
 						instances: [{ browser: 'chromium', headless: true }]
 					},
 					include: ['src/**/*.svelte.{test,spec}.{js,ts}'],
