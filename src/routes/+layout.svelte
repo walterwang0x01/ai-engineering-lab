@@ -11,16 +11,20 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Mascot from '$lib/components/Mascot.svelte';
+	import { isNavCurrent } from '$lib/nav/current';
 
 	let { children } = $props();
 
 	/**
-	 * 当前路径是否落在某个导航项下。笔记详情页（/notes/...）也算「笔记库」，
+	 * 当前路由是否落在某个导航项下。笔记详情页（/notes/[...slug]）也算「笔记库」，
 	 * 这样在阅读笔记时顶栏仍能告诉用户「你现在在笔记库这条线里」。
+	 *
+	 * 判定用 page.route.id 而不是 page.url.pathname：本项目部署在子路径，
+	 * pathname 带 /ai-engineering-lab 前缀，而 $app/paths 的 base 是相对路径
+	 * （顶层页是 '.'，深层页是 '../../..'），没法用来剥前缀。详见 $lib/nav/current。
 	 */
-	function isCurrent(prefix: string): boolean {
-		const path = page.url.pathname;
-		return path === prefix || path.startsWith(`${prefix}/`);
+	function isCurrent(prefixes: readonly string[]): boolean {
+		return isNavCurrent(page.route.id, prefixes);
 	}
 </script>
 
@@ -38,21 +42,21 @@
 		<a
 			href={resolve('/')}
 			data-testid="nav-path"
-			aria-current={isCurrent('/') ? 'page' : undefined}
+			aria-current={isCurrent(['/']) ? 'page' : undefined}
 		>
 			学习路径
 		</a>
 		<a
 			href={resolve('/levels')}
 			data-testid="nav-levels"
-			aria-current={isCurrent('/levels') ? 'page' : undefined}
+			aria-current={isCurrent(['/levels', '/[levelId]']) ? 'page' : undefined}
 		>
 			关卡
 		</a>
 		<a
 			href={resolve('/notes')}
 			data-testid="nav-notes"
-			aria-current={isCurrent('/notes') ? 'page' : undefined}
+			aria-current={isCurrent(['/notes']) ? 'page' : undefined}
 		>
 			笔记库
 		</a>

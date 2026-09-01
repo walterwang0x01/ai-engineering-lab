@@ -96,6 +96,34 @@ try {
 		})
 	);
 
+	// ---------- 顶栏当前页指示 ----------
+	// 断言「恰好一个导航项被点亮，且是正确那一个」。
+	//
+	// 注意这个断言**测不出**子路径部署的问题：冒烟跑的是根路径构建，
+	// 线上是 /ai-engineering-lab 子路径。那部分由 src/lib/nav/current.spec.ts
+	// 用 route.id 覆盖（route.id 对部署位置免疫，当初就是为了不再依赖 URL
+	// 才换过去的）。这里守住的是「特性整体没被改坏/删掉」，两者不重复。
+	const levelSlug = builtPages[0]?.replace(/\.html$/, '');
+	const navExpectations = [
+		['/', 'nav-path'],
+		['/levels', 'nav-levels'],
+		['/notes', 'nav-notes'],
+		// 关卡正文挂在根路径（/backprop），也必须算在「关卡」这条线下 ——
+		// 不归并的话从 /levels 点进关卡后高亮就消失了
+		...(levelSlug ? [[`/${levelSlug}`, 'nav-levels']] : [])
+	];
+	for (const [path, expected] of navExpectations) {
+		await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle' });
+		const active = await page.$$eval('[data-testid^="nav-"][aria-current="page"]', (els) =>
+			els.map((el) => el.dataset.testid)
+		);
+		check(
+			`顶栏当前页指示：${path} → ${expected}`,
+			active.length === 1 && active[0] === expected,
+			`实际 ${active.length ? active.join(',') : '(无)'}`
+		);
+	}
+
 	// ---------- 分享元数据 ----------
 	// 缺了这些，分享到 X / 微信就是一条没有预览图的裸链接
 	const meta = await page.evaluate(() => {
