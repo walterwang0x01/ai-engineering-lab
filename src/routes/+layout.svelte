@@ -9,15 +9,25 @@
 	 */
 	import './layout.css';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import Mascot from '$lib/components/Mascot.svelte';
 
 	let { children } = $props();
+
+	/**
+	 * 当前路径是否落在某个导航项下。笔记详情页（/notes/...）也算「笔记库」，
+	 * 这样在阅读笔记时顶栏仍能告诉用户「你现在在笔记库这条线里」。
+	 */
+	function isCurrent(prefix: string): boolean {
+		const path = page.url.pathname;
+		return path === prefix || path.startsWith(`${prefix}/`);
+	}
 </script>
 
 <nav class="site-nav" aria-label="站点导航">
 	<a class="brand" href={resolve('/')}>
 		<!-- 装饰性：紧挨着站名文字，不传 label 以免读屏重复播报 -->
-		<Mascot size={30} />
+		<Mascot size={32} />
 		<span>AI Engineering Lab</span>
 	</a>
 	<div class="nav-links">
@@ -25,9 +35,27 @@
 			「关卡」原来指向首页本身，点了页面不变——零上下文复查者的第一反应是
 			「链接坏了」。现在指向真正的关卡索引页。
 		-->
-		<a href={resolve('/')} data-testid="nav-path">学习路径</a>
-		<a href={resolve('/levels')} data-testid="nav-levels">关卡</a>
-		<a href={resolve('/notes')} data-testid="nav-notes">笔记库</a>
+		<a
+			href={resolve('/')}
+			data-testid="nav-path"
+			aria-current={isCurrent('/') ? 'page' : undefined}
+		>
+			学习路径
+		</a>
+		<a
+			href={resolve('/levels')}
+			data-testid="nav-levels"
+			aria-current={isCurrent('/levels') ? 'page' : undefined}
+		>
+			关卡
+		</a>
+		<a
+			href={resolve('/notes')}
+			data-testid="nav-notes"
+			aria-current={isCurrent('/notes') ? 'page' : undefined}
+		>
+			笔记库
+		</a>
 	</div>
 </nav>
 
@@ -53,6 +81,9 @@
 		min-height: 44px;
 		font-family: var(--font-mono);
 		font-size: 0.8125rem;
+		/* 略加重：mono uppercase 在 400 太飘，跟现在的紫罗兰新层次不搭。
+		   600 在小字号下仍克制，不会像 700 那样与正文抢权重 */
+		font-weight: 600;
 		letter-spacing: 0.06em;
 		text-transform: uppercase;
 		color: var(--color-accent);
@@ -93,10 +124,9 @@
 
 	/* 导航项永不逐字折断：宁可整体挤，也不要竖排单字 */
 	.nav-links a {
+		position: relative;
+		/* 导航项永不逐字折断：宁可整体挤，也不要竖排单字 */
 		white-space: nowrap;
-	}
-
-	.nav-links a {
 		font-size: 0.875rem;
 		color: var(--color-text-soft);
 		text-decoration: none;
@@ -105,9 +135,48 @@
 		align-items: center;
 		min-height: 44px;
 		padding: 0 0.375rem;
+		transition: color var(--dur-ui) var(--ease-out);
+	}
+
+	/*
+	 * hover / 当前页指示：一条 2px accent 短杆贴在链接底缘。
+	 * 不做成"文字下划线"——那需要量文字，pad 撑开后视觉上反而发飘；
+	 * 做成全宽的 accent rule，像 tab indicator，读作"这个导航项被标记了"，
+	 * 跟卡片 hover（border-color + transform）的反馈语言同源。
+	 */
+	.nav-links a::after {
+		content: '';
+		position: absolute;
+		left: 0;
+		/* 8px 离链接底缘 = 离 nav 下边线 12px，留出明显空气，
+		   不撞到底部那条 1px border-subtle */
+		bottom: 0.5rem;
+		width: 100%;
+		height: 2px;
+		background: var(--color-accent);
+		border-radius: 1px;
+		transform: scaleX(0);
+		transform-origin: left center;
+		transition: transform var(--dur-ui) var(--ease-out);
 	}
 
 	.nav-links a:hover {
 		color: var(--color-accent);
+	}
+
+	.nav-links a:hover::after {
+		transform: scaleX(1);
+	}
+
+	/*
+	 * 当前页：accent 短杆常驻，文字略加深（text-strong vs 默认 text-soft）。
+	 * 复查里"我现在在哪个板块"是常被点出来的真缺口，没有这个指示就只能靠 URL 猜。
+	 */
+	.nav-links a[aria-current='page'] {
+		color: var(--color-text-strong);
+	}
+
+	.nav-links a[aria-current='page']::after {
+		transform: scaleX(1);
 	}
 </style>
