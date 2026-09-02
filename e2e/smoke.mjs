@@ -604,6 +604,8 @@ try {
 
 		// 回到干净的笔记索引继续通用阅读页验证。
 		await page.goto(`${BASE}/notes`, { waitUntil: 'networkidle' });
+		// 默认视图是「学习路线」，需切到目录视图才能拿到 a.note-link 列表
+		await page.getByTestId('view-catalog').click();
 		await page.waitForSelector('a.note-link');
 
 		// 点进第一篇，验证客户端渲染真的产出正文
@@ -666,6 +668,7 @@ try {
 		// 不硬编码 slug：从列表里找带「关卡」徽章的篇目，走完整闭环。
 		// 这样改映射表不会让测试失效，而互链断掉一定会被抓到。
 		await page.goto(`${BASE}/notes`, { waitUntil: 'networkidle' });
+		await page.getByTestId('view-catalog').click();
 		await page.waitForSelector('a.note-link');
 		// 模块默认折叠，带关卡标记的篇目在收起的模块里。先全部展开再断言。
 		// 必须每次重新取第一个：点击会改变 aria-expanded，.all() 的快照会立刻失效
