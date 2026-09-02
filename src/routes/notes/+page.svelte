@@ -82,17 +82,6 @@
 	}
 
 	/**
-	 * 这篇有没有「能动手的东西」。
-	 *
-	 * 三种都算：可调实验、可判定题、思考卡。
-	 *
-	 * 曾经这里只认实验，于是一篇有 3 道思考题但没有实验的笔记会被判成
-	 * 「没什么可玩的」——而筛选器的作用恰恰是把那些篇目找出来。
-	 * 思考卡虽然不判对错，但它要求读者先自己选一个再看解析，
-	 * 这已经是「动手」了。
-	 */
-
-	/**
 	 * 哪些模块处于展开状态。默认只展开第一个。
 	 *
 	 * 改版前 168 篇全平铺，页面 12.3 屏，首屏只看到 9 篇，
@@ -320,9 +309,20 @@
 				<input type="checkbox" bind:checked={onlyGradable} data-testid="only-gradable" />
 				只看有可判定题的
 			</label>
+			<!--
+				标签必须只承诺 hasInteraction() 真正做的事：这篇在 widgets.ts 里
+				登记了可调实验部件。原文案是「只看能动手的（实验 / 思考题 / 可判定题）」,
+				而思考题 151 篇、可判定 11 篇一个都进不来 —— 文案承诺 > 实际行为，
+				且没有任何东西会报错（冒烟测试自己的断言名反而是对的：
+				「只留下带实验徽章的笔记」）。
+
+				修的是标签而不是行为：全站 151/168 篇有思考卡，真让三种都算会留下
+				九成条目，那不叫筛选；「可判定」也已经有上面那个独立筛选覆盖。
+				措辞与列表里的徽章「N 个可调实验」保持同一个词。
+			-->
 			<label class="only-gradable">
 				<input type="checkbox" bind:checked={onlyInteractive} data-testid="only-interactive" />
-				只看能动手的（实验 / 思考题 / 可判定题）
+				只看有可调实验的
 			</label>
 			{#if query.trim() !== '' || onlyGradable || onlyInteractive}
 				<span class="filter-count" data-testid="filter-count">{matchCount} 篇匹配</span>

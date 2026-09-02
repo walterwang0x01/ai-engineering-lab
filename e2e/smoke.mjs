@@ -577,9 +577,31 @@ try {
 			.locator('[data-testid="note-has-interaction"]:visible')
 			.count();
 		check(
-			'「只看可交互的」筛选只留下带实验徽章的笔记',
+			'「只看有可调实验的」筛选只留下带实验徽章的笔记',
 			interactiveOnly >= 10 && interactionBadges === interactiveOnly,
 			`${interactiveOnly} 篇 / ${interactionBadges} 个徽章`
+		);
+
+		/*
+		 * 文案承诺必须等于实际行为。
+		 *
+		 * 这条断言是为一个真实缺陷加的门禁：标签曾经写着
+		 * 「只看能动手的（实验 / 思考题 / 可判定题）」，而筛选只留带实验部件的篇目——
+		 * 思考题 151 篇、可判定 11 篇一个都进不来。上面那条断言当时是绿的，
+		 * 因为它只看「留下的都带实验徽章」，不看标签在向用户承诺什么。
+		 *
+		 * 所以这里直接读标签文字：既然筛掉了思考题和可判定题，标签就不准提它们。
+		 */
+		const interactiveLabel = (
+			await page.locator('label:has([data-testid="only-interactive"])').innerText()
+		).trim();
+		const overpromises = ['思考题', '可判定'].filter((w) => interactiveLabel.includes(w));
+		check(
+			'交互筛选的标签没有承诺它筛不出来的东西',
+			overpromises.length === 0 && interactiveLabel.includes('实验'),
+			overpromises.length > 0
+				? `标签「${interactiveLabel}」提到了 ${overpromises.join('、')}，但这些筛不出来`
+				: `标签「${interactiveLabel}」`
 		);
 
 		// 声明式实验的完整路径：索引发现 → 阅读页跳转 → 按需加载 → 预设改变结果。
