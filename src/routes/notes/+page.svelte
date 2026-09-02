@@ -22,7 +22,7 @@
 	} from '$lib/notes/widgets';
 	import { interactionProgress } from '$lib/storage/interaction-progress.svelte';
 	import type { NoteEntry, NotesGradable, NotesManifest } from '$lib/notes/types';
-	import { LEARNING_PATH, PATH_COUNT } from '$lib/nav/learning-path';
+	import { LEARNING_PATH, PATH_COUNT, pathPosition, type StepStatus } from '$lib/nav/learning-path';
 
 	let manifest = $state<NotesManifest | null>(null);
 	/** slug → Tier A 题目 id，供统一进度视图判定 */
@@ -228,19 +228,26 @@
 	});
 
 	/**
-	 * 路线上有多少篇已读（含已掌握/在学/已读三态）。
-	 * 用来在路线视图顶部显示「路线上 N/M 篇已读」。
+	 * 把展示用的四档状态收敛成「这一步收没收尾」。
+	 *
+	 * `read` 也算 done：没有可判定内容的篇目，「标记为读完」就是它能给出的最强信号，
+	 * 拿不到更硬的证据时不该把人一直卡在这一步上。
+	 * `in-progress`（题做了一半）算 started——那正是断点该指回去的地方。
 	 */
-	const pathReadCount = $derived.by(() => {
-		let n = 0;
-		for (const stage of LEARNING_PATH) {
-			for (const step of stage.steps) {
-				const st = stateOf(step.slug);
-				if (st !== 'untouched') n++;
-			}
-		}
-		return n;
-	});
+	function statusOf(slug: string): StepStatus {
+		const st = stateOf(slug);
+		if (st === 'mastered' || st === 'read') return 'done';
+		if (st === 'in-progress') return 'started';
+		return 'untouched';
+	}
+
+	/**
+	 * 学习者在路线上的位置：下一步是哪篇、已收尾几篇。
+	 *
+	 * 取代了原来的 `pathReadCount`——那个把「在学」也计进"已读"，
+	 * 于是题做了一半的篇目会让进度条虚报，而人回到页面依然找不到自己停在哪。
+	 */
+	const pathPos = $derived.by(() => pathPosition(statusOf));
 
 	const TIER_LABEL: Record<string, string> = {
 		required: '必读',
@@ -371,11 +378,59 @@
 				路线视图。按阶段分组，每篇标前置依赖、配套关卡、标注。
 				已读的灰掉，未读的保持强调。
 			-->
-			{#if pathReadCount > 0}
+			<!--
+				断点续读。
+
+				原来这里只有一条进度条 —— 27 步是 27 个链接，回到页面得自己在 5 个阶段
+				里找「上次到哪了」。学习路径最需要的恰恰是这一个动作，所以把它做成
+				首屏第一个可点的东西。
+
+				三种文案对应三种真实处境，不是同一句话换皮：
+				  · 没开始 → 「从第一篇开始」
+				  · 有做了一半的 → 「继续」，并指回那一篇（不是推去下一篇）
+				  · 都收尾了 → 不给按钮，给一句收束
+			-->
+			<div class="resume" class:done={pathPos.next === null} data-testid="path-resume">
+				{#if pathPos.next}
+					{@const nextNote = slugIndex[pathPos.next.step.slug]}
+					<div class="resume-body">
+						<p class="resume-label">
+							{#if pathPos.fresh}
+								从这里开始
+							{:else if pathPos.resuming}
+								接着上次没做完的
+							{:else}
+								下一步
+							{/if}
+							<span class="resume-stage">
+								阶段 {pathPos.next.stage.id} · {pathPos.next.stage.title}
+							</span>
+						</p>
+						<p class="resume-title">{nextNote?.title ?? pathPos.next.step.slug}</p>
+					</div>
+					<a
+						class="resume-cta"
+						href={resolve('/notes/[...slug]', { slug: pathPos.next.step.slug })}
+						data-testid="path-resume-cta"
+					>
+						{pathPos.fresh ? '开始读' : pathPos.resuming ? '继续' : '接着读'} →
+					</a>
+				{:else}
+					<div class="resume-body">
+						<p class="resume-label">主线读完了</p>
+						<p class="resume-title">
+							{PATH_COUNT} 篇全部收尾。剩下的 {noteStats.total - PATH_COUNT} 篇按需查阅， 或去关卡把可判定题再刷一遍。
+						</p>
+					</div>
+					<a class="resume-cta" href={resolve('/levels')}>去关卡 →</a>
+				{/if}
+			</div>
+
+			{#if pathPos.doneCount > 0}
 				<div class="track" data-testid="path-progress" aria-hidden="true">
-					<i class="seg ok" style="width: {pct(pathReadCount, PATH_COUNT)}%"></i>
+					<i class="seg ok" style="width: {pct(pathPos.doneCount, PATH_COUNT)}%"></i>
 				</div>
-				<p class="track-legend">路线上 {pathReadCount} / {PATH_COUNT} 篇已读</p>
+				<p class="track-legend">路线上 {pathPos.doneCount} / {PATH_COUNT} 篇已收尾</p>
 			{/if}
 			<div class="path-stages" data-testid="path-stages">
 				{#each LEARNING_PATH as stage (stage.id)}
@@ -390,14 +445,26 @@
 								{@const note = slugIndex[step.slug]}
 								{@const st = stateOf(step.slug)}
 								{@const badge = BADGE[st]}
+								{@const isNext = pathPos.next?.step.slug === step.slug}
 								{@const prereqs = step.prerequisites
 									.map((p) => slugIndex[p]?.title)
 									.filter(Boolean)}
-								<li class="step" class:is-read={st !== 'untouched'}>
+								<!--
+									灰掉的判据是 statusOf() === 'done'，不是「碰过就灰」。
+									原来写的是 `st !== 'untouched'`，于是题做了一半的篇目也被灰掉——
+									而它恰好是续读入口要指回去的那一篇，两处自相矛盾。
+									当前步反过来要标出来：人扫这一长串时得能一眼找到自己在哪。
+								-->
+								<li
+									class="step"
+									class:is-read={statusOf(step.slug) === 'done'}
+									class:is-next={isNext}
+								>
 									<a
 										class="step-link"
 										href={resolve('/notes/[...slug]', { slug: step.slug })}
 										data-testid="path-step"
+										aria-current={isNext ? 'step' : undefined}
 									>
 										<span class="step-order" aria-hidden="true">{step.order}</span>
 										<span class="step-title">{note?.title ?? step.slug}</span>
@@ -945,6 +1012,97 @@
 	}
 
 	/* ── 路线视图 ── */
+	/* ── 断点续读 ── */
+	.resume {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		flex-wrap: wrap;
+		gap: var(--space-4);
+		padding: var(--space-4) var(--space-5);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border-subtle);
+		/* 左侧强调条：这是首屏唯一要人立刻动手的东西，与站内其他强调块同一语言 */
+		border-left: 3px solid var(--color-accent);
+		border-radius: var(--radius-card);
+		box-shadow: var(--shadow-card);
+	}
+
+	/* 读完之后它不再是「催你行动」，改用 ok 色收束 */
+	.resume.done {
+		border-left-color: var(--color-ok);
+	}
+
+	.resume-body {
+		display: grid;
+		gap: var(--space-1);
+		min-width: 0;
+	}
+
+	.resume-label {
+		margin: 0;
+		display: flex;
+		align-items: baseline;
+		flex-wrap: wrap;
+		gap: var(--space-2);
+		font-size: var(--fs-xs);
+		font-weight: 600;
+		color: var(--color-accent);
+	}
+
+	.resume.done .resume-label {
+		color: var(--color-ok);
+	}
+
+	.resume-stage {
+		font-weight: 400;
+		color: var(--color-text-muted);
+	}
+
+	.resume-title {
+		margin: 0;
+		font-size: var(--fs-md);
+		font-weight: 600;
+		line-height: 1.5;
+		color: var(--color-text-strong);
+	}
+
+	.resume.done .resume-title {
+		font-size: var(--fs-sm);
+		font-weight: 400;
+		color: var(--color-text-soft);
+	}
+
+	.resume-cta {
+		display: inline-flex;
+		align-items: center;
+		/* WCAG 2.5.5 的 44px 触摸目标 */
+		min-height: 44px;
+		padding: 0 var(--space-5);
+		border-radius: var(--radius-control);
+		background: var(--color-accent);
+		color: var(--color-on-accent);
+		font-size: var(--fs-base);
+		font-weight: 600;
+		text-decoration: none;
+		white-space: nowrap;
+		flex-shrink: 0;
+		transition: box-shadow var(--dur-ui) var(--ease-out);
+	}
+
+	/*
+	 * hover 不动背景色，只加阴影和下划线。
+	 *
+	 * 填色按钮换背景会两头不讨好：浅色主题下 accent-dim 比 accent 更亮
+	 * （L 0.532 → 0.618），白字对比度反而下降；深色主题下它更暗
+	 * （0.72 → 0.55），深色字同样吃亏。站里也没有 accent-strong 这一档，
+	 * 不为一个 hover 态新开 token（AGENTS.md 第 20 条）。
+	 */
+	.resume-cta:hover {
+		box-shadow: var(--shadow-lift);
+		text-decoration: underline;
+	}
+
 	.path-stages {
 		display: grid;
 		gap: var(--space-6);
@@ -1018,6 +1176,30 @@
 
 	.step.is-read .step-link {
 		opacity: 0.68;
+	}
+
+	/*
+	 * 当前步。
+	 *
+	 * 只用边框加粗 + 左侧强调条，不改背景：这一串 step 的背景是 surface-raised，
+	 * 换成 accent 底会让它比顶部那个续读按钮更抢眼，而两者指的是同一件事。
+	 * 也不用 opacity —— is-next 与 is-read 构造上互斥（next 必是未收尾的那一步），
+	 * 不会叠加。
+	 */
+	.step.is-next .step-link {
+		border-color: var(--color-accent);
+		border-left: 3px solid var(--color-accent);
+	}
+
+	.step.is-next .step-title {
+		font-weight: 600;
+		color: var(--color-text-strong);
+	}
+
+	/* 序号换成强调色，让人扫这一长串时能定位到自己 */
+	.step.is-next .step-order {
+		color: var(--color-accent);
+		font-weight: 600;
 	}
 
 	.step-order {
