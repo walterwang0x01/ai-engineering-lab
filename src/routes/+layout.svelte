@@ -10,7 +10,6 @@
 	import './layout.css';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import Mascot from '$lib/components/Mascot.svelte';
 	import { isNavCurrent } from '$lib/nav/current';
 
 	let { children } = $props();
@@ -30,8 +29,6 @@
 
 <nav class="site-nav" aria-label="站点导航">
 	<a class="brand" href={resolve('/')}>
-		<!-- 装饰性：紧挨着站名文字，不传 label 以免读屏重复播报 -->
-		<Mascot size={32} />
 		<span>AI Engineering Lab</span>
 	</a>
 	<div class="nav-links">
@@ -101,28 +98,25 @@
 	}
 
 	/*
-	 * 窄屏收起字标，只留吉祥物。
+	 * 窄屏把字标缩小，而不是隐藏它。
 	 *
 	 * 375–420px 下三个导航项原本全部折行，而 CJK 没有断词提示，浏览器在任意字间
 	 * 断开——「学习路径」竖成「学习路/径」，可点区域被压到 26–35px 宽。
 	 * 375px 是 iPhone SE / 13 mini 一档的常见宽度，主导航又是全站唯一的换页方式。
 	 *
-	 * 算一下就知道字标是主因：375px 里字标 155px + 三个链接 162px + 间距 32px
-	 * + 内边距 40px = 389px，已经超了，跟吉祥物那 36px 无关。
-	 *
-	 * 所以收起的是字标而不是吉祥物——紧凑的品牌标记本来就是徽标存在的理由，
-	 * 而 28px 的吉祥物让「AI Engineering Lab」这个身份在窄屏上不至于完全消失。
-	 * 收起后剩 262px，三个链接都能单行放下。
+	 * 这里原来的做法是「视觉隐藏字标、只留吉祥物」。吉祥物删掉之后那条规则会让
+	 * 品牌链接在窄屏上变成完全空白的可点区域——一个看不见却能点的 44px 方块。
+	 * 所以改成缩排：字标从 0.8125rem/0.06em 降到 0.6875rem/0.03em ≈ 120px，
+	 * 375px 里 120 + 三个链接 150 + 间距 24 + 内边距 40 = 334px，单行放得下。
 	 */
 	@media (max-width: 480px) {
-		.brand span {
-			/* 视觉隐藏但读屏仍能读到站名 */
-			position: absolute;
-			width: 1px;
-			height: 1px;
-			overflow: hidden;
-			clip-path: inset(50%);
-			white-space: nowrap;
+		.brand {
+			font-size: 0.6875rem;
+			letter-spacing: 0.03em;
+		}
+
+		.nav-links {
+			gap: 0.75rem;
 		}
 	}
 

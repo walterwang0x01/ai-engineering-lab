@@ -16,7 +16,6 @@
 	 * 死亡不是渐变的削弱，是阶跃的截断。
 	 */
 	import { BACKPROP_NET, BACKPROP_INPUT } from '$lib/quiz/backprop-questions';
-	import Mascot from '$lib/components/Mascot.svelte';
 
 	const NET = BACKPROP_NET;
 
@@ -233,11 +232,11 @@
 
 	<div class="status" class:dead={!computed.alive2} data-testid="status-banner">
 		<!--
-			吉祥物的身体就是 ReLU 折线，跟着 alive2 压平/上扬。
-			刻意不传 label：下面这段文字已经把状态说全了，再给图形一个名字会让读屏
-			把「已死亡」听两遍。它在这里是同一信息的视觉编码，不是额外信息。
+			状态的视觉编码只走左侧色条（绿=存活 / 红=死亡）加下面这段文字。
+			这里原来还有一个拟人化的吉祥物图形跟着 alive2 压平/上扬，已删除：
+			那条「不要卡通游戏风」的例外在导航栏 32px 下根本读不出 ReLU 折线，
+			只剩一张笑脸。色条 + 文字已经把状态说全了。
 		-->
-		<Mascot size={44} state={computed.alive2 ? 'alive' : 'dead'} />
 		<div class="status-body">
 			{#if !touched}
 				<p class="status-prompt">
@@ -535,12 +534,6 @@
 		background: var(--color-surface-sunken);
 		border-left: 2px solid var(--color-ok);
 		border-radius: var(--radius-control);
-		/* 吉祥物与文字并排。顶部对齐，文字多行时图形不跟着往下飘 */
-		display: flex;
-		align-items: flex-start;
-		gap: 0.875rem;
-		/* 吉祥物用 currentColor，所以整块的 color 决定它的颜色 */
-		color: var(--color-ok);
 	}
 
 	.status-body {
@@ -548,9 +541,24 @@
 		color: var(--color-text-soft);
 	}
 
+	/*
+	 * 状态色落在结论那句的 strong 上。
+	 *
+	 * 这块原来在 .status 上设 color，唯一目的是让吉祥物的 currentColor 取到它
+	 * （正文自己被 .status-body 覆盖成 soft）。吉祥物删掉后那条规则就是死代码，
+	 * 而状态的颜色编码只剩左边框一条 2px 的线。把它挪到「h2 已死亡 / 存活」
+	 * 这句上，颜色和它描述的那件事贴在一起。
+	 */
+	.status strong {
+		color: var(--color-ok);
+	}
+
+	.status.dead strong {
+		color: var(--color-bad);
+	}
+
 	.status.dead {
 		border-left-color: var(--color-bad);
-		color: var(--color-bad);
 	}
 
 	.status p {
