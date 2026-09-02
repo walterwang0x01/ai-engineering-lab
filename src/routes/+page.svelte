@@ -11,6 +11,9 @@
 	import { summarizeMastery } from '$lib/quiz/schedule';
 	import { progress } from '$lib/storage/progress.svelte';
 	import { NOTE_WIDGETS } from '$lib/notes/widgets';
+	// 主线篇数不写死：CTA 上的数字必须跟着 learning-path.ts 走，
+	// 改路线时不会留下一个说谎的「27 篇」
+	import { PATH_COUNT } from '$lib/nav/learning-path';
 	import type { NotesGradable, NotesManifest } from '$lib/notes/types';
 
 	let progressReady = $state(false);
@@ -140,14 +143,19 @@
 				动手做题 · {totalQuestions} 道可判定题
 			</a>
 			<!--
-				原第二个 CTA「从第一篇笔记读起 →」指 /notes，但首页用户停留几秒
-				后能看到的「可调实验」徽章在 /notes 页的「只看能动手的」筛选里——
-				新用户很难从首页跳转过去发现这个筛选。改成「去笔记库挑能动手的笔记」
-				更贴近「我想玩点东西」的真实意图；从第一篇读起的入口仍在下方
-				「从哪开始」第一条路由（完全入门 → 从第一篇笔记读起）。
+				这个 CTA 的文案跟着 /notes 的默认视图走。
+				
+				它曾经是「去笔记库挑能动手的 →」，理由是把 /notes 里的
+				「只看能动手的」筛选暴露给首页用户。那个理由现在不成立了：
+				笔记库默认展示的是「学习路线」视图，筛选器只在切到「全部目录」
+				之后才渲染——点进去根本看不到可筛的东西，承诺落空。
+				（那个筛选也已按实际行为改名为「只看有可调实验的」。）
+
+				所以回到上面注释声明的原始分工：想动手的进关卡，想按顺序读的从这里
+				进笔记库，而笔记库第一眼给的就是 27 篇主线的推荐顺序。
 			-->
 			<a class="btn-secondary" href={resolve('/notes')} data-testid="cta-notes">
-				去笔记库挑能动手的 →
+				按学习路线读起 · {PATH_COUNT} 篇主线 →
 			</a>
 		</div>
 	</header>
