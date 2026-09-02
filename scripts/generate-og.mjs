@@ -60,11 +60,13 @@ async function readThemeTokens() {
 let TOKENS;
 
 /**
- * 站点吉祥物，压缩到 OG 尺寸下还认得出的部分：折线的拐点、上扬、抬起的头。
- * 与 `Mascot.svelte` 和 favicon 是同一个形状，但这里不能引用组件——
- * OG 图是独立文档，拿不到 Svelte 运行时。改吉祥物时这三处要一起改。
+ * 品牌标记：树突 + ReLU 折线 + 抬起的输出端。**没有五官**——
+ * 拟人化的吉祥物（`Mascot.svelte`）已删除，见 AGENTS.md 第 21 条。
+ *
+ * 与 `static/favicon.svg` 是同一个形状，但这里不能引用它：
+ * OG 图是独立文档，拿不到 Svelte 运行时。改形状时这两处要一起改。
  */
-function mascotSvg(color) {
+function brandMark(color) {
 	return `<svg viewBox="0 0 104 96" width="52" height="48" aria-hidden="true">
 		<g stroke="${color}" stroke-width="3" stroke-linecap="round">
 			<path d="M4 64 L15 77"/><path d="M2 80 L14 80"/><path d="M4 94 L15 83"/>
@@ -125,7 +127,7 @@ function template(spec) {
 			<div style="display:flex; align-items:baseline; justify-content:space-between;
 				gap:32px; margin-bottom:28px; white-space:nowrap;">
 				<div style="display:flex; align-items:center; gap:14px;">
-					${mascotSvg(TOKENS.accent)}
+					${brandMark(TOKENS.accent)}
 					<div style="font:500 20px ${MONO_STACK}; color:${TOKENS.accent};
 						letter-spacing:.16em; text-transform:uppercase;">${spec.eyebrow}</div>
 				</div>

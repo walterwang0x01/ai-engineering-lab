@@ -126,11 +126,12 @@
 			<span class="lv-sub">{sub}</span>
 		</span>
 		{#if progressReady}
-			<span
-				class="ring"
-				style="--p: {pct(d.mastery.mastered, d.mastery.total)}%"
-				aria-label="已掌握 {d.mastery.mastered} / {d.mastery.total} 题"
-			>
+			<span class="lv-prog" aria-label="已掌握 {d.mastery.mastered} / {d.mastery.total} 题">
+				<span
+					class="ring"
+					style="--p: {pct(d.mastery.mastered, d.mastery.total)}%"
+					aria-hidden="true"
+				></span>
 				<span class="ring-n">{d.mastery.mastered}/{d.mastery.total}</span>
 			</span>
 		{:else}
@@ -467,30 +468,40 @@
 		white-space: nowrap;
 	}
 
-	/* 进度环：conic-gradient 画外圈，内圈盖回底色留出数字 */
+	/*
+	 * 进度指示：环只画比例，数字放在环旁边。
+	 *
+	 * 原来是「26px 外环 + 19px 内圈，数字塞进内圈」。但数字是 `0/11` 这类
+	 * 最多 5 个字符的等宽文本，0.5625rem(9px) 下约 22px 宽，塞进 19px 的圆
+	 * 必然溢出——线上三张卡的 0/11、0/10、0/12 全被裁掉一截。
+	 *
+	 * 把两件事分开：环负责「比例」（一眼看出多少），数字负责「精确值」，
+	 * 并排各自都有足够空间，字号也就能回到 0.75rem 这个能读的档。
+	 */
+	.lv-prog {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		flex-shrink: 0;
+	}
+
 	.ring {
-		width: 26px;
-		height: 26px;
+		width: 14px;
+		height: 14px;
 		border-radius: 50%;
-		background: conic-gradient(var(--color-ok) var(--p), var(--color-surface-sunken) 0);
-		display: grid;
-		place-items: center;
+		/* 未完成部分走 --color-track：sunken 在浅色下只有 1.1:1，等于环不存在 */
+		background: conic-gradient(var(--color-ok) var(--p), var(--color-track) 0);
+		/* 中心挖空成环形，不需要额外的内圈元素去盖 */
+		-webkit-mask: radial-gradient(circle, transparent 3.5px, #000 4.5px);
+		mask: radial-gradient(circle, transparent 3.5px, #000 4.5px);
 		flex-shrink: 0;
 	}
 
 	.ring-n {
-		width: 19px;
-		height: 19px;
-		border-radius: 50%;
-		/* 环线原来走 border-subtle（浅色 1.6:1）、内圈是纯白（1.0:1），
-		   合起来等于圆环不存在，只剩数字漂着 */
-		background: var(--color-surface-sunken);
-		border: 1px solid var(--color-border-strong);
 		font-family: var(--font-mono);
-		font-size: 0.5625rem;
-		display: grid;
-		place-items: center;
+		font-size: 0.75rem;
 		color: var(--color-text-muted);
+		white-space: nowrap;
 	}
 
 	.orphan-note {
