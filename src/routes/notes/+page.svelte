@@ -22,12 +22,15 @@
 	} from '$lib/notes/widgets';
 	import { interactionProgress } from '$lib/storage/interaction-progress.svelte';
 	import type { NoteEntry, NotesGradable, NotesManifest } from '$lib/notes/types';
+	import { LEARNING_PATH, PATH_COUNT } from '$lib/nav/learning-path';
 
 	let manifest = $state<NotesManifest | null>(null);
 	/** slug → Tier A 题目 id，供统一进度视图判定 */
 	let noteQuestionIds = $state<Record<string, string[]>>({});
 	let loadError = $state(false);
 	let ready = $state(false);
+	/** 「目录」vs「路线」视图切换。默认路线——新手打开看到的是路不是墙 */
+	let viewMode = $state<'path' | 'catalog'>('path');
 
 	onMount(async () => {
 		notesProgress.load();
@@ -215,6 +218,46 @@
 		onlyGradable = false;
 		onlyInteractive = false;
 	}
+
+	/**
+	 * slug → NoteEntry 的查找表。路线视图需要按 slug 反查笔记的标题/分钟等信息，
+	 * 而不是按模块→章节遍历。在 manifest 到位后构建一次。
+	 * 用 Record 而不是 Map：Svelte 5 的 reactive lint 会要求 SvelteMap，
+	 * 但这里只读不写，普通对象更轻。
+	 */
+	const slugIndex = $derived.by(() => {
+		const map: Record<string, NoteEntry> = {};
+		if (!manifest) return map;
+		for (const mod of manifest.modules) {
+			for (const sec of mod.sections) {
+				for (const note of sec.notes) {
+					map[note.slug] = note;
+				}
+			}
+		}
+		return map;
+	});
+
+	/**
+	 * 路线上有多少篇已读（含已掌握/在学/已读三态）。
+	 * 用来在路线视图顶部显示「路线上 N/M 篇已读」。
+	 */
+	const pathReadCount = $derived.by(() => {
+		let n = 0;
+		for (const stage of LEARNING_PATH) {
+			for (const step of stage.steps) {
+				const st = stateOf(step.slug);
+				if (st !== 'untouched') n++;
+			}
+		}
+		return n;
+	});
+
+	const TIER_LABEL: Record<string, string> = {
+		required: '必读',
+		optional: '选读',
+		'on-demand': '按需'
+	};
 </script>
 
 <Seo
@@ -258,7 +301,7 @@
 		</p>
 	</header>
 
-	{#if ready && manifest && manifest.count > 0}
+	{#if ready && manifest && manifest.count > 0 && viewMode === 'catalog'}
 		<!--
 			168 篇原来既无搜索也无筛选，「AI Agent 工程」一个模块 105 篇，
 			展开就是一面墙。搜索是纯客户端过滤，命中时自动展开所有模块。
@@ -294,12 +337,101 @@
 	{:else if manifest.count === 0}
 		<p class="placeholder" data-testid="notes-empty">笔记数据尚未同步。</p>
 	{:else}
-		<div class="modules" data-testid="notes-modules">
-			{#each manifest.modules as mod, i (mod.id)}
-				{@const shown = filtering ? true : isOpen(mod.id, i)}
-				{@const gradableNotes = gradableInModule(mod)}
-				{@const hits = matchesInModule(mod)}
-				<!--
+		<!--
+			视图切换：「路线」按推荐顺序展示 27 篇主线，「目录」按模块平铺全部 168 篇。
+			默认路线——新手打开看到的是一条有头有尾的路，不是 168 个标题扑面而来。
+		-->
+		<div class="view-tabs" role="tablist">
+			<button
+				class="view-tab"
+				class:active={viewMode === 'path'}
+				role="tab"
+				aria-selected={viewMode === 'path'}
+				data-testid="view-path"
+				onclick={() => (viewMode = 'path')}
+			>
+				学习路线
+				<span class="tab-count">{PATH_COUNT} 篇</span>
+			</button>
+			<button
+				class="view-tab"
+				class:active={viewMode === 'catalog'}
+				role="tab"
+				aria-selected={viewMode === 'catalog'}
+				data-testid="view-catalog"
+				onclick={() => (viewMode = 'catalog')}
+			>
+				全部目录
+				<span class="tab-count">{manifest.count} 篇</span>
+			</button>
+		</div>
+
+		{#if viewMode === 'path'}
+			<!--
+				路线视图。按阶段分组，每篇标前置依赖、配套关卡、标注。
+				已读的灰掉，未读的保持强调。
+			-->
+			{#if pathReadCount > 0}
+				<div class="track" data-testid="path-progress" aria-hidden="true">
+					<i class="seg ok" style="width: {pct(pathReadCount, PATH_COUNT)}%"></i>
+				</div>
+				<p class="track-legend">路线上 {pathReadCount} / {PATH_COUNT} 篇已读</p>
+			{/if}
+			<div class="path-stages" data-testid="path-stages">
+				{#each LEARNING_PATH as stage (stage.id)}
+					<section class="path-stage">
+						<h2 class="stage-title">
+							<span class="stage-num" aria-hidden="true">{stage.id}</span>
+							{stage.title}
+						</h2>
+						<p class="stage-goal">{stage.goal}</p>
+						<ol class="stage-steps">
+							{#each stage.steps as step (step.slug)}
+								{@const note = slugIndex[step.slug]}
+								{@const st = stateOf(step.slug)}
+								{@const badge = BADGE[st]}
+								{@const prereqs = step.prerequisites
+									.map((p) => slugIndex[p]?.title)
+									.filter(Boolean)}
+								<li class="step" class:is-read={st !== 'untouched'}>
+									<a
+										class="step-link"
+										href={resolve('/notes/[...slug]', { slug: step.slug })}
+										data-testid="path-step"
+									>
+										<span class="step-order" aria-hidden="true">{step.order}</span>
+										<span class="step-title">{note?.title ?? step.slug}</span>
+										<span class="step-meta">
+											<span class="step-tier" data-tier={step.tier}>
+												{TIER_LABEL[step.tier]}
+											</span>
+											{#if step.level}
+												<span class="badge-level" data-testid="path-step-level"> 关卡 </span>
+											{/if}
+											{#if badge}
+												<span class={badge.cls}>{badge.text}</span>
+											{/if}
+											{#if note}{note.minutes} 分钟{/if}
+										</span>
+									</a>
+									{#if prereqs.length > 0}
+										<p class="step-prereqs">
+											先读：{prereqs.join('、')}
+										</p>
+									{/if}
+								</li>
+							{/each}
+						</ol>
+					</section>
+				{/each}
+			</div>
+		{:else}
+			<div class="modules" data-testid="notes-modules">
+				{#each manifest.modules as mod, i (mod.id)}
+					{@const shown = filtering ? true : isOpen(mod.id, i)}
+					{@const gradableNotes = gradableInModule(mod)}
+					{@const hits = matchesInModule(mod)}
+					<!--
 					筛选时把一篇都没命中的模块整块跳过。
 
 					原来只过滤了篇目、模块外壳照渲染：搜一个没有的词，
@@ -307,98 +439,101 @@
 					加一串章节小标题、底下全是空的 —— 看起来像站坏了，
 					而真正的信息（「没找到」）一个字都没有。
 				-->
-				{#if !filtering || hits > 0}
-					<section class="module" id={`m-${mod.id}`}>
-						<!-- 模块标题即折叠开关。aria-expanded 让屏幕阅读器听得出展开状态 -->
-						<h2>
-							<button
-								class="mod-toggle"
-								type="button"
-								aria-expanded={shown}
-								aria-controls={`mod-${mod.id}`}
-								onclick={() => toggleModule(mod.id, i)}
-							>
-								<span class="mod-caret" aria-hidden="true">{shown ? '▾' : '▸'}</span>
-								<!-- 首页的模块带 01–05 编号，这里原来没有：同一组东西两套写法 -->
-								<span class="mod-num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
-								<span class="mod-label">{mod.label}</span>
-								<span class="count">{mod.notes} 篇</span>
-								{#if gradableNotes > 0}
-									<span class="count-gradable">{gradableNotes} 篇有可判定题</span>
-								{/if}
-							</button>
-						</h2>
-						<div id={`mod-${mod.id}`} class="mod-body" hidden={!shown}>
-							{#each mod.sections as sec (sec.dir)}
-								<div class="section" id={`s-${mod.id}-${sec.dir}`}>
-									{#if sec.section}
-										<h3>{sec.section}</h3>
+					{#if !filtering || hits > 0}
+						<section class="module" id={`m-${mod.id}`}>
+							<!-- 模块标题即折叠开关。aria-expanded 让屏幕阅读器听得出展开状态 -->
+							<h2>
+								<button
+									class="mod-toggle"
+									type="button"
+									aria-expanded={shown}
+									aria-controls={`mod-${mod.id}`}
+									onclick={() => toggleModule(mod.id, i)}
+								>
+									<span class="mod-caret" aria-hidden="true">{shown ? '▾' : '▸'}</span>
+									<!-- 首页的模块带 01–05 编号，这里原来没有：同一组东西两套写法 -->
+									<span class="mod-num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+									<span class="mod-label">{mod.label}</span>
+									<span class="count">{mod.notes} 篇</span>
+									{#if gradableNotes > 0}
+										<span class="count-gradable">{gradableNotes} 篇有可判定题</span>
 									{/if}
-									<ul class="note-list">
-										{#each sec.notes.filter(matches) as note (note.slug)}
-											<li>
-												<a
-													class="note-link"
-													class:is-read={notesProgress.isRead(note.slug)}
-													href={resolve('/notes/[...slug]', { slug: note.slug })}
-													data-testid="note-link"
-												>
-													<span class="note-title">{note.title}</span>
-													<span class="note-meta">
-														{#if ready}
-															{@const badge = BADGE[stateOf(note.slug)]}
-															{#if badge}
-																<span class={badge.cls} data-testid="note-state">{badge.text}</span>
-															{/if}
-														{/if}
-														{#if (noteQuestionIds[note.slug]?.length ?? 0) > 0}
-															<span class="badge-gradable" data-testid="note-has-gradable">
-																{noteQuestionIds[note.slug].length} 道可判定题
-															</span>
-														{/if}
-														{#if hasInteraction(note.slug)}
-															<span class="badge-interactive" data-testid="note-has-interaction">
-																{#if hasExperiencedInteraction(note.slug)}
-																	{interactionCountForNote(note.slug)} 个实验 · 已体验
-																{:else}
-																	{interactionCountForNote(note.slug)} 个可调实验
+								</button>
+							</h2>
+							<div id={`mod-${mod.id}`} class="mod-body" hidden={!shown}>
+								{#each mod.sections as sec (sec.dir)}
+									<div class="section" id={`s-${mod.id}-${sec.dir}`}>
+										{#if sec.section}
+											<h3>{sec.section}</h3>
+										{/if}
+										<ul class="note-list">
+											{#each sec.notes.filter(matches) as note (note.slug)}
+												<li>
+													<a
+														class="note-link"
+														class:is-read={notesProgress.isRead(note.slug)}
+														href={resolve('/notes/[...slug]', { slug: note.slug })}
+														data-testid="note-link"
+													>
+														<span class="note-title">{note.title}</span>
+														<span class="note-meta">
+															{#if ready}
+																{@const badge = BADGE[stateOf(note.slug)]}
+																{#if badge}
+																	<span class={badge.cls} data-testid="note-state"
+																		>{badge.text}</span
+																	>
 																{/if}
-															</span>
-														{/if}
-														{#if note.thinking > 0}
-															<span class="badge-thinking" data-testid="note-has-thinking">
-																{note.thinking} 道思考题
-															</span>
-														{/if}
-														{#if levelForNote(note.slug)}
-															<span class="badge-level" data-testid="note-has-level">关卡</span>
-														{/if}
-														<span>{note.minutes} 分钟</span>
-														<!--
+															{/if}
+															{#if (noteQuestionIds[note.slug]?.length ?? 0) > 0}
+																<span class="badge-gradable" data-testid="note-has-gradable">
+																	{noteQuestionIds[note.slug].length} 道可判定题
+																</span>
+															{/if}
+															{#if hasInteraction(note.slug)}
+																<span class="badge-interactive" data-testid="note-has-interaction">
+																	{#if hasExperiencedInteraction(note.slug)}
+																		{interactionCountForNote(note.slug)} 个实验 · 已体验
+																	{:else}
+																		{interactionCountForNote(note.slug)} 个可调实验
+																	{/if}
+																</span>
+															{/if}
+															{#if note.thinking > 0}
+																<span class="badge-thinking" data-testid="note-has-thinking">
+																	{note.thinking} 道思考题
+																</span>
+															{/if}
+															{#if levelForNote(note.slug)}
+																<span class="badge-level" data-testid="note-has-level">关卡</span>
+															{/if}
+															<span>{note.minutes} 分钟</span>
+															<!--
 												原来这里写「· 自测题」，挂在几乎全部 168 篇上，
 												但它指的是开放式回顾题、不可判定。而真正有可判定题的
 												只有绿色那个标记。零上下文复查者被这个假标签骗了一次：
 												「两个长得几乎一样的标签，一个有信息量一个没有」。
 											-->
-														{#if note.hasQuiz}<span>· 开放题</span>{/if}
-													</span>
-												</a>
-											</li>
-										{/each}
-									</ul>
-								</div>
-							{/each}
-						</div>
-					</section>
-				{/if}
-			{/each}
-		</div>
+															{#if note.hasQuiz}<span>· 开放题</span>{/if}
+														</span>
+													</a>
+												</li>
+											{/each}
+										</ul>
+									</div>
+								{/each}
+							</div>
+						</section>
+					{/if}
+				{/each}
+			</div>
 
-		{#if filtering && matchCount === 0}
-			<p class="no-hit" data-testid="notes-no-hit">
-				没有匹配的笔记。
-				<button type="button" onclick={clearFilters}>清除筛选</button>
-			</p>
+			{#if filtering && matchCount === 0}
+				<p class="no-hit" data-testid="notes-no-hit">
+					没有匹配的笔记。
+					<button type="button" onclick={clearFilters}>清除筛选</button>
+				</p>
+			{/if}
 		{/if}
 	{/if}
 
@@ -767,5 +902,160 @@
 
 	.page-foot a:hover {
 		text-decoration: underline;
+	}
+
+	/* ── 视图切换 ── */
+	.view-tabs {
+		display: flex;
+		gap: var(--space-1);
+		border-bottom: 1px solid var(--color-border-subtle);
+	}
+
+	.view-tab {
+		font: inherit;
+		font-size: var(--fs-sm);
+		padding: var(--space-2) var(--space-3);
+		background: none;
+		border: 0;
+		border-bottom: 2px solid transparent;
+		color: var(--color-text-soft);
+		cursor: pointer;
+		display: inline-flex;
+		align-items: baseline;
+		gap: var(--space-2);
+		min-height: 44px;
+		transition:
+			color var(--dur-ui) var(--ease-out),
+			border-color var(--dur-ui) var(--ease-out);
+	}
+
+	.view-tab:hover {
+		color: var(--color-accent);
+	}
+
+	.view-tab.active {
+		color: var(--color-text-strong);
+		border-bottom-color: var(--color-accent);
+	}
+
+	.tab-count {
+		font-family: var(--font-mono);
+		font-size: var(--fs-xs);
+		color: var(--color-text-faint);
+	}
+
+	/* ── 路线视图 ── */
+	.path-stages {
+		display: grid;
+		gap: var(--space-6);
+	}
+
+	.path-stage {
+		display: grid;
+		gap: var(--space-3);
+	}
+
+	.stage-title {
+		margin: 0;
+		font-size: var(--fs-lg);
+		font-weight: 600;
+		color: var(--color-text-strong);
+		display: flex;
+		align-items: baseline;
+		gap: var(--space-2);
+	}
+
+	.stage-num {
+		font-family: var(--font-mono);
+		font-size: var(--fs-sm);
+		color: var(--color-accent);
+		min-width: 1.2em;
+	}
+
+	.stage-goal {
+		margin: 0;
+		font-size: var(--fs-sm);
+		line-height: 1.7;
+		color: var(--color-text-muted);
+	}
+
+	.stage-steps {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		display: grid;
+		gap: var(--space-1);
+	}
+
+	.step {
+		display: grid;
+		gap: var(--space-1);
+	}
+
+	.step-link {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: var(--space-4);
+		padding: var(--space-3);
+		border-radius: var(--radius-control);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border-subtle);
+		text-decoration: none;
+		color: inherit;
+		box-shadow: var(--shadow-card);
+		transition:
+			border-color var(--dur-ui) var(--ease-out),
+			box-shadow var(--dur-ui) var(--ease-out),
+			transform var(--dur-ui) var(--ease-out);
+	}
+
+	.step-link:hover {
+		border-color: var(--color-accent);
+		box-shadow: var(--shadow-lift);
+		transform: translateY(-1px);
+	}
+
+	.step.is-read .step-link {
+		opacity: 0.68;
+	}
+
+	.step-order {
+		font-family: var(--font-mono);
+		font-size: var(--fs-sm);
+		color: var(--color-text-faint);
+		min-width: 1.5em;
+	}
+
+	.step-title {
+		font-size: var(--fs-base);
+	}
+
+	.step-meta {
+		flex-shrink: 0;
+		display: flex;
+		gap: var(--space-1);
+		font-size: var(--fs-xs);
+		font-family: var(--font-mono);
+		color: var(--color-text-faint);
+		white-space: nowrap;
+		align-items: baseline;
+	}
+
+	.step-tier[data-tier='required'] {
+		color: var(--color-accent);
+		font-weight: 600;
+	}
+
+	.step-tier[data-tier='optional'] {
+		color: var(--color-text-muted);
+	}
+
+	.step-prereqs {
+		margin: 0;
+		padding-left: var(--space-4);
+		font-size: var(--fs-xs);
+		color: var(--color-text-faint);
+		line-height: 1.6;
 	}
 </style>
