@@ -529,6 +529,35 @@ try {
 		const pathStages = await page.locator('.path-stage').count();
 		check('路线分 5 个阶段', pathStages === 5, `${pathStages} 个阶段`);
 
+		/*
+		 * 断点续读。
+		 *
+		 * 27 步原来只是 27 个链接：回到页面得自己在 5 个阶段里找「上次到哪」。
+		 * 这里验的是定位逻辑在真实浏览器里的端到端结果，而不是再抄一遍它的实现——
+		 * 断言「续读按钮指向的正是第一个未收尾的 step」，用页面上第一个 path-step
+		 * 的 href 做参照，不硬编码 slug（改路线不会让这条测试失效）。
+		 *
+		 * 此刻前面的流程只答过 kv-cache 的关卡题，路线第一篇仍未被碰过，
+		 * 所以「第一个未收尾的 step」就是列表里的第一个。
+		 */
+		await page.waitForSelector('[data-testid="path-resume"]');
+		const resumeHref = await page.getByTestId('path-resume-cta').getAttribute('href');
+		const firstStepHref = await page
+			.locator('[data-testid="path-step"]')
+			.first()
+			.getAttribute('href');
+		check(
+			'续读入口指向第一个未收尾的 step',
+			resumeHref !== null && resumeHref === firstStepHref,
+			`${resumeHref}`
+		);
+
+		// 当前步在长列表里要能被定位到，且只能有一个
+		const currentSteps = await page
+			.locator('[data-testid="path-step"][aria-current="step"]')
+			.count();
+		check('路线上恰好标出一个当前步', currentSteps === 1, `${currentSteps} 个`);
+
 		// 切到目录视图，继续测原有的模块折叠 / 搜索 / 筛选
 		await page.getByTestId('view-catalog').click();
 		await page.waitForSelector('a.note-link');

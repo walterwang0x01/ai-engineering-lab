@@ -278,3 +278,74 @@ export function isOnPath(slug: string): boolean {
 
 /** 路线上的总篇数 */
 export const PATH_COUNT: number = PATH_SLUGS.size;
+
+/**
+ * 一个 step 在学习者眼里的三种状态。
+ *
+ * 刻意比 `NoteProgress.state` 粗：那边分四档（mastered / in-progress / read /
+ * untouched）是为了展示徽章，而「下一步该干什么」只需要知道**这一步收没收尾**。
+ *
+ * - `done`      —— 收尾了（读完 或 可判定题全掌握）
+ * - `started`   —— 动过但没收尾，比如题做了一半
+ * - `untouched` —— 完全没碰
+ */
+export type StepStatus = 'done' | 'started' | 'untouched';
+
+export interface PathPosition {
+	/** 下一步该读哪一篇。全部收尾时为 null */
+	next: { stage: PathStage; step: PathStep } | null;
+	/** 已收尾的步数 */
+	doneCount: number;
+	/** 路线总步数，等于 PATH_COUNT */
+	total: number;
+	/** 一步都还没碰过——决定文案是「开始」还是「继续」 */
+	fresh: boolean;
+	/** 下一步是否是「接着做没做完的那篇」，而不是「开一篇新的」 */
+	resuming: boolean;
+}
+
+/**
+ * 算出学习者在路线上的位置。
+ *
+ * 「下一步」= 按路线顺序（阶段、阶段内 order）第一个**没收尾**的 step。
+ *
+ * 两个关键决定：
+ *
+ * 1. **`started` 不算走过。** 一篇题做了一半的笔记，正是「上次到这里」该指回去的
+ *    地方；把它当成走过、跳到下一篇，等于把人从断点上推走。
+ * 2. **不重复校验 prerequisites。** 路线数据本身已是拓扑序（阶段线性依赖、
+ *    阶段内靠 order），顺序扫描天然满足前置；再查一遍只会引入两套可能打架的规则。
+ *
+ * 传入 `statusOf` 而不是进度存储：这个文件保持纯函数、可单测，
+ * 不依赖 Svelte runes 和 localStorage。
+ */
+export function pathPosition(statusOf: (slug: string) => StepStatus): PathPosition {
+	let next: PathPosition['next'] = null;
+	let doneCount = 0;
+	let touchedAny = false;
+	let nextStatus: StepStatus = 'untouched';
+
+	for (const stage of LEARNING_PATH) {
+		// 按 order 扫，不依赖数组书写顺序恰好等于 order
+		for (const step of [...stage.steps].sort((a, b) => a.order - b.order)) {
+			const status = statusOf(step.slug);
+			if (status !== 'untouched') touchedAny = true;
+			if (status === 'done') {
+				doneCount += 1;
+				continue;
+			}
+			if (next === null) {
+				next = { stage, step };
+				nextStatus = status;
+			}
+		}
+	}
+
+	return {
+		next,
+		doneCount,
+		total: PATH_COUNT,
+		fresh: !touchedAny,
+		resuming: nextStatus === 'started'
+	};
+}
