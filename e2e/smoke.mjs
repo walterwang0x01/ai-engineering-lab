@@ -519,6 +519,18 @@ try {
 		check('进度图例说明各档题数', /道(已掌握|在学|未做|需重练)/.test(legend), legend);
 
 		await page.goto(`${BASE}/notes`, { waitUntil: 'networkidle' });
+
+		// ---------- 笔记库：路线视图 ----------
+		// 默认视图是「学习路线」——27 篇主线按阶段排成序列，
+		// 不是 168 篇扑面而来的平铺列表
+		await page.waitForSelector('[data-testid="path-stages"]');
+		const pathSteps = await page.locator('[data-testid="path-step"]').count();
+		check('笔记库默认展示学习路线（27 篇主线）', pathSteps === 27, `${pathSteps} 个 step`);
+		const pathStages = await page.locator('.path-stage').count();
+		check('路线分 5 个阶段', pathStages === 5, `${pathStages} 个阶段`);
+
+		// 切到目录视图，继续测原有的模块折叠 / 搜索 / 筛选
+		await page.getByTestId('view-catalog').click();
 		await page.waitForSelector('a.note-link');
 		// 列表页默认只展开第一个模块（168 篇全平铺是 12.3 屏，新用户复查里的严重度 3）
 		const shownFirst = await page.locator('a.note-link:visible').count();
