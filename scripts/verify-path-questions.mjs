@@ -85,6 +85,7 @@ const SUP = { '²': '^2', '³': '^3', '¹': '^1', '⁰': '^0', '⁴': '^4', '⁵
 const BOLD = { '𝟘': '0', '𝟙': '1', '𝟚': '2', '𝟛': '3', '𝟜': '4', '𝟝': '5', '𝟞': '6', '𝟟': '7', '𝟠': '8', '𝟡': '9' };
 function norm(s) {
   return s
+    .replace(/`/g, '') // 去 markdown 反引号（源笔记 `ŷ_c` 带反引号，抽取出的锚点不带）
     .replace(/[‐‑‒–—―−]/g, '-') // 各种连字符 / 减号
     .replace(/[·⋅∗×∘]/g, '') // 乘号直接删（桥接 W·A ↔ WA）
     .replace(/\^\([^)]*\)/g, '') // 上标层号 Z^(l) → Z
@@ -120,7 +121,22 @@ function anchorFound(src, value) {
   if (m) {
     const forms = [`10^${m[2]}`, `${m[1]}*10^${m[2]}`];
     if (forms.some((f) => src.norm.includes(norm(f)))) return true;
+    // 量级匹配：源里若有一个同指数的具体数（如 6.63e-11），则「1e-11 量级」成立。
+    // 此前只认 10^-11 写法，导致把源里正确的 6.63e-11 误判为「无依据」。
+    const exp = m[2].replace('+', '\\+');
+    const expRe = new RegExp(`[\\d.]+e${exp}(?!\\d)`, 'i');
+    if (expRe.test(src.raw) || expRe.test(src.norm)) return true;
   }
+  // 引用标记 [1][2]：值里若含带序号中括号，抽出 [n] 序列与源比对，
+  // 容忍中间的「内容/…」等说明文字（抽取会把解释性填充一并带进来）。
+  const vb = (value.match(/\[\d{1,2}\]/g) || []).join('');
+  if (vb) {
+    const sb = (src.norm.match(/\[\d{1,2}\]/g) || []).join('');
+    if (sb.includes(vb)) return true;
+  }
+  // 「→0 / ->0」即「接近 0」：中文笔记常用「接近0」表述，归一化后桥接。
+  const nv0 = norm(value);
+  if (nv0.includes('->0') && src.norm.includes(nv0.replace('->0', '接近0'))) return true;
   // 最后兜底：去所有括号再比一次（容忍 end(...) 里的占位内容）
   const sp = src.norm.replace(/[()]/g, '');
   const vp = norm(value).replace(/[()]/g, '');
@@ -231,7 +247,7 @@ const lines = [];
 lines.push('# 路线待审题 · 锚点比对核验报告');
 lines.push('');
 lines.push(`> 生成时间：${new Date().toISOString().slice(0, 19).replace('T', ' ')}`);
-lines.push('> 方法：解析+干扰项说明里的反引号术语/加粗短语/数字 → 回源笔记 markdown 做 indexOf 比对（含激进归一化：去上下标、占位符、空括号、写法差异）。');
+lines.push('> 方法：解析+干扰项说明里的反引号术语/加粗短语/数字 → 回源笔记 markdown 做 indexOf 比对（含激进归一化：去 markdown 反引号、上下标、占位符、空括号、写法差异；引用标记 `[n]` 序列比对；`→0`↔`接近0`；科学计数 `1e-11` 量级匹配源里 `6.63e-11` 等同指数项）。');
 lines.push('> 本脚本只做「依据核查」，**不改任何文件、不翻 reviewed**。结论供你人工过审时参考。');
 lines.push('> 答案选项本身是否正确不在自动核验范围内，仍需你通读。');
 lines.push('');
