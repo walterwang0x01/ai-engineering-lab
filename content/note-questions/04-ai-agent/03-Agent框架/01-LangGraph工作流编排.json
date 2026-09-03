@@ -29,6 +29,7 @@
 		],
 		"answerIndex": 0,
 		"explanation": "笔记明确写了两面：每步 checkpoint「以支持可观测性、人机交互和故障恢复」；但「对于运行数小时甚至数天的 Agent，全量 checkpoint 导致存储爆炸和恢复延迟线性增长」。持久化不是免费的可观测性，它把状态历史的体积变成了运行时成本——Delta Channels 就是为了压这个代价才出现的。",
+		"hint": "每一步都存档，换来的是「能回到中间某一步」的能力。会话跑了几千步之后，存档总量和恢复时间会怎样？",
 		"distractorNotes": {
 			"1": "checkpoint 与 Token 消耗无关；而人机交互恰恰是靠 checkpoint 才能实现的（中断后要能从持久化状态恢复），不是被它牺牲掉的。",
 			"2": "checkpoint 不改变模型的推理质量。后端可选内存（`MemorySaver`，开发用）或 PostgreSQL（`PostgresSaver`，生产用），并非强制数据库。",

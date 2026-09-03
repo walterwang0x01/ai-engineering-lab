@@ -67,6 +67,7 @@
 		],
 		"answerIndex": 0,
 		"explanation": "判断依据是这一步的输出要不要「唯一正确」。工具参数错一个字段名、抽取结果换一种写法，下游就崩；同一输入跑两次得到不同参数也让问题无法复现。对话与创意写作恰好相反，多样性本身是价值——所以表里给的是 0.7~0.9。笔记还提到推理模型通常不支持 temperature（Claude 的 Extended Thinking 下建议 temperature=1），因为探索性已经在思考过程里了。",
+		"hint": "工具调用的参数必须合法且可重复。随机性在这里是帮忙还是添乱？对话呢？",
 		"distractorNotes": {
 			"1": "temperature=0 只是让采样退化为取最高概率的 token，前面的完整前向计算照样要做，延迟没有实质变化。",
 			"2": "格式由 response_format、schema 或工具定义约束，与 temperature 无关。高温度下依然会输出 JSON，只是内容更容易飘。",

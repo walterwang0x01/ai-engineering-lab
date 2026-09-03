@@ -29,6 +29,7 @@
 		],
 		"answerIndex": 0,
 		"explanation": "`AgentNetwork` 提供 `send_message`（任意 A → 任意 B）和 `broadcast`（一个 Agent → 所有其他 Agent）。这意味着通信拓扑是全连接的：可能的通路数随 Agent 数量呈组合式增长，一次广播就会触发 N-1 次处理，而每个回应又可能引发新的消息。Supervisor/Hierarchical 靠「必须回到主管」强制收敛，Network 把这个约束去掉了，换来最大灵活性（适合头脑风暴、复杂协作），代价就是消息量和终止条件都难控。",
+		"hint": "Network 模式里谁都能给谁发消息，还能广播。N 个 Agent 两两互发，通信路径按什么量级增长？",
 		"distractorNotes": {
 			"1": "`message_bus` 用什么存不是关键，换成数据库或队列也一样爆。问题在通信关系本身是 N 对 N。",
 			"2": "笔记的 Network 例子只是一个进程内的 Python 类，并不要求中间件。Dapr Agents 那类分布式运行时是可选的生产化基础设施，不是问题的成因。",

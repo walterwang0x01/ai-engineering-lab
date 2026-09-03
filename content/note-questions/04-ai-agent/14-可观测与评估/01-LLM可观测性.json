@@ -29,6 +29,7 @@
 		],
 		"answerIndex": 0,
 		"explanation": "LangSmith 的自动追踪是框架内置的：笔记写「LangChain 自动追踪所有调用」——前提是调用经过 LangChain。Phoenix 用 OpenTelemetry + OpenInference 在 OpenAI SDK 上打桩，笔记写「之后所有 OpenAI 调用自动追踪」，不关心上层是否有框架。所以绕过框架、直接用 SDK 写的那部分代码，前者看不见，后者看得见。",
+		"hint": "一个是框架层的开关，一个是 SDK 层的打桩。不走那个框架的代码，分别还能不能被记录到？",
 		"distractorNotes": {
 			"1": "SDK 层打桩恰恰是全局生效的，笔记里只在启动时注册一次，业务调用点原样不动。",
 			"2": "覆盖范围不一致才是这道题的重点。自托管与云端是另一个维度，笔记里 LangFuse 才是讲自托管的那节。",
