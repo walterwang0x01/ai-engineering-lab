@@ -19,6 +19,11 @@
  *   npm run notes:review -- 02-llm       # 只看某个前缀
  *   npm run notes:review -- --reviewed   # 反过来，看已过审的（复核用）
  *   npm run notes:review -- --stats      # 只要统计
+ *   npm run notes:review -- --path       # 只看学习路线上的 27 篇
+ *
+ * `--path` 存在的理由：全站 400+ 道待审，一次过完不现实，而过审的收益
+ * 高度集中在路线上——路线是新手唯一被引导着走完的一段，其余笔记按需查阅。
+ * 把清单收到 60 来道，过审才是件能坐下来做完的事。
  */
 
 import { readdir, readFile } from 'node:fs/promises';
@@ -29,7 +34,31 @@ const ROOT = 'content/note-questions';
 const args = process.argv.slice(2);
 const wantReviewed = args.includes('--reviewed');
 const statsOnly = args.includes('--stats');
+const pathOnly = args.includes('--path');
 const filter = args.find((a) => !a.startsWith('--'));
+
+/**
+ * 学习路线上的 slug 集合。
+ *
+ * 从 `learning-path.ts` 里正则取出，而不是 import——这个脚本是纯 Node，
+ * 不经过 vite/TS 转译，import 一个 `.ts` 跑不起来。
+ *
+ * 代价是和源码的书写格式耦合了。所以取不到时**报错退出而不是静默放行**：
+ * 静默会让 `--path` 退化成「列出 0 道题」，看起来像「路线上的题都过审了」。
+ */
+async function loadPathSlugs() {
+	const src = await readFile('src/lib/nav/learning-path.ts', 'utf8');
+	const slugs = [...src.matchAll(/^\s*slug: '([^']+)',$/gm)].map((m) => m[1]);
+	if (slugs.length === 0) {
+		throw new Error(
+			'从 src/lib/nav/learning-path.ts 里没取到任何 slug。' +
+				'该文件的格式可能变了，请更新本脚本的正则——不要让它静默返回空集。'
+		);
+	}
+	return new Set(slugs);
+}
+
+const pathSlugs = pathOnly ? await loadPathSlugs() : null;
 
 /** ANSI。管道输出时（不是 TTY）自动关掉，方便 `| less` 或重定向到文件 */
 const tty = process.stdout.isTTY;
@@ -72,14 +101,16 @@ function wrap(text, indent, width = 96) {
 	return lines.map((l) => pad + l).join('\n');
 }
 
-const files = await collect();
+// 过滤放在循环外，好让下面的 total / empty 等统计都只反映筛剩下的范围，
+// 而不是「全站总数」和「筛后明细」混在一起
+const files = (await collect()).filter(
+	({ slug }) => (!filter || slug.includes(filter)) && (!pathSlugs || pathSlugs.has(slug))
+);
 let total = 0;
 let shown = 0;
 const perFile = [];
 
 for (const { file, slug } of files) {
-	if (filter && !slug.includes(filter)) continue;
-
 	/** @type {Array<Record<string, unknown>>} */
 	const questions = JSON.parse(await readFile(file, 'utf8'));
 	total += questions.length;
