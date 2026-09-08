@@ -9,7 +9,7 @@
 			"CrewAI 只能用更贵的模型，LangGraph 可以用开源模型"
 		],
 		"answerIndex": 0,
-		"explanation": "原文的说法是：CrewAI 的 token 开销可达 LangGraph 的 3×，原因是「LangGraph 用确定性 Python 路由，CrewAI 委派常触发额外 LLM 调用」。这正是两种抽象的代价差：角色委派把「下一步交给谁」交给模型判断，每次判断都是一次推理；图编排把这个决定写成 Python 条件函数，零 Token。所以原文的配套建议是——CrewAI 做 PoC（2–4 小时可跑通，角色隐喻直观），生产再迁到 LangGraph。",
+		"explanation": "原文的说法是：`CrewAI` 的 token 开销可达 `LangGraph` 的 3×，原因是「LangGraph 用确定性 `Python` 路由，CrewAI 委派常触发额外 `LLM` 调用」。这正是两种抽象的代价差：角色委派把「下一步交给谁」交给模型判断，每次判断都是一次推理；图编排把这个决定写成 Python 条件函数，零 Token。所以原文的配套建议是——CrewAI 做 PoC（2–4 小时可跑通，角色隐喻直观），生产再迁到 LangGraph。",
 		"hint": "「谁来做路由决策」这件事，在两个框架里分别由什么执行？",
 		"distractorNotes": {
 			"1": "记忆开关不是原文给出的原因，且 CrewAI 的 memory 需要显式启用。",
@@ -28,7 +28,7 @@
 			"多 Agent 协作能力（前两者都不具备）"
 		],
 		"answerIndex": 0,
-		"explanation": "原文的迁移路径写得很直接：「OpenAI SDK → LangGraph（增加控制和持久化）」「CrewAI → LangGraph（需要更精细的流程控制）」。方向是从「快速跑通」换到「可控可恢复」——LangGraph 的学习曲线在对比矩阵里是最高的那一档（★★★），这正是换来控制力所付的代价，而不是它顺带的优点。",
+		"explanation": "原文的迁移路径写得很直接：「`OpenAI` `SDK` → `LangGraph`（增加控制和持久化）」「`CrewAI` → LangGraph（需要更精细的流程控制）」。方向是从「快速跑通」换到「可控可恢复」——LangGraph 的学习曲线在对比矩阵里是最高的那一档（★★★），这正是换来控制力所付的代价，而不是它顺带的优点。",
 		"distractorNotes": {
 			"1": "反了：LangGraph 的学习曲线在原文矩阵里高于 CrewAI 和 OpenAI SDK，迁过去是变复杂，不是变简单。",
 			"2": "CrewAI 在原文矩阵里的模型锁定是「无」，它本来就不限于 OpenAI；只有 OpenAI SDK 一行标了锁定。",

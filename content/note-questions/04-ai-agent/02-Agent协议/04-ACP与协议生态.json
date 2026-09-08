@@ -9,7 +9,7 @@
 			"因为需要去中心化、无中心注册方的开放网络，ACP 是为这个场景设计的"
 		],
 		"answerIndex": 0,
-		"explanation": "笔记给 ACP 的定位是 IBM 提出的轻量级异步消息传递协议：基于 HTTP REST、轻量易集成、支持长时间任务与多模态消息、无需了解 Agent 内部实现；选型指南里写的是「agent_collaboration + lightweight → ACP」，「agent_collaboration + enterprise → A2A（支持任务管理）」。所以两者的取舍是「够用的轻量消息」对「更完整的企业级任务协作」，代价是后者更重。",
+		"explanation": "笔记给 `ACP` 的定位是 IBM 提出的轻量级异步消息传递协议：基于 `HTTP` `REST`、轻量易集成、支持长时间任务与多模态消息、无需了解 Agent 内部实现；选型指南里写的是「agent_collaboration + lightweight → ACP」，「agent_collaboration + enterprise → `A2A`（支持任务管理）」。所以两者的取舍是「够用的轻量消息」对「更完整的企业级任务协作」，代价是后者更重。",
 		"hint": "对比表里 ACP 和 A2A 在「多模态」一栏的取值是一样的——差别不在那里。",
 		"distractorNotes": {
 			"1": "误读了对比表：多模态那一栏 A2A、ACP、ANP 都是「多模态」，反而 MCP 是「文本为主」。多模态不是 ACP 的差异点。",

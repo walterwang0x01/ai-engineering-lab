@@ -28,7 +28,7 @@
 			"网关把 MCP 工具的返回结果预先写进提示词，模型其实并没有发起工具调用"
 		],
 		"answerIndex": 0,
-		"explanation": "笔记的注释写得很直接：Gateway 自动拉取 MCP 工具定义、注入请求、并在服务端执行 tool call。也就是说这一层做的是能力补齐——把「谁支持 MCP」这个 Provider 之间的差异吸收掉，对上游只用它本来就懂的 function calling 说话。这类「在网关侧补齐 Provider 能力差异」是网关层除路由之外的一个典型职责，也是它值得存在的理由之一。",
+		"explanation": "笔记的注释写得很直接：`Gateway` 自动拉取 `MCP` 工具定义、注入请求、并在服务端执行 tool call。也就是说这一层做的是能力补齐——把「谁支持 MCP」这个 `Provider` 之间的差异吸收掉，对上游只用它本来就懂的 function calling 说话。这类「在网关侧补齐 Provider 能力差异」是网关层除路由之外的一个典型职责，也是它值得存在的理由之一。",
 		"distractorNotes": {
 			"1": "如果靠透传，Provider 仍然需要原生 MCP 支持，那这个能力就不成立了。",
 			"2": "请求指定的模型没有被替换，调用方选的仍然是自己那个 Provider 的模型。",

@@ -28,7 +28,7 @@
 			"Agent OS 取代了框架，用了 OpenClaw 之类的平台就不再需要框架层"
 		],
 		"answerIndex": 0,
-		"explanation": "笔记的分层图是 Agent OS 包住 Agent 框架、框架再包住 LLM，并在最外层标注「+ 渠道 + 记忆 + 调度」。也就是说两者不在同一层：框架（LangGraph/CrewAI）是写 Agent 的接口，OS（OpenClaw/OpenFang）是让 Agent 长期跑起来的环境，把消息渠道、记忆系统、定时调度这些运行时设施补齐。",
+		"explanation": "笔记的分层图是 Agent OS 包住 Agent 框架、框架再包住 LLM，并在最外层标注「+ 渠道 + 记忆 + 调度」。也就是说两者不在同一层：框架（`LangGraph`/`CrewAI`）是写 Agent 的接口，OS（`OpenClaw`/`OpenFang`）是让 Agent 长期跑起来的环境，把消息渠道、记忆系统、定时调度这些运行时设施补齐。",
 		"distractorNotes": {
 			"1": "分层图里 OS 在框架之外而不是替代它，谈不上「绕过」；多出来的渠道、记忆、调度反而是额外开销——笔记给 OpenClaw 标的启动时间和内存占用都是三者里最高的。",
 			"2": "多 Agent 在框架层完全成立（笔记别处的 CrewAI/LangGraph 就是），OpenClaw 的 Sub-Agents 只是 OS 层的一种实现方式。",

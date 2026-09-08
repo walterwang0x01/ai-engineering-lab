@@ -9,7 +9,7 @@
 			"两个指标衡量的是同一件事，这种组合不可能出现，只能是数据集标注有误"
 		],
 		"answerIndex": 0,
-		"explanation": "笔记标注了各指标的含义：faithfulness 是「回答是否基于上下文」，context_recall 是「上下文召回率」（对照 ground_truth 看该找到的内容有没有被检索到）。faithfulness 高说明生成阶段没有编造，它只对「有没有超出上下文」负责，管不着上下文本身够不够；context_recall 低说明检索这一步就漏了。所以瓶颈在检索侧，而不是生成侧——这也是为什么 RAGAS 要把检索与生成的指标分开算。",
+		"explanation": "笔记标注了各指标的含义：faithfulness 是「回答是否基于上下文」，context_recall 是「上下文召回率」（对照 ground_truth 看该找到的内容有没有被检索到）。faithfulness 高说明生成阶段没有编造，它只对「有没有超出上下文」负责，管不着上下文本身够不够；context_recall 低说明检索这一步就漏了。所以瓶颈在检索侧，而不是生成侧——这也是为什么 `RAGAS` 要把检索与生成的指标分开算。",
 		"hint": "faithfulness 的参照物是检索到的上下文，context_recall 的参照物是 ground_truth。",
 		"distractorNotes": {
 			"1": "「脱离上下文编造」正是 faithfulness 低的表现，与题设的高 faithfulness 矛盾；而无关文档过多对应的是 context_precision 低，不是 recall 低。",

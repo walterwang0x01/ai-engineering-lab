@@ -28,7 +28,7 @@
 			"因为 Agent 的视觉能力不足以看清验证码图片，换更强的模型就可以取消这条约定"
 		],
 		"answerIndex": 0,
-		"explanation": "skill 的操作循环是 snapshot → act → resnapshot，并且只对 stale ref 做一次恢复；登录、2FA、captcha 属于 Agent 不掌握必要信息的环节（密码、手机上的动态码），继续「盲猜」既不会成功，也让后续快照失去可预期的基线。所以设计上把它升级成需要人介入的 manual action，交回给持有这些信息的人。",
+		"explanation": "skill 的操作循环是 snapshot → act → resnapshot，并且只对 stale ref 做一次恢复；登录、`2FA`、captcha 属于 Agent 不掌握必要信息的环节（密码、手机上的动态码），继续「盲猜」既不会成功，也让后续快照失去可预期的基线。所以设计上把它升级成需要人介入的 manual action，交回给持有这些信息的人。",
 		"distractorNotes": {
 			"1": "并非做不到——同一份笔记里 Skyvern 就以能处理 CAPTCHA 作为卖点。这里的约定是「不该盲猜」，不是「不可能」。",
 			"2": "笔记没有把它归为法律约束，而是 skill 的操作约定；对比表里 Attached profile 复用已登录 Chrome 恰恰是被推荐的正当做法。",

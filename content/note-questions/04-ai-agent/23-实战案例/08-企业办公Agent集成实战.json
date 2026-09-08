@@ -9,7 +9,7 @@
 			"三种都不适用，IDE Agent 操作 SaaS 必须自己写 OAuth 对接"
 		],
 		"answerIndex": 0,
-		"explanation": "笔记的模式表把 MCP Server 模式的适用场景直接写成「IDE Agent（Cursor/Claude Code）」，第 6 节的决策树也有一条「IDE Agent 需要操作 SaaS → MCP Server（Notion/Slack/GitHub 官方 MCP）」。三种模式的分界是「谁是 Agent 运行时」：平台内嵌是平台自己跑 Agent，CLI/Skills 是终端 Agent 调命令，MCP 是外部 Agent 运行时通过协议接入平台。",
+		"explanation": "笔记的模式表把 MCP `Server` 模式的适用场景直接写成「IDE Agent（`Cursor`/`Claude` Code）」，第 6 节的决策树也有一条「IDE Agent 需要操作 SaaS → MCP Server（`Notion`/Slack/GitHub 官方 MCP）」。三种模式的分界是「谁是 Agent 运行时」：平台内嵌是平台自己跑 Agent，CLI/Skills 是终端 Agent 调命令，MCP 是外部 Agent 运行时通过协议接入平台。",
 		"hint": "先问一句：这三种模式里，Agent 本体分别跑在哪儿？",
 		"distractorNotes": {
 			"1": "平台内嵌（Copilot Studio、Rovo、飞书智能伙伴）的适用场景是企业全员和低代码，它并不垄断数据访问——Notion 官方就提供了给外部 Agent 用的 MCP Server。",

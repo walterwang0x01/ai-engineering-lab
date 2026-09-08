@@ -28,7 +28,7 @@
 			"是否使用异步 API：Parallelization 必须用异步客户端，Orchestrator 只能同步执行"
 		],
 		"answerIndex": 0,
-		"explanation": "笔记的 Parallelization 示例把 sections 写成固定列表 [\"引言\", \"核心概念\", \"实践案例\", \"总结\"]——切分方式是代码写死的。Orchestrator-Workers 则先让编排者 LLM 输出一个 JSON 子任务数组，切分本身是运行时决策。决策树里也正是这么分的：「可并行 → Parallelization，动态分解 → Orchestrator-Workers」。前提说反了就会付冤枉代价：任务能静态切分却上 Orchestrator，等于白花一次编排调用还引入了分解出错的风险。",
+		"explanation": "笔记的 `Parallelization` 示例把 sections 写成固定列表 [\"引言\", \"核心概念\", \"实践案例\", \"总结\"]——切分方式是代码写死的。`Orchestrator-Workers` 则先让编排者 LLM 输出一个 `JSON` 子任务数组，切分本身是运行时决策。决策树里也正是这么分的：「可并行 → Parallelization，动态分解 → Orchestrator-Workers」。前提说反了就会付冤枉代价：任务能静态切分却上 Orchestrator，等于白花一次编排调用还引入了分解出错的风险。",
 		"hint": "看两段代码里「子任务是谁定的」：一个是常量列表，一个是模型输出的 JSON。",
 		"distractorNotes": {
 			"1": "数量不是判据。固定切成 20 份照样是静态并行，模型动态分解成 2 份照样需要编排者。",
@@ -65,7 +65,7 @@
 			"两个条件是等价的冗余写法，去掉任何一个都不影响行为"
 		],
 		"answerIndex": 0,
-		"explanation": "分数由 LLM 给出，既可能在某个水平上反复震荡，也可能永远达不到阈值。只用「达标才停」就等于把终止性交给一个不受控的判断，最坏情况是无限循环加无限账单。max_iterations 是这类生成-评估回路的必备保险，和自主 Agent 里的 max_turns 是同一件事。",
+		"explanation": "分数由 `LLM` 给出，既可能在某个水平上反复震荡，也可能永远达不到阈值。只用「达标才停」就等于把终止性交给一个不受控的判断，最坏情况是无限循环加无限账单。max_iterations 是这类生成-评估回路的必备保险，和自主 Agent 里的 max_turns 是同一件事。",
 		"hint": "问自己：如果评估器每轮都给 7 分，循环什么时候结束？",
 		"distractorNotes": {
 			"1": "代码里已经用 int(...) 把分数解析成整数再比较。解析失败是另一类健壮性问题，与需要轮次上限无关。",
