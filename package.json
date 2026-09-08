@@ -22,7 +22,8 @@
 		"pyodide:sync": "node scripts/sync-pyodide.mjs",
 		"notes:sync": "node scripts/sync-notes.mjs",
 		"assets:sync": "npm run pyodide:sync && npm run notes:sync",
-		"notes:review": "node scripts/review-questions.mjs"
+		"notes:review": "node scripts/review-questions.mjs",
+		"notes:review-pack": "node scripts/review-pack.mjs"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
