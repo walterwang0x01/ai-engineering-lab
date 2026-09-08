@@ -38,9 +38,9 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { extractAnchors, judge, loadSource } from './lib/anchor-verdict.mjs';
 
 const ROOT = 'content/note-questions';
-const NOTES = 'static/notes';
 const OUT = 'docs/path-question-verification.md';
 
 // ── 1. 取路线 slug（复用 review 脚本的正则；取不到就报错，不静默）──
@@ -63,140 +63,11 @@ const files = collect(ROOT)
 	.filter((s) => slugSet.has(s))
 	.sort((a, b) => a.localeCompare(b, 'zh'));
 
-// ── 3. 锚点抽取 ──
-const RE_BACKTICK = /`([^`]+)`/g;
-const RE_BOLD = /\*\*([^*]+?)\*\*/g;
-const RE_NUM = /-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g;
-// 「」引用：语义非对称（见 extractAnchors 注释）——命中算证据，未命中不算问题
-const RE_QUOTE = /「([^」]+)」/g;
-
-function isMeaningfulNumber(v) {
-	if (/-?\d+\.\d+/.test(v)) return true; // 小数
-	if (/[eE][+-]?\d+/.test(v)) return true; // 科学计数
-	if (/%$/.test(v)) return true; // 百分比
-	const digits = v.replace('-', '').replace(/\.\d+/, '');
-	if (digits.length >= 3) return true; // ≥3 位整数（如 400 / 1000）
-	return false; // 1~2 位普通整数跳过（噪声）
-}
-
-function extractAnchors(text) {
-	const out = [];
-	if (!text) return out;
-	for (const m of text.matchAll(RE_BACKTICK)) out.push({ type: 'term', value: m[1], raw: m[0] });
-	for (const m of text.matchAll(RE_BOLD)) out.push({ type: 'bold', value: m[1], raw: m[0] });
-	for (const m of text.matchAll(RE_NUM)) {
-		if (isMeaningfulNumber(m[0])) out.push({ type: 'num', value: m[0], raw: m[0] });
-	}
-	// 「」引用（type: 'quote'）——**语义非对称**，务必按此使用：
-	//   命中源笔记 = 这条说法有原文依据（加分证据）
-	//   未命中     = 极可能是作者转述，不是编造，**绝不能算「锚点缺失」**
-	// 实测：38 道无反引号/加粗的题里，29 道的「」是转述（如「越远越不相关」）。
-	// 若把未命中也当缺失，会凭空造出 29 个假「真问题」。
-	for (const m of text.matchAll(RE_QUOTE)) {
-		if (m[1].length >= 2) out.push({ type: 'quote', value: m[1], raw: m[0] });
-	}
-	return out;
-}
-
-// 归一化：容忍公式写法差异（内存 2026-09-03 踩过的坑：W2(W1x) vs W2·(W1·x+b1)）
-const SUP = {
-	'²': '^2',
-	'³': '^3',
-	'¹': '^1',
-	'⁰': '^0',
-	'⁴': '^4',
-	'⁵': '^5',
-	'⁶': '^6',
-	'⁷': '^7',
-	'⁸': '^8',
-	'⁹': '^9'
-};
-const BOLD = {
-	'𝟘': '0',
-	'𝟙': '1',
-	'𝟚': '2',
-	'𝟛': '3',
-	'𝟜': '4',
-	'𝟝': '5',
-	'𝟞': '6',
-	'𝟟': '7',
-	'𝟠': '8',
-	'𝟡': '9'
-};
-function norm(s) {
-	return s
-		.replace(/`/g, '') // 去 markdown 反引号（源笔记 `ŷ_c` 带反引号，抽取出的锚点不带）
-		.replace(/[‐‑‒–—―−]/g, '-') // 各种连字符 / 减号
-		.replace(/[·⋅∗×∘]/g, '') // 乘号直接删（桥接 W·A ↔ WA）
-		.replace(/\^\([^)]*\)/g, '') // 上标层号 Z^(l) → Z
-		.replace(/_{[^}]*}/g, '') // 下标组 n_{l-1} → n
-		.replace(/_[a-z0-9]/g, '') // 单字下标 y_i → y（接受 d_k 也被压成 d 的副作用）
-		.replace(/[²³¹⁰⁴⁵⁶⁷⁸⁹]/g, (c) => SUP[c] || c) // 上标数字
-		.replace(/[𝟘𝟙𝟚𝟛𝟜𝟝𝟞𝟟𝟠𝟡]/gu, (c) => BOLD[c] || c) // 粗体数字（astral 字符，需 u 标志）
-		.replace(/[‘’]/g, "'")
-		.replace(/[“”]/g, '"') // 弯引号 → 直引号
-		.replace(/→/g, '->')
-		.replace(/≤/g, '<=')
-		.replace(/≥/g, '>=')
-		.replace(/≠/g, '!=')
-		.replace(/\.\.\.|…/g, '') // 占位符 … / ...
-		.replace(/[{}]/g, '') // 去花括号 10^{-11} → 10^-11
-		.replace(/\s+/g, '') // 去空白
-		.replace(/\(\)/g, ''); // 空括号 end() → end
-}
-
-// 锚点是否在源笔记里找得到依据（多策略，容忍压缩/写法差异）
-function anchorFound(src, value) {
-	if (src.raw.includes(value)) return true;
-	const nv = norm(value);
-	if (src.norm.includes(nv)) return true;
-	// 方程：解析常把源笔记「推导 = 结论」压缩成只见「结论」，试等号右侧
-	if (value.includes('=')) {
-		const rhs = value.slice(value.lastIndexOf('=') + 1);
-		const nrhs = norm(rhs);
-		if (nrhs.length >= 3 && src.norm.includes(nrhs)) return true;
-	}
-	// 科学计数：1e-11 ↔ 10^-11
-	const m = value.match(/^(\d+(?:\.\d+)?)e([+-]?\d+)$/i);
-	if (m) {
-		const forms = [`10^${m[2]}`, `${m[1]}*10^${m[2]}`];
-		if (forms.some((f) => src.norm.includes(norm(f)))) return true;
-		// 量级匹配：源里若有一个同指数的具体数（如 6.63e-11），则「1e-11 量级」成立。
-		// 此前只认 10^-11 写法，导致把源里正确的 6.63e-11 误判为「无依据」。
-		const exp = m[2].replace('+', '\\+');
-		const expRe = new RegExp(`[\\d.]+e${exp}(?!\\d)`, 'i');
-		if (expRe.test(src.raw) || expRe.test(src.norm)) return true;
-	}
-	// 引用标记 [1][2]：值里若含带序号中括号，抽出 [n] 序列与源比对，
-	// 容忍中间的「内容/…」等说明文字（抽取会把解释性填充一并带进来）。
-	const vb = (value.match(/\[\d{1,2}\]/g) || []).join('');
-	if (vb) {
-		const sb = (src.norm.match(/\[\d{1,2}\]/g) || []).join('');
-		if (sb.includes(vb)) return true;
-	}
-	// 「→0 / ->0」即「接近 0」：中文笔记常用「接近0」表述，归一化后桥接。
-	const nv0 = norm(value);
-	if (nv0.includes('->0') && src.norm.includes(nv0.replace('->0', '接近0'))) return true;
-	// 最后兜底：去所有括号再比一次（容忍 end(...) 里的占位内容）
-	const sp = src.norm.replace(/[()]/g, '');
-	const vp = norm(value).replace(/[()]/g, '');
-	if (sp.includes(vp)) return true;
-	return false;
-}
+// ── 3. 锚点抽取与判定：见 ./lib/anchor-verdict.mjs ──
+// 与 review-pack.mjs 共用同一套判定，两份产物不会出现「这份说可过审、那份说要通读」。
 
 // ── 4. 逐文件、逐题核验 ──
-const rows = []; // {slug, id, prompt, bucket, reason, missing:[{type,value}], anchorsTotal, anchorsFound}
-const sourceCache = new Map();
-
-function getSource(slug) {
-	if (sourceCache.has(slug)) return sourceCache.get(slug);
-	const p = path.join(NOTES, slug + '.md');
-	let src = null;
-	if (fs.existsSync(p)) src = fs.readFileSync(p, 'utf8');
-	const entry = { raw: src, norm: src ? norm(src) : null, exists: !!src };
-	sourceCache.set(slug, entry);
-	return entry;
-}
+const rows = []; // {slug, id, prompt, kind, reason, missing:[{type,value}], anchorsTotal, anchorsFound}
 
 for (const slug of files) {
 	const qpath = path.join(ROOT, slug + '.json');
@@ -205,95 +76,23 @@ for (const slug of files) {
 	const pending = questions.filter((q) => q.reviewed !== true);
 	if (pending.length === 0) continue;
 
-	const src = getSource(slug);
+	const src = loadSource(slug);
 
 	for (const q of pending) {
 		const anchors = [
 			...extractAnchors(q.explanation),
 			...Object.values(q.distractorNotes || {}).flatMap(extractAnchors)
 		];
-
-		if (!src.exists) {
-			rows.push({
-				slug,
-				id: q.id,
-				prompt: String(q.prompt || '').slice(0, 60),
-				kind: 'noanchor',
-				reason: '源笔记 markdown 缺失，无法比对（检查同步是否漏了这篇）',
-				missing: [],
-				anchorsTotal: anchors.length,
-				anchorsFound: 0
-			});
-			continue;
-		}
-
-		// 符号/数字锚点严格判定；「」引用只作加分证据，未命中不计入 missing
-		const strict = anchors.filter((a) => a.type !== 'quote');
-		const quotes = anchors.filter((a) => a.type === 'quote');
-		let quoteFound = 0;
-		for (const a of quotes) if (anchorFound(src, a.value)) quoteFound++;
-
-		const missing = [];
-		let found = 0;
-		for (const a of strict) {
-			if (anchorFound(src, a.value)) found++;
-			else missing.push({ type: a.type, value: a.value });
-		}
-
-		let kind, reason;
-		if (strict.length === 0) {
-			// 没有符号/数字锚点：只能靠「」引用给证据
-			if (quotes.length === 0) {
-				kind = 'noanchor';
-				reason = '解析无反引号/加粗/数字锚点，锚点法无法自动比对，需人工通读';
-			} else if (quoteFound === quotes.length) {
-				kind = 'quoteok';
-				reason = `无符号锚点，但 ${quotes.length} 处「」引用均在源笔记原文命中，有原文依据（证据强度弱于符号锚点，仍建议通读）`;
-			} else if (quoteFound > 0) {
-				kind = 'noanchor';
-				reason = `无符号锚点；「」引用命中 ${quoteFound}/${quotes.length}（未命中者疑似作者转述），需人工通读`;
-			} else {
-				kind = 'noanchor';
-				reason = `无符号锚点，且 ${quotes.length} 处「」引用均未命中原文（疑似作者转述），需人工通读`;
-			}
-		} else if (missing.length === 0) {
-			kind = 'ok';
-			const qNote = quotes.length ? `；另有 ${quoteFound}/${quotes.length} 处「」引用命中原文` : '';
-			reason = `全部 ${strict.length} 个符号/数字锚点在源笔记有依据（含归一化比对）${qNote}`;
-		} else {
-			// 区分缺失项是「公式写法差异」还是「含具体表述的事实 claim」
-			const isSoft = (m) =>
-				!/[一-鿿]/.test(m.value) && (m.type === 'num' || /[()+\-*/^=.,_√∞≤≥≠→×·]/.test(m.value));
-			const soft = missing.filter(isSoft);
-			const hard = missing.filter((m) => !isSoft(m));
-			const softNote = soft.length
-				? `（其中 ${soft.length} 项为符号/公式，疑似写法差异，应可放行）`
-				: '';
-			if (hard.length === 0) {
-				kind = 'mismatch';
-				reason = `缺失项均为符号/公式，疑似写法差异，请确认后可放行${softNote}`;
-			} else if (
-				hard.length >= 2 &&
-				hard.every((m) => m.type === 'num' || /[一-鿿]/.test(m.value))
-			) {
-				// 极保守：≥2 个具体量化/中文事实 claim 在源笔记完全找不到，才疑似编造
-				kind = 'delete';
-				reason = `≥2 个具体 claim 在源笔记找不到：${hard.map((m) => m.value).join('、')} —— 疑似编造，建议删除（需你确认）`;
-			} else {
-				kind = 'mismatch';
-				reason = `${missing.length}/${anchors.length} 个锚点缺失，需确认是写法差异还是事实错误；确属编造则删${softNote}`;
-			}
-		}
-
+		const v = judge(anchors, src);
 		rows.push({
 			slug,
 			id: q.id,
 			prompt: String(q.prompt || '').slice(0, 60),
-			kind,
-			reason,
-			missing,
-			anchorsTotal: strict.length,
-			anchorsFound: found
+			kind: v.kind,
+			reason: v.reason,
+			missing: v.missing,
+			anchorsTotal: v.strictCount,
+			anchorsFound: v.found
 		});
 	}
 }
