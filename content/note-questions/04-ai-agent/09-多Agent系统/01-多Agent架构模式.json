@@ -47,7 +47,7 @@
 			"Network——最灵活，代价是难以调试"
 		],
 		"answerIndex": 0,
-		"explanation": "选型表把 Swarm 的适用场景直接写成「客服、动态路由」，优点是灵活自主，缺点是难以调试。它匹配这个需求的原因是 Handoff 由当前 Agent 自主发起，不需要每步回到主管；代价是决策链分散在各个 Agent 里，出问题时要还原「为什么转到了这个专家」比 Supervisor 难得多。",
+		"explanation": "选型表把 `Swarm` 的适用场景直接写成「客服、动态路由」，优点是灵活自主，缺点是难以调试。它匹配这个需求的原因是 `Handoff` 由当前 Agent 自主发起，不需要每步回到主管；代价是决策链分散在各个 Agent 里，出问题时要还原「为什么转到了这个专家」比 `Supervisor` 难得多。",
 		"hint": "题干里「由 Agent 自己判断、不经过中心调度」直接对应表格里的哪一行？",
 		"distractorNotes": {
 			"1": "优缺点串了：Supervisor 的缺点笔记写的是「主管是瓶颈」，「层级延迟」属于 Hierarchical。而且 Supervisor 的路由由中心主管决定，不满足「Agent 自主转接」。",
