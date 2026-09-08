@@ -47,7 +47,7 @@
 			"缺少优化器状态时 load_state_dict 会直接抛异常，根本载不进去"
 		],
 		"answerIndex": 0,
-		"explanation": "Adam / AdamW 内部为每个参数维护一阶和二阶动量估计。只恢复权重、不恢复这些状态，等于让优化器重新「热身」，恢复后的前几步更新方向和步长都会失准。所以笔记的 checkpoint 至少要存三样：模型权重、优化器状态、epoch（外加 best_val_loss 便于判断是否最优）。",
+		"explanation": "`Adam` / `AdamW` 内部为每个参数维护一阶和二阶动量估计。只恢复权重、不恢复这些状态，等于让优化器重新「热身」，恢复后的前几步更新方向和步长都会失准。所以笔记的 checkpoint 至少要存三样：模型权重、优化器状态、epoch（外加 best_val_loss 便于判断是否最优）。",
 		"distractorNotes": {
 			"1": "state_dict 保存的是张量原样，不会自动降精度，也和优化器状态无关。",
 			"2": "设备由 torch.load 的 map_location 以及 .to(device) 决定，跟优化器状态无关。",

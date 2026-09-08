@@ -9,7 +9,7 @@
 			"Tools 返回结构化 JSON，Resources 只能返回纯文本，这是唯一区别"
 		],
 		"answerIndex": 0,
-		"explanation": "笔记给的三大原语是：Tools（模型可调用的函数，如 search_database(query, limit)）、Resources（模型可读取的数据，用 URI 模板寻址，如 file://{path}、config://app）、Prompts（预定义的交互模板）。区分点是「可调用的动作」与「可读取的内容」，而不是返回值类型或定义位置。",
+		"explanation": "笔记给的三大原语是：Tools（模型可调用的函数，如 search_database(query, limit)）、`Resources`（模型可读取的数据，用 URI 模板寻址，如 file://{path}、config://app）、`Prompts`（预定义的交互模板）。区分点是「可调用的动作」与「可读取的内容」，而不是返回值类型或定义位置。",
 		"hint": "看示例里的装饰器：一个挂在函数上带参数，一个挂在 URI 模板上。",
 		"distractorNotes": {
 			"1": "读写只是常见用法而非定义。Resources 的寻址方式是 URI 模板，笔记的 read_file 走 file://{path}，它不是「带参数调用的函数」这种形态。",
@@ -28,7 +28,7 @@
 			"三者都可以，MCP 不区分职责，只规定消息格式"
 		],
 		"answerIndex": 0,
-		"explanation": "笔记的架构图是 Host（IDE/App：Claude Desktop、Cursor/Kiro、自定义应用）→ Client（协议层）→ Server（工具/数据：GitHub API、数据库、文件系统）。工具和数据永远在 Server 一侧，Client 只做协议层，Host 是用户实际在用的那个应用。理解这个方向很实际：写一个 MCP Server 就是「把你的能力挂出去」，配置 mcp.json 则是在 Host 侧声明要连哪些 Server。",
+		"explanation": "笔记的架构图是 Host（IDE/App：`Claude` `Desktop`、`Cursor`/Kiro、自定义应用）→ `Client`（协议层）→ Server（工具/数据：GitHub API、数据库、文件系统）。工具和数据永远在 Server 一侧，Client 只做协议层，Host 是用户实际在用的那个应用。理解这个方向很实际：写一个 MCP Server 就是「把你的能力挂出去」，配置 mcp.json 则是在 Host 侧声明要连哪些 Server。",
 		"distractorNotes": {
 			"1": "方向反了。Host 是 IDE 或应用这一端，工具在 Server 端；模型推理本身不是 MCP 的角色。",
 			"2": "Client 是纯协议层，不实现工具。把工具实现塞进 Client 就等于绕过了协议要解决的解耦问题。",

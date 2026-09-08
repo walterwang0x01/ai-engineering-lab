@@ -9,7 +9,7 @@
 			"顺序错了：Agent 之间通信前必须先接入 AG-UI，把交互事件标准化"
 		],
 		"answerIndex": 0,
-		"explanation": "笔记把 Agent 生态协议按方向分三类：纵向 MCP 负责 Agent ↔ 工具/数据，横向 A2A/ACP/ANP 负责 Agent ↔ Agent，上层 AG-UI/A2UI 负责 Agent ↔ 用户界面。把对端 Agent 当工具接进来在管道上跑得通，但它表达的是「调一个函数拿返回值」，而 Agent 协作需要的是横向协议那一层的东西——任务状态的推进（A2A 的任务生命周期）和运行时的能力发现（Agent Card）。这就是笔记说 MCP 与 A2A「互补，不竞争」的含义：它们解决的是两个不同方向的问题。",
+		"explanation": "笔记把 Agent 生态协议按方向分三类：纵向 MCP 负责 Agent ↔ 工具/数据，横向 `A2A`/ACP/ANP 负责 Agent ↔ Agent，上层 `AG-UI`/`A2UI` 负责 Agent ↔ 用户界面。把对端 Agent 当工具接进来在管道上跑得通，但它表达的是「调一个函数拿返回值」，而 Agent 协作需要的是横向协议那一层的东西——任务状态的推进（A2A 的任务生命周期）和运行时的能力发现（Agent `Card`）。这就是笔记说 MCP 与 A2A「互补，不竞争」的含义：它们解决的是两个不同方向的问题。",
 		"hint": "先问「这个需求是纵向的还是横向的」，再看协议属于哪一类。",
 		"distractorNotes": {
 			"1": "MCP 的传输层不止 stdio，笔记列出 stdio 与 Streamable HTTP 两种，远程连接是支持的。它不适合这个场景的原因是方向和状态模型，不是连不上。",

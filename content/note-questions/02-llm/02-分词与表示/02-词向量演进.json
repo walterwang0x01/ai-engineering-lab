@@ -28,7 +28,7 @@
 			"它在推理时临时用当前上下文重新训练这个词的向量"
 		],
 		"answerIndex": 0,
-		"explanation": "FastText 把一个词表示成它的字符 n-gram 集合（apple 的 3-gram 是 <ap、app、ppl、ple、le>）加上完整词本身的向量之和。所以未见词只要子 n-gram 见过就能合成出向量；同理 happy / happier / happiest 共享大量 n-gram，词形关系被天然捕捉，而 word2vec、GloVe 把它们当成互不相关的独立符号。代价是训练与存储成本略高，在形态丰富的语言（德语、土耳其语）上收益明显。",
+		"explanation": "`FastText` 把一个词表示成它的字符 n-gram 集合（apple 的 `3-gram` 是 <ap、app、ppl、ple、le>）加上完整词本身的向量之和。所以未见词只要子 n-gram 见过就能合成出向量；同理 happy / happier / happiest 共享大量 n-gram，词形关系被天然捕捉，而 `word2vec`、`GloVe` 把它们当成互不相关的独立符号。代价是训练与存储成本略高，在形态丰富的语言（德语、土耳其语）上收益明显。",
 		"distractorNotes": {
 			"1": "那是整词方法（word2vec/GloVe）的兜底做法，也正是 FastText 要摆脱的：<UNK> 让所有未见词共用一个向量，等于放弃了它们之间的区别。",
 			"2": "扩词表只能推迟 OOV，不能消除——词形组合是开放的。FastText 改的是「词向量由什么构成」，不是词表规模。",
@@ -46,7 +46,7 @@
 			"因为用的是 CBOW 而不是 Skip-gram，换成 Skip-gram 就能区分"
 		],
 		"answerIndex": 0,
-		"explanation": "这是静态词向量（word2vec / GloVe / FastText）共同的、无法靠改进训练方法解决的根本局限：向量是查表得到的固定值，多义词的多个含义在训练时就被压缩混合进同一个向量了。突破口是把「查表」换成「按当前上下文实时计算」——ELMo 取双向 LSTM 结合完整句子算出的隐藏状态，BERT 把引擎换成 Transformer 自注意力，于是同一个词在不同句子里得到不同向量。",
+		"explanation": "这是静态词向量（`word2vec` / `GloVe` / `FastText`）共同的、无法靠改进训练方法解决的根本局限：向量是查表得到的固定值，多义词的多个含义在训练时就被压缩混合进同一个向量了。突破口是把「查表」换成「按当前上下文实时计算」——ELMo 取双向 LSTM 结合完整句子算出的隐藏状态，BERT 把引擎换成 `Transformer` 自注意力，于是同一个词在不同句子里得到不同向量。",
 		"hint": "问自己：一个固定长度的向量，有可能同时表达两个互不相干的义项吗？",
 		"distractorNotes": {
 			"1": "语料越大只会让那个「平均」更稳定，不会让一个固定向量同时表达两个义项。瓶颈在表示形式，不在数据量。",
