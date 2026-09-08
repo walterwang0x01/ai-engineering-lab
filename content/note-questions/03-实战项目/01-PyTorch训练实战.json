@@ -68,7 +68,7 @@
 		"explanation": "两个文件的差别在写入时机。last 每轮覆盖，拿到的是最新一轮——训练后期可能已经过拟合，不适合部署。best 只在验证损失变好时写，但它未必是最后一轮，从它恢复会丢掉之后已经跑过的轮次，不能当断点续训用。所以部署取 best，续训取 last，两个都要存。",
 		"distractorNotes": {
 			"1": "两个文件存的字段是同一套（epoch、model_state、optimizer_state、best_val_loss），区别只在什么时候写，不在写了什么。",
-			"2": "早停的依据是验证损失连续多少轮没有改善（笔记里 patience=4），是内存里的计数，跟保存哪个 checkpoint 无关；验证损失也由 evaluate() 每轮现算。",
+			"2": "早停的依据是验证损失连续多少轮没有改善（笔记里 patience=4），是内存里的计数，跟保存哪个 `checkpoint` 无关；验证损失也由 evaluate() 每轮现算。",
 			"3": "写入时机不同，内容因此必然不同：last 是最新一轮的状态，best 是验证损失最低那一轮的状态。"
 		},
 		"reviewed": false
