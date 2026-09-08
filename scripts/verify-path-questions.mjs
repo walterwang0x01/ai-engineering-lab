@@ -12,13 +12,21 @@
  *   - 加粗短语：**...**                    （非贪婪，不跨句）
  *   - 数字：小数 / 科学计数 / ≥3 位整数 / 百分比 / 带量级中文(亿万千百倍)
  *           —— 跳过 1~2 位普通整数，避免「1」「2」满屏噪声
+ *   - 「」引用：语义**非对称**，与前三类不同——
+ *           命中源笔记 = 这条说法有原文依据（加分证据）
+ *           未命中     = 极可能是作者转述，**不算缺失、不算问题**
+ *     实测 38 道无反引号/加粗的题里，29 道的「」是转述（如「越远越不相关」）；
+ *     若把未命中也当缺失，会凭空造出 29 个假「真问题」。
  *
  * 匹配：先原文精确 includes；找不到再「去空白归一化」比一次，
  *       容忍 `(R/γ)²` vs `(R/γ) ^2` 这类写法差异（标 soft）。
  *       两者都找不到才算「缺失」。
  *
  * 分类（保守，不自动翻 reviewed）：
- *   可过审      —— 全部锚点在源笔记里能找到依据
+ *   可过审      —— 全部符号/数字锚点在源笔记里能找到依据
+ *   倾向可过审  —— 没有符号/数字锚点，但「」引用全部命中原文
+ *                 （证据强度弱于「可过审」，仍建议通读后再放行）
+ *   需人工通读  —— 解析是纯散文、无可比对锚点，必须人读（不是发现错误）
  *   需修改      —— 有锚点缺失（列出具体缺失项，人判断是写法差异还是事实错误）
  *   删除        —— 仅当解析断言的具体量化/事实 claim 多处缺失、疑似编造时
  *                 才标「建议删除（需你确认）」；默认不自动删
@@ -59,6 +67,8 @@ const files = collect(ROOT)
 const RE_BACKTICK = /`([^`]+)`/g;
 const RE_BOLD = /\*\*([^*]+?)\*\*/g;
 const RE_NUM = /-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g;
+// 「」引用：语义非对称（见 extractAnchors 注释）——命中算证据，未命中不算问题
+const RE_QUOTE = /「([^」]+)」/g;
 
 function isMeaningfulNumber(v) {
 	if (/-?\d+\.\d+/.test(v)) return true; // 小数
@@ -76,6 +86,14 @@ function extractAnchors(text) {
 	for (const m of text.matchAll(RE_BOLD)) out.push({ type: 'bold', value: m[1], raw: m[0] });
 	for (const m of text.matchAll(RE_NUM)) {
 		if (isMeaningfulNumber(m[0])) out.push({ type: 'num', value: m[0], raw: m[0] });
+	}
+	// 「」引用（type: 'quote'）——**语义非对称**，务必按此使用：
+	//   命中源笔记 = 这条说法有原文依据（加分证据）
+	//   未命中     = 极可能是作者转述，不是编造，**绝不能算「锚点缺失」**
+	// 实测：38 道无反引号/加粗的题里，29 道的「」是转述（如「越远越不相关」）。
+	// 若把未命中也当缺失，会凭空造出 29 个假「真问题」。
+	for (const m of text.matchAll(RE_QUOTE)) {
+		if (m[1].length >= 2) out.push({ type: 'quote', value: m[1], raw: m[0] });
 	}
 	return out;
 }
@@ -209,20 +227,39 @@ for (const slug of files) {
 			continue;
 		}
 
+		// 符号/数字锚点严格判定；「」引用只作加分证据，未命中不计入 missing
+		const strict = anchors.filter((a) => a.type !== 'quote');
+		const quotes = anchors.filter((a) => a.type === 'quote');
+		let quoteFound = 0;
+		for (const a of quotes) if (anchorFound(src, a.value)) quoteFound++;
+
 		const missing = [];
 		let found = 0;
-		for (const a of anchors) {
+		for (const a of strict) {
 			if (anchorFound(src, a.value)) found++;
 			else missing.push({ type: a.type, value: a.value });
 		}
 
 		let kind, reason;
-		if (anchors.length === 0) {
-			kind = 'noanchor';
-			reason = '解析无反引号/加粗锚点，锚点法无法自动比对，需人工通读';
+		if (strict.length === 0) {
+			// 没有符号/数字锚点：只能靠「」引用给证据
+			if (quotes.length === 0) {
+				kind = 'noanchor';
+				reason = '解析无反引号/加粗/数字锚点，锚点法无法自动比对，需人工通读';
+			} else if (quoteFound === quotes.length) {
+				kind = 'quoteok';
+				reason = `无符号锚点，但 ${quotes.length} 处「」引用均在源笔记原文命中，有原文依据（证据强度弱于符号锚点，仍建议通读）`;
+			} else if (quoteFound > 0) {
+				kind = 'noanchor';
+				reason = `无符号锚点；「」引用命中 ${quoteFound}/${quotes.length}（未命中者疑似作者转述），需人工通读`;
+			} else {
+				kind = 'noanchor';
+				reason = `无符号锚点，且 ${quotes.length} 处「」引用均未命中原文（疑似作者转述），需人工通读`;
+			}
 		} else if (missing.length === 0) {
 			kind = 'ok';
-			reason = `全部 ${anchors.length} 个锚点在源笔记有依据（含归一化比对）`;
+			const qNote = quotes.length ? `；另有 ${quoteFound}/${quotes.length} 处「」引用命中原文` : '';
+			reason = `全部 ${strict.length} 个符号/数字锚点在源笔记有依据（含归一化比对）${qNote}`;
 		} else {
 			// 区分缺失项是「公式写法差异」还是「含具体表述的事实 claim」
 			const isSoft = (m) =>
@@ -255,7 +292,7 @@ for (const slug of files) {
 			kind,
 			reason,
 			missing,
-			anchorsTotal: anchors.length,
+			anchorsTotal: strict.length,
 			anchorsFound: found
 		});
 	}
@@ -264,6 +301,7 @@ for (const slug of files) {
 // ── 5. 汇总（按 kind 分组）──
 const groups = {
 	ok: rows.filter((r) => r.kind === 'ok'),
+	quoteok: rows.filter((r) => r.kind === 'quoteok'),
 	需修改: rows.filter((r) => r.kind === 'mismatch'),
 	无锚点: rows.filter((r) => r.kind === 'noanchor'),
 	删除: rows.filter((r) => r.kind === 'delete')
@@ -283,21 +321,34 @@ lines.push('');
 lines.push('## 汇总');
 lines.push('');
 lines.push(`- 路线待审总数：**${rows.length}** 道`);
-lines.push(`- ✅ 可过审（锚点全中）：${groups.ok.length}`);
+lines.push(`- ✅ 可过审（符号/数字锚点全中）：${groups.ok.length}`);
+lines.push(`- ✅ 倾向可过审（无符号锚点，但「」引用命中原文）：${groups.quoteok.length}`);
 lines.push(`- 🟡 需修改·锚点缺失（真问题）：${groups.需修改.length}`);
 lines.push(`- 🟡 需人工通读·无锚点可验：${groups.无锚点.length}`);
 lines.push(`- 🔴 建议删除（待确认）：${groups.删除.length}`);
 lines.push('');
 lines.push(
-	'> 说明：「无锚点可验」不是发现错误，而是这些解析没有反引号/加粗标记、锚点法无从比对，必须人工通读后才能翻 reviewed。'
+	'> 说明：「无锚点可验」不是发现错误，而是这些解析没有反引号/加粗/数字标记，锚点法无从比对，必须人工通读后才能翻 reviewed。'
 );
 lines.push('> 若想让这部分未来也能自动核验，可在解析里给关键符号加反引号（如 `d_k`）。');
+lines.push('');
+lines.push(
+	'> **「」引用是非对称证据**：命中源笔记 = 有原文依据；未命中 = 极可能是作者转述，**不算问题**。'
+);
+lines.push(
+	'> 实测 38 道无反引号/加粗的题里，29 道的「」是转述（如「越远越不相关」）——若把未命中也当缺失，会凭空造出 29 个假「真问题」。'
+);
 lines.push('');
 lines.push('## 逐题明细');
 lines.push('');
 
 const sections = [
-	{ key: 'ok', icon: '✅', title: `可过审（锚点全中，${groups.ok.length}）` },
+	{ key: 'ok', icon: '✅', title: `可过审（符号/数字锚点全中，${groups.ok.length}）` },
+	{
+		key: 'quoteok',
+		icon: '✅',
+		title: `倾向可过审·「」引用命中原文（${groups.quoteok.length}）`
+	},
 	{ key: '需修改', icon: '🟡', title: `需修改·锚点缺失（真问题，${groups.需修改.length}）` },
 	{ key: '无锚点', icon: '🟡', title: `需人工通读·无锚点可验（${groups.无锚点.length}）` },
 	{ key: '删除', icon: '🔴', title: `建议删除（待确认，${groups.删除.length}）` }
@@ -332,6 +383,7 @@ fs.writeFileSync(OUT, lines.join('\n') + '\n', 'utf8');
 // ── 7. 控制台摘要 ──
 console.log(`路线待审：${rows.length} 道`);
 console.log(`  可过审（锚点全中）   : ${groups.ok.length}`);
+console.log(`  倾向可过审（引用命中）: ${groups.quoteok.length}`);
 console.log(`  需修改·锚点缺失      : ${groups.需修改.length}`);
 console.log(`  需人工通读·无锚点    : ${groups.无锚点.length}`);
 console.log(`  建议删除（待确认）   : ${groups.删除.length}`);
