@@ -20,6 +20,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import prettier from 'prettier';
+import { extractAnchors, judge, loadSource } from './lib/anchor-verdict.mjs';
 
 const ROOT = 'content/note-questions';
 const NOTES = 'static/notes';
@@ -223,17 +224,30 @@ function excerpt(c) {
 }
 
 // ── 4. 逐题生成 ──
+// 结论标签与 verify-path-questions.mjs 完全一致（同一套 judge，不会出现两份产物打架）
+const VERDICT = {
+	ok: { icon: '✅', label: '可过审' },
+	quoteok: { icon: '✅', label: '倾向可过审' },
+	mismatch: { icon: '🟡', label: '需修改' },
+	noanchor: { icon: '🟡', label: '需人工通读' },
+	delete: { icon: '🔴', label: '建议删除（待确认）' }
+};
+
 const lines = [];
 lines.push('# 路线待审题 · 过审包');
 lines.push('');
 lines.push(`> 生成时间：${new Date().toISOString().slice(0, 19).replace('T', ' ')}`);
 lines.push('> 用途：把每题对应的**源笔记原文段落**直接摆在题目下面，省去翻笔记找段落的时间。');
-lines.push('> 结论（该不该放行）看 `docs/path-question-verification.md`，那份给判定、这份给材料。');
+lines.push('> 每题下面的**核验结论**与 `docs/path-question-verification.md` 是同一套判定');
+lines.push('> （共享 `scripts/lib/anchor-verdict.mjs`）——那份按结论分组，这份按笔记顺序给材料。');
 lines.push('> 本脚本不改题目数据、不翻 `reviewed`——人工门禁仍在 AGENTS.md 第 17 条。');
+lines.push('');
+lines.push('<!--SUMMARY-->'); // 结论分布要跑完才知道，最后回填
 lines.push('');
 
 let qCount = 0;
 let located = 0;
+const tally = {};
 
 for (const slug of files) {
 	const qpath = path.join(ROOT, slug + '.json');
@@ -243,7 +257,7 @@ for (const slug of files) {
 	if (pending.length === 0) continue;
 
 	const notePath = path.join(NOTES, slug + '.md');
-	const src = fs.existsSync(notePath) ? fs.readFileSync(notePath, 'utf8') : null;
+	const src = loadSource(slug);
 
 	lines.push(`## ${slug}`);
 	lines.push('');
@@ -254,6 +268,16 @@ for (const slug of files) {
 		const letter = (i) => String.fromCharCode(65 + i);
 		const correct = letter(q.answerIndex);
 
+		const v = judge(
+			[
+				...extractAnchors(q.explanation),
+				...Object.values(q.distractorNotes || {}).flatMap(extractAnchors)
+			],
+			src
+		);
+		const tag = VERDICT[v.kind] || VERDICT.noanchor;
+		tally[v.kind] = (tally[v.kind] || 0) + 1;
+
 		lines.push(`### \`${q.id}\` — 正确项 ${correct}`);
 		lines.push('');
 		lines.push(String(q.prompt || '').trim());
@@ -261,6 +285,8 @@ for (const slug of files) {
 		for (let i = 0; i < opts.length; i++) {
 			lines.push(`- ${letter(i)}) ${opts[i]}${i === q.answerIndex ? ' **← 正确**' : ''}`);
 		}
+		lines.push('');
+		lines.push(`**核验结论**：${tag.icon} ${tag.label} —— ${v.reason}`);
 		lines.push('');
 		if (q.explanation) {
 			lines.push('**解析**');
@@ -271,13 +297,13 @@ for (const slug of files) {
 
 		lines.push('**源文依据**');
 		lines.push('');
-		if (!src) {
+		if (!src.exists) {
 			lines.push(`> ⚠️ 源笔记缺失：\`${notePath}\`（检查同步是否漏了这篇）`);
 			lines.push('');
 			continue;
 		}
 		const kws = keywords((q.prompt || '') + ' ' + opts.join(' ') + ' ' + (q.explanation || ''));
-		const picks = pickChunks(src, kws);
+		const picks = pickChunks(src.raw, kws);
 		if (picks.length === 0) {
 			lines.push('> 未能自动定位到相关段落，需自行在笔记里查找。');
 		} else {
@@ -295,6 +321,22 @@ for (const slug of files) {
 		lines.push('');
 	}
 }
+
+// 回填结论分布（要跑完才知道）
+const easy = (tally.ok || 0) + (tally.quoteok || 0);
+const sum = [
+	'## 结论分布（与核验报告口径一致）',
+	'',
+	`- ✅ 可过审：${tally.ok || 0} 道`,
+	`- ✅ 倾向可过审：${tally.quoteok || 0} 道`,
+	`- 🟡 需修改：${tally.mismatch || 0} 道`,
+	`- 🟡 需人工通读：${tally.noanchor || 0} 道`,
+	`- 🔴 建议删除（待确认）：${tally.delete || 0} 道`,
+	'',
+	`> 建议先翻 ✅ 的 ${easy} 道（工具已逐题给出原文依据），剩下的 ${qCount - easy} 道再通读。`
+];
+const idx = lines.indexOf('<!--SUMMARY-->');
+lines.splice(idx, 1, ...sum);
 
 // 末尾不留空行（prettier 要求单个 \n 结尾）
 while (lines.length && lines[lines.length - 1] === '') lines.pop();
