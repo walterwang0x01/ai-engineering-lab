@@ -96,6 +96,46 @@ export function norm(s) {
 		.replace(/\(\)/g, ''); // 空括号 end() → end
 }
 
+/**
+ * 从代码表达式里抽「特征 token」：**所有 ≥4 字符的标识符**都要核（数字取 ≥3 位整数）。
+ *
+ * 为什么是 ≥4 而不是只挑长词：只挑长词会漏掉 `kubectl scale` 里的 `scale`、
+ * `onReject: block` 里的 `block`——结果 `kubectl`/`onReject` 在源里出现过就被整体放行，
+ * 可源里可能讲的是完全不同的子命令/字段，等于用半个签名蒙混过关。
+ * 要求**每一个**标识符都在源里，才是「这个表达式有原文依据」的可靠证据。
+ */
+function distinctiveTokens(v) {
+	const ids = v.match(/[A-Za-z_][A-Za-z0-9_]{2,}/g) || [];
+	const marked = ids.filter((t) => t.length >= 4);
+	const nums = v.match(/\d{3,}/g) || [];
+	return [...new Set([...marked, ...nums])];
+}
+
+/**
+ * 代码签名兜底比对。
+ * 场景：源笔记给完整调用（含实参），解析里是省略写法（含 `...`），字面比对必然失配，
+ * 例如源有 `GuardrailFunctionOutput(output_info=..., tripwire_triggered=False)`，
+ * 解析写 `GuardrailFunctionOutput(..., tripwire_triggered=...)`。
+ *
+ * 三重闸门，缺一不可（逐条都是实测逼出来的）：
+ *  1. **不含中文**——中文是事实 claim，允许 token 松散匹配会把「模型在 2024 年发布」
+ *     仅因源里有 `2024` 而判为命中，那是假阴性，比误报更危险。
+ *  2. **至少一个强特征名**（≥8 字符或含 `_`）——否则 `dict.get` 只因源里有 `dict`、
+ *     `str.split` 只因有 `split` 就被放行，等于拿通用词蒙混。
+ *  3. **所有 ≥4 字符标识符 / ≥3 位数字全部命中**——避免 `kubectl scale` 只验证
+ *     `kubectl` 就放过整个命令（源里可能讲的是别的子命令）。
+ */
+function codeTokensFound(src, value) {
+	if (/[一-鿿]/.test(value)) return false;
+	const ids = value.match(/[A-Za-z_][A-Za-z0-9_]{2,}/g) || [];
+	const strong = ids.filter((t) => t.length >= 8 || t.includes('_'));
+	if (strong.length === 0) return false; // 闸门 2：没有强特征名就不走这条路
+	const ts = distinctiveTokens(value);
+	if (ts.length === 0) return false;
+	const lower = src.raw.toLowerCase();
+	return ts.every((t) => src.raw.includes(t) || lower.includes(t.toLowerCase()));
+}
+
 // 锚点是否在源笔记里找得到依据（多策略，容忍压缩/写法差异）
 export function anchorFound(src, value) {
 	if (src.raw.includes(value)) return true;
@@ -132,6 +172,8 @@ export function anchorFound(src, value) {
 	const sp = src.norm.replace(/[()]/g, '');
 	const vp = norm(value).replace(/[()]/g, '');
 	if (sp.includes(vp)) return true;
+	// 代码签名兜底：源给完整调用、解析写省略形式时，改按特征 token 逐个核对
+	if (codeTokensFound(src, value)) return true;
 	return false;
 }
 
